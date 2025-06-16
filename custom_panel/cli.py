@@ -4,6 +4,10 @@ Command-line interface for the custom-panel tool.
 This module provides the main CLI commands using Typer.
 """
 
+import warnings
+# Suppress ALL deprecation warnings at module level
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import logging
 import sys
 from pathlib import Path

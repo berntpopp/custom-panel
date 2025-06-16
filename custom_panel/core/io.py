@@ -119,9 +119,9 @@ def create_standard_dataframe(
 
     df = pd.DataFrame(
         {
-            "approved_symbol": genes,
-            "hgnc_id": [""] * n_genes,  # Will be filled by annotation
-            "gene_name_reported": gene_names_reported,
+            "approved_symbol": [""] * n_genes,  # Will be filled by HGNC annotation
+            "hgnc_id": [""] * n_genes,  # Will be filled by HGNC annotation
+            "gene_name_reported": gene_names_reported,  # Original symbols from source
             "source_name": [source_name] * n_genes,
             "source_evidence_score": evidence_scores,
             "source_details": source_details,

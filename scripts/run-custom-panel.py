@@ -6,12 +6,15 @@ This script suppresses known deprecation warnings from dependencies
 that are outside our control.
 """
 
+import os
 import warnings
 
-# Suppress deprecation warnings before any other imports
+# Set environment variable to suppress warnings at the interpreter level
+os.environ["PYTHONWARNINGS"] = "ignore::DeprecationWarning"
+
+# Also suppress ALL deprecation warnings globally at the earliest possible point
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# Now import and run the main application
 from custom_panel.main import app
 
 if __name__ == "__main__":

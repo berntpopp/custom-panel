@@ -190,3 +190,6 @@ results/*.parquet
 
 # Claude code
 .claude/
+
+# results
+results/

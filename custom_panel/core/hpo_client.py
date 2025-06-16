@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class HPOClient:
     """Client for interacting with the HPO API."""
 
-    BASE_URL = "https://hpo.jax.org/api"
+    BASE_URL = "'https://ontology.jax.org/api"
 
     def __init__(
         self, timeout: int = 30, max_retries: int = 3, retry_delay: float = 1.0
@@ -120,7 +120,7 @@ class HPOClient:
         """
         try:
             params = {"q": query, "max": limit}
-            response = self._make_request("hpo/search", params=params)
+            response = self._make_request("hp/search", params=params)
             if isinstance(response, dict):
                 terms = response.get("terms", [])
                 return [
