@@ -444,7 +444,7 @@ def validate_hpo_neoplasm_config(config: dict[str, Any]) -> list[str]:
     for param, (min_val, max_val) in numeric_params.items():
         value = hpo_config.get(param)
         if value is not None:
-            if not isinstance(value, (int, float)):
+            if not isinstance(value, int | float):
                 errors.append(f"{param} must be a number")
             elif not min_val <= value <= max_val:
                 errors.append(f"{param} must be between {min_val} and {max_val}")

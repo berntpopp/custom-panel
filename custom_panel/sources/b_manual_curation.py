@@ -200,7 +200,7 @@ def validate_manual_curation_config(config: dict[str, Any]) -> list[str]:
         # Check optional fields
         evidence_score = list_config.get("evidence_score", 1.0)
         if (
-            not isinstance(evidence_score, (int, float))
+            not isinstance(evidence_score, int | float)
             or evidence_score < 0
             or evidence_score > 1
         ):
