@@ -173,9 +173,20 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# Data files specific to custom-panel
+*.parquet
+results/*.csv
+results/*.xlsx
+results/*.bed
+results/*.parquet
+
+# IDE
+.vscode/
+.idea/
+
 # Cursor  
-#  Cursor is an AI-powered code editor.`.cursorignore` specifies files/directories to 
-#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
-#  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Claude code
+.claude/
