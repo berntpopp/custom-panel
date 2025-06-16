@@ -93,6 +93,10 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+filterwarnings = [
+    "ignore:'BaseCommand' is deprecated:DeprecationWarning:typer.completion",
+    "ignore:ARC4 has been moved.*:DeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["custom_panel"]

@@ -30,9 +30,9 @@ data_sources:
             name: "Haematological_malignancies"
     # Evidence level scoring
     evidence_scores:
-      "Green": 1.0
-      "Amber": 0.5
-      "Red": 0.1
+      "3": 1.0  # Green - high confidence
+      "2": 0.5  # Amber - moderate confidence
+      "1": 0.1  # Red - low confidence
 
   # In-house panels configuration
   inhouse_panels:
@@ -40,13 +40,14 @@ data_sources:
     panels:
       - name: "Leipzig-Cancer_v6"
         file_path: "data/Leipzig-Cancer_v6_gene-list.xlsx"
-        gene_column: "Gene_Symbol"
-        sheet_name: "Sheet1"  # Optional
+        gene_column: "genes"
+        sheet_name: "Genes"  # Optional
         evidence_score: 1.0
         category: "germline"  # "germline" or "somatic"
       - name: "Dresden-Cancer_v1"
         file_path: "data/Dresden-Cancer_v1_gene-list.xlsx"
         gene_column: "genes"
+        sheet_name: "genes"  # Optional
         evidence_score: 1.0
         category: "germline"  # "germline" or "somatic"
 

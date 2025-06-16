@@ -72,9 +72,9 @@ def validate_panel_dataframe(
 
         if (
             df["source_evidence_score"].min() < 0
-            or df["source_evidence_score"].max() > 1
+            or df["source_evidence_score"].max() > 5.0
         ):
-            raise ValueError("source_evidence_score must be between 0.0 and 1.0")
+            raise ValueError("source_evidence_score must be between 0.0 and 5.0")
 
     return True
 

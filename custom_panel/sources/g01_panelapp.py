@@ -213,12 +213,25 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
                 phenotypes = gene_data.get("phenotypes", [])
                 publications = gene_data.get("publications", [])
 
-                phenotype_names = [
-                    p.get("phenotype", "") for p in phenotypes if p.get("phenotype")
-                ]
-                publication_ids = [
-                    str(p.get("pmid", "")) for p in publications if p.get("pmid")
-                ]
+                # Handle different phenotype formats
+                if phenotypes and isinstance(phenotypes[0], dict):
+                    # Old format: list of dictionaries
+                    phenotype_names = [
+                        p.get("phenotype", "") for p in phenotypes if p.get("phenotype")
+                    ]
+                else:
+                    # New format: list of strings
+                    phenotype_names = [str(p) for p in phenotypes if p]
+
+                # Handle different publication formats
+                if publications and isinstance(publications[0], dict):
+                    # Old format: list of dictionaries
+                    publication_ids = [
+                        str(p.get("pmid", "")) for p in publications if p.get("pmid")
+                    ]
+                else:
+                    # New format: list of strings
+                    publication_ids = [str(p) for p in publications if p]
 
                 detail_parts = [
                     f"Confidence:{confidence}",

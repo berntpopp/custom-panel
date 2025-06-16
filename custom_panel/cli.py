@@ -38,6 +38,16 @@ console = Console()
 
 def setup_logging(log_level: str = "INFO") -> None:
     """Setup logging configuration."""
+    import warnings
+
+    # Suppress common deprecation warnings
+    warnings.filterwarnings(
+        "ignore", message=".*ARC4 has been moved.*", category=DeprecationWarning
+    )
+    warnings.filterwarnings(
+        "ignore", message=".*'BaseCommand' is deprecated.*", category=DeprecationWarning
+    )
+
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
