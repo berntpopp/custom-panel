@@ -83,6 +83,7 @@ def process_manual_list(list_config: dict[str, Any]) -> pd.DataFrame:
     file_path = list_config.get("file_path")
     gene_column = list_config.get("gene_column", "gene_symbol")
     evidence_score = list_config.get("evidence_score", 1.0)
+    category = list_config.get("category", "germline")  # Default to germline
 
     if not file_path:
         logger.error(f"No file_path specified for manual list '{name}'")
@@ -137,7 +138,9 @@ def process_manual_list(list_config: dict[str, Any]) -> pd.DataFrame:
     # Create standardized dataframe
     source_name = f"Manual_Curation:{name}"
     evidence_scores = [evidence_score] * len(genes)
-    source_details = [f"File:{file_path.name}|Column:{gene_column}"] * len(genes)
+    source_details = [
+        f"File:{file_path.name}|Column:{gene_column}|Category:{category}"
+    ] * len(genes)
 
     standardized_df = create_standard_dataframe(
         genes=genes,
@@ -147,8 +150,11 @@ def process_manual_list(list_config: dict[str, Any]) -> pd.DataFrame:
         gene_names_reported=genes,
     )
 
+    # Add temporary category column for use by the merger
+    standardized_df["category"] = category
+
     logger.info(
-        f"Created standardized dataframe for manual list '{name}' with {len(standardized_df)} genes"
+        f"Created standardized dataframe for manual list '{name}' with {len(standardized_df)} genes (category: {category})"
     )
     return standardized_df
 

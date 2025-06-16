@@ -185,7 +185,7 @@ class HPOClient:
         if include_self:
             descendants.add(hpo_id)
 
-        def _collect_descendants(term_id: str, current_depth: int):
+        def _collect_descendants(term_id: str, current_depth: int) -> None:
             if current_depth >= max_depth:
                 return
 

@@ -87,6 +87,7 @@ def process_inhouse_panel(panel_config: dict[str, Any]) -> pd.DataFrame | None:
     gene_column = panel_config.get("gene_column", "Gene")
     sheet_name = panel_config.get("sheet_name")
     evidence_score = panel_config.get("evidence_score", 1.0)
+    category = panel_config.get("category", "germline")  # Default to germline
 
     if not file_path_str:
         logger.error(f"No file path specified for panel: {panel_name}")
@@ -128,15 +129,20 @@ def process_inhouse_panel(panel_config: dict[str, Any]) -> pd.DataFrame | None:
 
     # Create standardized dataframe
     evidence_scores = [evidence_score] * len(genes)
-    source_details = [f"File:{file_path.name}"] * len(genes)
+    source_details = [f"File:{file_path.name}|Category:{category}"] * len(genes)
 
-    return create_standard_dataframe(
+    df = create_standard_dataframe(
         genes=genes,
         source_name=panel_name,
         evidence_scores=evidence_scores,
         source_details=source_details,
         gene_names_reported=genes,  # Assume gene names are already standardized
     )
+
+    # Add temporary category column for use by the merger
+    df["category"] = category
+
+    return df
 
 
 def read_excel_panel(
@@ -332,6 +338,11 @@ def validate_inhouse_panel_config(panel_config: dict[str, Any]) -> list[str]:
     evidence_score = panel_config.get("evidence_score", 1.0)
     if not isinstance(evidence_score, int | float) or evidence_score < 0:
         errors.append("Evidence score must be a non-negative number")
+
+    # Check category
+    category = panel_config.get("category", "germline")
+    if category not in ["germline", "somatic"]:
+        errors.append("Category must be either 'germline' or 'somatic'")
 
     return errors
 

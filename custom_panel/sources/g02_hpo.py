@@ -41,7 +41,7 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
         retry_delay=api_config.get("retry_delay", 1.0),
     )
 
-    all_genes = {}
+    all_genes: dict[str, dict[str, Any]] = {}
 
     # Method 1: Search for neoplasm terms and collect genes
     if hpo_config.get("use_neoplasm_search", True):
@@ -113,7 +113,7 @@ def _get_genes_from_neoplasm_search(
     neoplasm_terms = client.find_neoplasm_terms()
     logger.info(f"Found {len(neoplasm_terms)} neoplasm HPO terms")
 
-    all_genes = {}
+    all_genes: dict[str, dict[str, Any]] = {}
 
     # Get genes for each neoplasm term and its descendants
     for term in neoplasm_terms:
@@ -167,7 +167,7 @@ def _get_genes_from_specific_terms(
         Dictionary of gene data
     """
     max_hierarchy_depth = config.get("max_hierarchy_depth", 5)
-    all_genes = {}
+    all_genes: dict[str, dict[str, Any]] = {}
 
     for term_id in hpo_terms:
         logger.debug(f"Processing specific HPO term: {term_id}")
@@ -202,7 +202,7 @@ def _get_genes_from_specific_terms(
 
 
 def _get_genes_from_omim_file(
-    file_path: str, config: dict[str, Any]
+    file_path: str | Path, config: dict[str, Any]
 ) -> dict[str, dict[str, Any]]:
     """
     Get genes from OMIM file.
@@ -245,7 +245,7 @@ def _get_genes_from_omim_file(
             logger.error(f"Gene column '{gene_column}' not found in OMIM file")
             return {}
 
-        all_genes = {}
+        all_genes: dict[str, dict[str, Any]] = {}
 
         for _, row in df.iterrows():
             gene_symbol = row.get(gene_column)

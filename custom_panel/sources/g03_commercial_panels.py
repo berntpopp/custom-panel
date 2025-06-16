@@ -86,6 +86,7 @@ def process_commercial_panel(panel_config: dict[str, Any]) -> pd.DataFrame | Non
     panel_name = panel_config.get("name", "Unknown_Panel")
     file_path_str = panel_config.get("file_path")
     evidence_score = panel_config.get("evidence_score", 1.0)
+    category = panel_config.get("category", "germline")  # Default to germline
 
     if not file_path_str:
         logger.error(f"No file path specified for panel: {panel_name}")
@@ -123,19 +124,24 @@ def process_commercial_panel(panel_config: dict[str, Any]) -> pd.DataFrame | Non
     # Create source details with metadata
     source_url = panel_data.get("source_url", "Unknown")
     retrieval_date = panel_data.get("retrieval_date", "Unknown")
-    source_detail = f"URL:{source_url}|Date:{retrieval_date}"
+    source_detail = f"URL:{source_url}|Date:{retrieval_date}|Category:{category}"
 
     # Create standardized dataframe
     evidence_scores = [evidence_score] * len(valid_genes)
     source_details = [source_detail] * len(valid_genes)
 
-    return create_standard_dataframe(
+    df = create_standard_dataframe(
         genes=valid_genes,
         source_name=panel_name,
         evidence_scores=evidence_scores,
         source_details=source_details,
         gene_names_reported=valid_genes,
     )
+
+    # Add temporary category column for use by the merger
+    df["category"] = category
+
+    return df
 
 
 def read_panel_json(file_path: Path) -> dict[str, Any] | None:
@@ -330,6 +336,11 @@ def validate_commercial_panel_config(panel_config: dict[str, Any]) -> list[str]:
     evidence_score = panel_config.get("evidence_score", 1.0)
     if not isinstance(evidence_score, int | float) or evidence_score < 0:
         errors.append("Evidence score must be a non-negative number")
+
+    # Check category
+    category = panel_config.get("category", "germline")
+    if category not in ["germline", "somatic"]:
+        errors.append("Category must be either 'germline' or 'somatic'")
 
     return errors
 

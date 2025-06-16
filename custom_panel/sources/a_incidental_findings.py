@@ -13,7 +13,7 @@ from typing import Any
 
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from ..core.io import create_standard_dataframe
 
@@ -132,6 +132,7 @@ def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
         raise ValueError(
             "Could not find the main content div on the NCBI page. The website structure may have changed."
         )
+    assert isinstance(main_content, Tag)  # Help MyPy understand the type
 
     # Find the first table within main content
     table_element = main_content.find("table")
