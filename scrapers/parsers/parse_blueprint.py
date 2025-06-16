@@ -29,9 +29,15 @@ class BlueprintParser(BaseParser):
             Exception: If parsing fails
         """
         try:
-            # Make request
-            response = requests.get(self.url, timeout=30)
-            response.raise_for_status()
+            # Make request with specific network error handling
+            try:
+                response = requests.get(self.url, timeout=30)
+                response.raise_for_status()
+            except requests.RequestException as e:
+                logger.error(
+                    f"Network request to Blueprint URL failed: {self.url} - {e}"
+                )
+                raise  # Re-raise the exception to be caught by the master runner
 
             # Parse HTML
             soup = BeautifulSoup(response.content, "html.parser")

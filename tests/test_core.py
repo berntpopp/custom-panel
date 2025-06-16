@@ -301,6 +301,44 @@ class TestEnsemblClient:
         assert result["gene_id"] is None
         assert result["chromosome"] is None
 
+    @patch("custom_panel.core.ensembl_client.requests.Session.get")
+    @patch("custom_panel.core.ensembl_client.requests.Session.post")
+    def test_get_genes_coordinates_batch_fails_fallback(self, mock_post, mock_get):
+        """Test batch gene coordinates lookup with fallback to individual requests."""
+        import requests
+
+        # Mock batch POST request failure
+        mock_post.side_effect = requests.RequestException("Batch API error")
+
+        # Mock successful individual GET requests
+        mock_get_response = Mock()
+        mock_get_response.json.return_value = {
+            "id": "ENSG00000012048",
+            "seq_region_name": "17",
+            "start": 43044295,
+            "end": 43125364,
+            "strand": -1,
+            "biotype": "protein_coding",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_get_response
+
+        client = EnsemblClient()
+        result = client.get_genes_coordinates(["BRCA1", "TP53"])
+
+        # Verify batch request was attempted (with retries: 1 initial + 3 retries = 4 total)
+        assert mock_post.call_count == 4
+
+        # Verify fallback to individual requests occurred
+        assert mock_get.call_count == 2
+
+        # Verify results structure
+        assert len(result) == 2
+        assert "BRCA1" in result
+        assert "TP53" in result
+        assert result["BRCA1"]["gene_id"] == "ENSG00000012048"
+        assert result["TP53"]["gene_id"] == "ENSG00000012048"
+
 
 class TestIO:
     """Test I/O operations."""

@@ -128,9 +128,29 @@ class PanelMerger:
         source_details_list = []
 
         for gene_symbol, group in grouped:
-            # Aggregate scores by category
-            germline_score = self._calculate_category_score(group, "germline")
-            somatic_score = self._calculate_category_score(group, "somatic")
+            # Explicitly filter evidence by category before scoring
+            if "category" in group.columns:
+                germline_evidence_df = group[group["category"] == "germline"]
+                somatic_evidence_df = group[group["category"] == "somatic"]
+            else:
+                # Backward compatibility: score all evidence for both categories
+                # (maintains previous behavior for data without category columns)
+                germline_evidence_df = group.copy()
+                somatic_evidence_df = group.copy()
+
+            # Calculate scores for filtered evidence data
+            germline_score = 0.0
+            if not germline_evidence_df.empty:
+                germline_score = self._calculate_category_score(
+                    germline_evidence_df, "germline"
+                )
+
+            somatic_score = 0.0
+            if not somatic_evidence_df.empty:
+                somatic_score = self._calculate_category_score(
+                    somatic_evidence_df, "somatic"
+                )
+
             total_score = germline_score + somatic_score
 
             # Aggregate source information

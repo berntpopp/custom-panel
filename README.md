@@ -3,6 +3,7 @@
 A modern Python tool for gene panel curation and aggregation from multiple genomic databases.
 
 [![CI](https://github.com/berntpopp/custom-panel/workflows/CI/badge.svg)](https://github.com/berntpopp/custom-panel/actions)
+[![codecov](https://codecov.io/gh/berntpopp/custom-panel/branch/main/graph/badge.svg)](https://codecov.io/gh/berntpopp/custom-panel)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
@@ -548,6 +549,11 @@ poetry run pytest
 # Run all linting and formatting
 ./scripts/lint.sh
 
+# Generate coverage reports
+./scripts/coverage.sh           # Terminal output
+./scripts/coverage.sh html      # HTML report
+./scripts/coverage.sh xml       # XML report
+
 # Or run individual tools
 poetry run ruff check .           # Linting
 poetry run ruff format .          # Formatting  
@@ -562,7 +568,13 @@ poetry run mypy custom_panel/     # Type checking
 poetry run pytest
 
 # Run with coverage
-poetry run pytest --cov=custom_panel
+poetry run pytest --cov=custom_panel --cov-report=term-missing
+
+# Generate HTML coverage report
+poetry run pytest --cov=custom_panel --cov-report=html
+
+# Generate XML coverage report (for CI)
+poetry run pytest --cov=custom_panel --cov-report=xml
 
 # Run specific test file
 poetry run pytest tests/test_core.py
