@@ -10,8 +10,8 @@ import pandas as pd
 
 from custom_panel.sources.a_incidental_findings import (
     DEFAULT_ACMG_GENES,
+    _scrape_acmg_genes_from_ncbi,
     fetch_acmg_incidental_data,
-    load_acmg_genes_from_file,
 )
 from custom_panel.sources.b_manual_curation import (
     fetch_manual_curation_data,
@@ -313,8 +313,8 @@ class TestACMGIncidentalFindings:
         df = fetch_acmg_incidental_data(config)
         assert df.empty
 
-    def test_load_acmg_genes_from_text_file(self):
-        """Test loading ACMG genes from text file."""
+    def test_fetch_acmg_genes_from_text_file(self):
+        """Test loading ACMG genes from text file via fetch function."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("BRCA1\n")
             f.write("BRCA2\n")
@@ -324,17 +324,27 @@ class TestACMGIncidentalFindings:
             f.flush()
 
             try:
-                genes = load_acmg_genes_from_file(f.name)
+                config = {
+                    "data_sources": {
+                        "acmg_incidental": {
+                            "enabled": True,
+                            "file_path": f.name,
+                            "evidence_score": 1.0,
+                        }
+                    }
+                }
 
-                assert len(genes) == 3
-                assert "BRCA1" in genes
-                assert "BRCA2" in genes
-                assert "TP53" in genes
+                df = fetch_acmg_incidental_data(config)
+
+                assert len(df) == 3
+                assert "BRCA1" in df["approved_symbol"].values
+                assert "BRCA2" in df["approved_symbol"].values
+                assert "TP53" in df["approved_symbol"].values
             finally:
                 Path(f.name).unlink()
 
-    def test_load_acmg_genes_from_csv_file(self):
-        """Test loading ACMG genes from CSV file."""
+    def test_fetch_acmg_genes_from_csv_file(self):
+        """Test loading ACMG genes from CSV file via fetch function."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("Gene Symbol,Description\n")
             f.write("BRCA1,Breast cancer gene\n")
@@ -342,18 +352,39 @@ class TestACMGIncidentalFindings:
             f.flush()
 
             try:
-                genes = load_acmg_genes_from_file(f.name)
+                config = {
+                    "data_sources": {
+                        "acmg_incidental": {
+                            "enabled": True,
+                            "file_path": f.name,
+                            "evidence_score": 1.0,
+                        }
+                    }
+                }
 
-                assert len(genes) == 2
-                assert "BRCA1" in genes
-                assert "BRCA2" in genes
+                df = fetch_acmg_incidental_data(config)
+
+                assert len(df) == 2
+                assert "BRCA1" in df["approved_symbol"].values
+                assert "BRCA2" in df["approved_symbol"].values
             finally:
                 Path(f.name).unlink()
 
-    def test_load_acmg_genes_nonexistent_file(self):
-        """Test loading from nonexistent file."""
-        genes = load_acmg_genes_from_file("/nonexistent/file.txt")
-        assert genes == []
+    def test_fetch_acmg_genes_nonexistent_file(self):
+        """Test loading from nonexistent file falls back to default."""
+        config = {
+            "data_sources": {
+                "acmg_incidental": {
+                    "enabled": True,
+                    "file_path": "/nonexistent/file.txt",
+                    "evidence_score": 1.0,
+                }
+            }
+        }
+
+        df = fetch_acmg_incidental_data(config)
+        # Should fall back to default list
+        assert len(df) == len(DEFAULT_ACMG_GENES)
 
     def test_fetch_acmg_with_custom_file(self):
         """Test fetching ACMG data with custom file."""
@@ -476,6 +507,137 @@ class TestACMGIncidentalFindings:
                 assert sorted(unique_genes) == ["BRCA1", "EGFR", "TP53"]
             finally:
                 Path(f.name).unlink()
+
+    def test_fetch_acmg_data_from_live_source(self):
+        """Test fetching ACMG data from live URL with mocked response."""
+        # Load mock HTML fixture
+        fixture_path = (
+            Path(__file__).parent / "data" / "scraper_fixtures" / "acmg_ncbi.html"
+        )
+        with open(fixture_path) as f:
+            mock_html = f.read()
+
+        # Mock the requests.get call
+        mock_response = Mock()
+        mock_response.content = mock_html.encode("utf-8")
+        mock_response.raise_for_status.return_value = None
+
+        config = {
+            "data_sources": {
+                "acmg_incidental": {
+                    "enabled": True,
+                    "url": "https://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/",
+                    "evidence_score": 1.5,
+                }
+            }
+        }
+
+        with patch(
+            "custom_panel.sources.a_incidental_findings.requests.get",
+            return_value=mock_response,
+        ):
+            df = fetch_acmg_incidental_data(config)
+
+        # Should contain genes from mock HTML, not default list
+        expected_genes = ["APC", "BRCA1", "BRCA2", "TP53", "PTEN"]
+        assert len(df) == len(expected_genes)
+
+        # Check that all expected genes are present
+        for gene in expected_genes:
+            assert gene in df["approved_symbol"].values
+
+        # Check source details indicate URL source
+        assert all("URL:" in detail for detail in df["source_details"].values)
+        assert "ncbi.nlm.nih.gov" in df["source_details"].iloc[0]
+
+    def test_fetch_acmg_data_scraper_fails(self):
+        """Test ACMG data fetching when scraper fails, should fall back to default list."""
+        config = {
+            "data_sources": {
+                "acmg_incidental": {
+                    "enabled": True,
+                    "url": "https://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/",
+                    "evidence_score": 1.5,
+                }
+            }
+        }
+
+        # Mock requests.get to raise an exception
+        with patch(
+            "custom_panel.sources.a_incidental_findings.requests.get",
+            side_effect=Exception("Network error"),
+        ):
+            df = fetch_acmg_incidental_data(config)
+
+        # Should fall back to default list
+        assert len(df) == len(DEFAULT_ACMG_GENES)
+        assert all(gene in DEFAULT_ACMG_GENES for gene in df["approved_symbol"])
+
+        # Check source details indicate default source
+        assert all(
+            "ACMG_SF_v3.2_default" in detail for detail in df["source_details"].values
+        )
+
+    def test_scrape_acmg_genes_from_ncbi_success(self):
+        """Test successful scraping of ACMG genes from NCBI."""
+        # Load mock HTML fixture
+        fixture_path = (
+            Path(__file__).parent / "data" / "scraper_fixtures" / "acmg_ncbi.html"
+        )
+        with open(fixture_path) as f:
+            mock_html = f.read()
+
+        # Mock the requests.get call
+        mock_response = Mock()
+        mock_response.content = mock_html.encode("utf-8")
+        mock_response.raise_for_status.return_value = None
+
+        with patch(
+            "custom_panel.sources.a_incidental_findings.requests.get",
+            return_value=mock_response,
+        ):
+            genes = _scrape_acmg_genes_from_ncbi(
+                "https://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/"
+            )
+
+        expected_genes = ["APC", "BRCA1", "BRCA2", "TP53", "PTEN"]
+        assert genes == expected_genes
+
+    def test_scrape_acmg_genes_from_ncbi_network_error(self):
+        """Test scraping when network request fails."""
+        with patch(
+            "custom_panel.sources.a_incidental_findings.requests.get",
+            side_effect=Exception("Network error"),
+        ):
+            try:
+                _scrape_acmg_genes_from_ncbi(
+                    "https://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/"
+                )
+                raise AssertionError("Should have raised an exception")
+            except Exception as e:
+                assert "Network error" in str(e)
+
+    def test_scrape_acmg_genes_from_ncbi_missing_table(self):
+        """Test scraping when expected table structure is missing."""
+        mock_html = (
+            "<html><body><div id='maincontent'><p>No table here</p></div></body></html>"
+        )
+
+        mock_response = Mock()
+        mock_response.content = mock_html.encode("utf-8")
+        mock_response.raise_for_status.return_value = None
+
+        with patch(
+            "custom_panel.sources.a_incidental_findings.requests.get",
+            return_value=mock_response,
+        ):
+            try:
+                _scrape_acmg_genes_from_ncbi(
+                    "https://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/"
+                )
+                raise AssertionError("Should have raised ValueError")
+            except ValueError as e:
+                assert "Could not find the ACMG gene table" in str(e)
 
 
 class TestManualCuration:

@@ -80,8 +80,10 @@ data_sources:
   # ACMG incidental findings
   acmg_incidental:
     enabled: true
-    # ACMG recommended genes list
-    file_path: "data/acmg/acmg_incidental_findings.txt"
+    # Primary source: Live URL (scraped dynamically)
+    url: "https://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/"
+    # Fallback source: Local file (if URL scraping fails)
+    file_path: "data/acmg/acmg_incidental_findings.csv"
     evidence_score: 1.5  # Higher weight for ACMG recommendations
 
   # Manual curation lists

@@ -6,10 +6,14 @@ in clinical exome and genome sequencing.
 """
 
 import logging
+from datetime import datetime
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import requests
+from bs4 import BeautifulSoup
 
 from ..core.io import create_standard_dataframe
 
@@ -91,9 +95,111 @@ DEFAULT_ACMG_GENES = [
 ]
 
 
+def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
+    """
+    Scrape ACMG genes from NCBI ClinVar website.
+
+    Args:
+        url: URL to the NCBI ACMG page
+
+    Returns:
+        List of cleaned gene symbols
+
+    Raises:
+        ValueError: If the expected table structure is not found
+        requests.RequestException: If the web request fails
+    """
+    logger.info(f"Attempting to scrape ACMG genes from: {url}")
+
+    # Make request with User-Agent header
+    headers = {
+        "User-Agent": "custom-panel/1.0 (Python scientific tool for gene panel curation)"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"Failed to fetch ACMG page from {url}: {e}")
+        raise
+
+    # Parse HTML content
+    soup = BeautifulSoup(response.content, "html.parser")
+
+    # Find the main content div
+    main_content = soup.find("div", id="maincontent")
+    if not main_content:
+        raise ValueError(
+            "Could not find the main content div on the NCBI page. The website structure may have changed."
+        )
+
+    # Find the first table within main content
+    table_element = main_content.find("table")
+    if not table_element:
+        raise ValueError(
+            "Could not find the ACMG gene table on the NCBI page. The website structure may have changed."
+        )
+
+    # Parse table with pandas
+    try:
+        table_html = StringIO(str(table_element))
+        tables = pd.read_html(table_html)
+        if not tables:
+            raise ValueError("No tables could be parsed from the NCBI page.")
+
+        df = tables[0]  # First table
+    except Exception as e:
+        raise ValueError(f"Failed to parse table from NCBI page: {e}") from e
+
+    # Check for expected column
+    expected_column = "Gene via GTR"
+    if expected_column not in df.columns:
+        available_columns = list(df.columns)
+        raise ValueError(
+            f"Expected column '{expected_column}' not found in the ACMG table. Available columns: {available_columns}"
+        )
+
+    # Extract and clean gene symbols from anchor tags
+    gene_series = df[expected_column].dropna()
+
+    # Use BeautifulSoup to extract gene symbols from anchor tags
+    cleaned_genes = []
+    for cell_content in gene_series:
+        cell_soup = BeautifulSoup(str(cell_content), "html.parser")
+        # Find anchor tag containing gene link
+        gene_link = cell_soup.find("a", href=lambda x: x and "/gtr/genes/" in x)
+        if gene_link:
+            gene_symbol = gene_link.get_text(strip=True)
+            if gene_symbol:
+                cleaned_genes.append(gene_symbol)
+        else:
+            # Fallback: try to extract gene from text directly
+            text_content = str(cell_content).strip()
+            if text_content and not text_content.startswith("<"):
+                # Remove text after first space (e.g., "APC (OMIM)" becomes "APC")
+                gene_candidate = text_content.split()[0] if text_content.split() else ""
+                if gene_candidate:
+                    cleaned_genes.append(gene_candidate)
+
+    # Remove duplicates while preserving order
+    unique_genes = []
+    seen = set()
+    for gene in cleaned_genes:
+        if gene not in seen and gene.strip():
+            unique_genes.append(gene.strip())
+            seen.add(gene.strip())
+
+    cleaned_genes = unique_genes
+
+    logger.info(f"Successfully scraped {len(cleaned_genes)} ACMG genes from NCBI")
+    return cleaned_genes
+
+
 def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
     """
     Fetch ACMG incidental findings gene data.
+
+    Prioritizes live scraping from NCBI, with fallbacks to file and default list.
 
     Args:
         config: Configuration dictionary
@@ -108,30 +214,97 @@ def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
         return pd.DataFrame()
 
     evidence_score = acmg_config.get("evidence_score", 1.5)
+    url = acmg_config.get("url")
     file_path = acmg_config.get("file_path")
+    retrieval_date = datetime.now().strftime("%Y-%m-%d")
 
-    # Try to load from file first, then fall back to default list
     genes = []
     source_details = []
 
-    if file_path:
-        genes = load_acmg_genes_from_file(file_path)
-        if genes:
-            logger.info(f"Loaded {len(genes)} ACMG genes from file: {file_path}")
-            source_details = [f"File:{Path(file_path).name}"] * len(genes)
-        else:
+    # Priority 1: Try to scrape from live URL
+    if url:
+        try:
+            genes = _scrape_acmg_genes_from_ncbi(url)
+            if genes:
+                logger.info(
+                    f"Successfully fetched {len(genes)} ACMG genes from live URL: {url}"
+                )
+                source_details = [f"URL:{url}|Date:{retrieval_date}"] * len(genes)
+        except Exception as e:  # Catch all exceptions from scraper
+            logger.warning(f"Failed to scrape ACMG genes from {url}: {e}")
+            logger.warning("Attempting to use fallback data sources")
+
+    # Priority 2: Fall back to file if scraping failed
+    if not genes and file_path:
+        try:
+            if Path(file_path).exists():
+                file_path_obj = Path(file_path)
+                if file_path_obj.suffix.lower() == ".csv":
+                    # Handle CSV files
+                    df_fallback = pd.read_csv(file_path)
+                    # Try common column names for gene symbols
+                    gene_columns = [
+                        "Gene",
+                        "Gene Symbol",
+                        "gene_symbol",
+                        "symbol",
+                        "approved_symbol",
+                    ]
+                    gene_column = None
+                    for col in gene_columns:
+                        if col in df_fallback.columns:
+                            gene_column = col
+                            break
+
+                    if gene_column:
+                        genes = (
+                            df_fallback[gene_column]
+                            .dropna()
+                            .astype(str)
+                            .str.strip()
+                            .tolist()
+                        )
+                        genes = [
+                            gene for gene in genes if gene and not gene.startswith("#")
+                        ]
+                        logger.info(
+                            f"Loaded {len(genes)} ACMG genes from CSV fallback file: {file_path}"
+                        )
+                        source_details = [f"File:{file_path_obj.name}"] * len(genes)
+                else:
+                    # Handle text files (one gene per line)
+                    with open(file_path, encoding="utf-8") as f:
+                        lines = f.readlines()
+
+                    genes = []
+                    for line in lines:
+                        line = line.strip()
+                        if (
+                            line
+                            and not line.startswith("#")
+                            and not line.startswith("//")
+                        ):
+                            genes.append(line)
+
+                    if genes:
+                        logger.info(
+                            f"Loaded {len(genes)} ACMG genes from text fallback file: {file_path}"
+                        )
+                        source_details = [f"File:{file_path_obj.name}"] * len(genes)
+        except Exception as e:
             logger.warning(
-                f"Could not load ACMG genes from file {file_path}, using default list"
+                f"Could not load ACMG genes from fallback file {file_path}: {e}"
             )
 
-    # Use default list if no file or file loading failed
+    # Priority 3: Use default list if all else fails
     if not genes:
         genes = DEFAULT_ACMG_GENES.copy()
+        logger.warning("Using default ACMG gene list as final fallback")
         logger.info(f"Using default ACMG gene list with {len(genes)} genes")
         source_details = ["ACMG_SF_v3.2_default"] * len(genes)
 
     if not genes:
-        logger.warning("No ACMG genes available")
+        logger.error("No ACMG genes available from any source")
         return pd.DataFrame()
 
     # Create standardized dataframe
@@ -147,151 +320,6 @@ def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
 
     logger.info(f"Created ACMG incidental findings dataset with {len(df)} genes")
     return df
-
-
-def load_acmg_genes_from_file(file_path: str | Path) -> list[str]:
-    """
-    Load ACMG genes from a file.
-
-    Args:
-        file_path: Path to the file containing ACMG genes
-
-    Returns:
-        List of gene symbols
-    """
-    file_path = Path(file_path)
-
-    if not file_path.exists():
-        logger.error(f"ACMG file not found: {file_path}")
-        return []
-
-    try:
-        if file_path.suffix.lower() in [".xlsx", ".xls"]:
-            return load_acmg_genes_from_excel(file_path)
-        elif file_path.suffix.lower() == ".csv":
-            return load_acmg_genes_from_csv(file_path)
-        elif file_path.suffix.lower() in [".txt", ".tsv"]:
-            return load_acmg_genes_from_text(file_path)
-        else:
-            logger.error(f"Unsupported file format for ACMG genes: {file_path.suffix}")
-            return []
-    except Exception as e:
-        logger.error(f"Error loading ACMG genes from {file_path}: {e}")
-        return []
-
-
-def load_acmg_genes_from_excel(file_path: Path) -> list[str]:
-    """Load ACMG genes from Excel file."""
-    try:
-        # Try different possible column names and sheets
-        possible_columns = [
-            "Gene",
-            "Gene Symbol",
-            "Symbol",
-            "Gene_Symbol",
-            "GENE",
-            "gene",
-        ]
-
-        # Try first sheet
-        df = pd.read_excel(file_path, engine="openpyxl")
-
-        # Find gene column
-        gene_column = None
-        for col in possible_columns:
-            if col in df.columns:
-                gene_column = col
-                break
-
-        if not gene_column:
-            # Try the first column if no standard gene column found
-            if len(df.columns) > 0:
-                gene_column = df.columns[0]
-                logger.warning(f"Using first column '{gene_column}' as gene column")
-            else:
-                logger.error("No columns found in Excel file")
-                return []
-
-        genes = df[gene_column].dropna().astype(str).str.strip().tolist()
-        genes = [gene for gene in genes if gene]  # Remove empty strings
-
-        return list(dict.fromkeys(genes))  # Remove duplicates while preserving order
-    except Exception as e:
-        logger.error(f"Error reading Excel file {file_path}: {e}")
-        return []
-
-
-def load_acmg_genes_from_csv(file_path: Path) -> list[str]:
-    """Load ACMG genes from CSV file."""
-    try:
-        # Try different encodings
-        for encoding in ["utf-8", "latin1", "cp1252"]:
-            try:
-                df = pd.read_csv(file_path, encoding=encoding)
-                break
-            except UnicodeDecodeError:
-                continue
-        else:
-            logger.error(f"Could not read CSV file {file_path} with any encoding")
-            return []
-
-        # Find gene column (similar to Excel method)
-        possible_columns = [
-            "Gene",
-            "Gene Symbol",
-            "Symbol",
-            "Gene_Symbol",
-            "GENE",
-            "gene",
-        ]
-
-        gene_column = None
-        for col in possible_columns:
-            if col in df.columns:
-                gene_column = col
-                break
-
-        if not gene_column:
-            if len(df.columns) > 0:
-                gene_column = df.columns[0]
-                logger.warning(f"Using first column '{gene_column}' as gene column")
-            else:
-                logger.error("No columns found in CSV file")
-                return []
-
-        genes = df[gene_column].dropna().astype(str).str.strip().tolist()
-        genes = [gene for gene in genes if gene]
-
-        return list(dict.fromkeys(genes))
-    except Exception as e:
-        logger.error(f"Error reading CSV file {file_path}: {e}")
-        return []
-
-
-def load_acmg_genes_from_text(file_path: Path) -> list[str]:
-    """Load ACMG genes from text file (one gene per line)."""
-    try:
-        with open(file_path, encoding="utf-8") as f:
-            genes = [line.strip() for line in f if line.strip()]
-
-        # Handle tab-separated files
-        if file_path.suffix.lower() == ".tsv":
-            # Assume genes are in the first column
-            processed_genes = []
-            for line in genes:
-                if "\t" in line:
-                    processed_genes.append(line.split("\t")[0].strip())
-                else:
-                    processed_genes.append(line)
-            genes = processed_genes
-
-        genes = [
-            gene for gene in genes if gene and not gene.startswith("#")
-        ]  # Remove comments
-        return list(dict.fromkeys(genes))
-    except Exception as e:
-        logger.error(f"Error reading text file {file_path}: {e}")
-        return []
 
 
 def get_acmg_gene_categories() -> dict[str, list[str]]:
@@ -419,14 +447,10 @@ def get_acmg_summary(config: dict[str, Any]) -> dict[str, Any]:
     file_path = acmg_config.get("file_path")
     if file_path:
         summary["file_exists"] = Path(file_path).exists()
-        if summary["file_exists"]:
-            genes = load_acmg_genes_from_file(file_path)
-            summary["gene_count"] = len(genes)
 
-    if summary["gene_count"] == 0:
-        summary["gene_count"] = len(DEFAULT_ACMG_GENES)
-        summary["using_default"] = True
-    else:
-        summary["using_default"] = False
+    # Always show default count in summary - actual count depends on runtime scraping
+    summary["gene_count"] = len(DEFAULT_ACMG_GENES)
+    summary["using_default"] = True  # This will be updated at runtime
+    summary["url"] = acmg_config.get("url")
 
     return summary
