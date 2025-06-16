@@ -2,7 +2,7 @@
 
 A modern Python tool for gene panel curation and aggregation from multiple genomic databases.
 
-[![CI](https://github.com/your-username/custom-panel/workflows/CI/badge.svg)](https://github.com/your-username/custom-panel/actions)
+[![CI](https://github.com/berntpopp/custom-panel/workflows/CI/badge.svg)](https://github.com/berntpopp/custom-panel/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
@@ -29,7 +29,7 @@ Custom Panel is a comprehensive tool for creating, managing, and curating gene p
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/custom-panel.git
+git clone https://github.com/berntpopp/custom-panel.git
 cd custom-panel
 
 # Install with Poetry
@@ -43,7 +43,7 @@ poetry shell
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/custom-panel.git
+git clone https://github.com/berntpopp/custom-panel.git
 cd custom-panel
 
 # Install in development mode
@@ -535,7 +535,7 @@ The standardized output includes:
 
 ```bash
 # Clone and install in development mode
-git clone https://github.com/your-username/custom-panel.git
+git clone https://github.com/berntpopp/custom-panel.git
 cd custom-panel
 poetry install
 
@@ -636,6 +636,6 @@ Custom Panel: A modern Python tool for gene panel curation and aggregation
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-username/custom-panel/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/custom-panel/discussions)
-- **Documentation**: [Wiki](https://github.com/your-username/custom-panel/wiki)
+- **Issues**: [GitHub Issues](https://github.com/berntpopp/custom-panel/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/berntpopp/custom-panel/discussions)
+- **Documentation**: [Wiki](https://github.com/berntpopp/custom-panel/wiki)
