@@ -13,6 +13,12 @@ from custom_panel.sources.a_incidental_findings import (
     fetch_acmg_incidental_data,
     load_acmg_genes_from_file,
 )
+from custom_panel.sources.b_manual_curation import (
+    fetch_manual_curation_data,
+    get_manual_curation_summary,
+    process_manual_list,
+    validate_manual_curation_config,
+)
 from custom_panel.sources.g00_inhouse_panels import (
     extract_genes_from_column,
     fetch_inhouse_panels_data,
@@ -468,5 +474,354 @@ class TestACMGIncidentalFindings:
                 unique_genes = df["approved_symbol"].unique()
                 assert len(unique_genes) == 3  # BRCA1, TP53, EGFR
                 assert sorted(unique_genes) == ["BRCA1", "EGFR", "TP53"]
+            finally:
+                Path(f.name).unlink()
+
+
+class TestManualCuration:
+    """Test manual curation functionality."""
+
+    def test_validate_manual_curation_config_valid(self):
+        """Test validation of valid manual curation config."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("BRCA1\nTP53\n")
+            f.flush()
+
+            try:
+                config = {
+                    "data_sources": {
+                        "manual_curation": {
+                            "enabled": True,
+                            "lists": [
+                                {
+                                    "name": "Test List",
+                                    "file_path": f.name,
+                                    "gene_column": "gene_symbol",
+                                    "evidence_score": 1.0,
+                                }
+                            ],
+                        }
+                    }
+                }
+
+                errors = validate_manual_curation_config(config)
+                assert len(errors) == 0
+            finally:
+                Path(f.name).unlink()
+
+    def test_validate_manual_curation_config_invalid(self):
+        """Test validation of invalid manual curation config."""
+        config = {
+            "data_sources": {
+                "manual_curation": {
+                    "enabled": True,
+                    "lists": [
+                        {
+                            "file_path": "/nonexistent/file.txt",
+                            "evidence_score": -1.0,
+                        }
+                    ],
+                }
+            }
+        }
+
+        errors = validate_manual_curation_config(config)
+        assert len(errors) > 0
+        assert any("name is required" in error for error in errors)
+        assert any("does not exist" in error for error in errors)
+        assert any("must be a number between 0 and 1" in error for error in errors)
+
+    def test_process_manual_list_csv(self):
+        """Test processing CSV manual list."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("Gene Symbol,Description\n")
+            f.write("BRCA1,Breast cancer gene\n")
+            f.write("TP53,Tumor suppressor\n")
+            f.flush()
+
+            try:
+                list_config = {
+                    "name": "Test_CSV_List",
+                    "file_path": f.name,
+                    "gene_column": "Gene Symbol",
+                    "evidence_score": 0.9,
+                }
+
+                df = process_manual_list(list_config)
+
+                assert df is not None
+                assert len(df) == 2
+                assert "BRCA1" in df["approved_symbol"].values
+                assert "TP53" in df["approved_symbol"].values
+                assert all(df["source_evidence_score"] == 0.9)
+                assert all(df["source_name"] == "Manual_Curation:Test_CSV_List")
+                assert "File:" in df.iloc[0]["source_details"]
+                assert "Column:Gene Symbol" in df.iloc[0]["source_details"]
+            finally:
+                Path(f.name).unlink()
+
+    def test_process_manual_list_excel(self):
+        """Test processing Excel manual list."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            excel_path = Path(tmpdir) / "test.xlsx"
+            test_df = pd.DataFrame(
+                {
+                    "Gene": ["BRCA1", "TP53", "EGFR"],
+                    "Description": ["Gene 1", "Gene 2", "Gene 3"],
+                }
+            )
+            test_df.to_excel(excel_path, index=False)
+
+            list_config = {
+                "name": "Test_Excel_List",
+                "file_path": str(excel_path),
+                "gene_column": "Gene",
+                "evidence_score": 1.0,
+            }
+
+            df = process_manual_list(list_config)
+
+            assert df is not None
+            assert len(df) == 3
+            assert set(df["approved_symbol"]) == {"BRCA1", "TP53", "EGFR"}
+            assert all(df["source_evidence_score"] == 1.0)
+            assert all(df["source_name"] == "Manual_Curation:Test_Excel_List")
+
+    def test_process_manual_list_txt(self):
+        """Test processing text manual list."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("BRCA1\n")
+            f.write("TP53\n")
+            f.write("EGFR\n")
+            f.flush()
+
+            try:
+                list_config = {
+                    "name": "Test_Text_List",
+                    "file_path": f.name,
+                    "gene_column": "Gene",
+                    "evidence_score": 0.8,
+                }
+
+                df = process_manual_list(list_config)
+
+                assert df is not None
+                assert len(df) == 3
+                assert set(df["approved_symbol"]) == {"BRCA1", "TP53", "EGFR"}
+                assert all(df["source_evidence_score"] == 0.8)
+                assert all(df["source_name"] == "Manual_Curation:Test_Text_List")
+            finally:
+                Path(f.name).unlink()
+
+    def test_process_manual_list_missing_file(self):
+        """Test processing manual list with missing file."""
+        list_config = {
+            "name": "Missing_File_List",
+            "file_path": "/nonexistent/file.txt",
+            "gene_column": "Gene",
+            "evidence_score": 1.0,
+        }
+
+        df = process_manual_list(list_config)
+        assert df.empty
+
+    def test_process_manual_list_unsupported_format(self):
+        """Test processing manual list with unsupported format."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            f.write('{"genes": ["BRCA1", "TP53"]}')
+            f.flush()
+
+            try:
+                list_config = {
+                    "name": "JSON_List",
+                    "file_path": f.name,
+                    "gene_column": "Gene",
+                    "evidence_score": 1.0,
+                }
+
+                df = process_manual_list(list_config)
+                assert df.empty
+            finally:
+                Path(f.name).unlink()
+
+    def test_fetch_manual_curation_data_multiple_lists(self):
+        """Test fetching manual curation data with multiple lists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create first list file
+            txt_path = Path(tmpdir) / "list1.txt"
+            txt_path.write_text("BRCA1\nTP53\n")
+
+            # Create second list file
+            csv_path = Path(tmpdir) / "list2.csv"
+            csv_df = pd.DataFrame({"Genes": ["EGFR", "KRAS"]})
+            csv_df.to_csv(csv_path, index=False)
+
+            config = {
+                "data_sources": {
+                    "manual_curation": {
+                        "enabled": True,
+                        "lists": [
+                            {
+                                "name": "List1",
+                                "file_path": str(txt_path),
+                                "gene_column": "Gene",
+                                "evidence_score": 1.0,
+                            },
+                            {
+                                "name": "List2",
+                                "file_path": str(csv_path),
+                                "gene_column": "Genes",
+                                "evidence_score": 0.8,
+                            },
+                        ],
+                    }
+                }
+            }
+
+            df = fetch_manual_curation_data(config)
+
+            assert len(df) == 4
+            assert set(df["approved_symbol"]) == {"BRCA1", "TP53", "EGFR", "KRAS"}
+
+            # Check evidence scores are preserved
+            list1_genes = df[df["source_name"] == "Manual_Curation:List1"]
+            list2_genes = df[df["source_name"] == "Manual_Curation:List2"]
+            assert all(list1_genes["source_evidence_score"] == 1.0)
+            assert all(list2_genes["source_evidence_score"] == 0.8)
+
+    def test_fetch_manual_curation_data_disabled(self):
+        """Test when manual curation is disabled."""
+        config = {"data_sources": {"manual_curation": {"enabled": False}}}
+
+        df = fetch_manual_curation_data(config)
+        assert df.empty
+
+    def test_fetch_manual_curation_data_no_lists(self):
+        """Test when no lists are configured."""
+        config = {"data_sources": {"manual_curation": {"enabled": True, "lists": []}}}
+
+        df = fetch_manual_curation_data(config)
+        assert df.empty
+
+    def test_fetch_manual_curation_data_all_lists_fail(self):
+        """Test when all configured lists fail to process."""
+        config = {
+            "data_sources": {
+                "manual_curation": {
+                    "enabled": True,
+                    "lists": [
+                        {
+                            "name": "Missing1",
+                            "file_path": "/nonexistent1.txt",
+                            "gene_column": "Gene",
+                            "evidence_score": 1.0,
+                        },
+                        {
+                            "name": "Missing2",
+                            "file_path": "/nonexistent2.txt",
+                            "gene_column": "Gene",
+                            "evidence_score": 1.0,
+                        },
+                    ],
+                }
+            }
+        }
+
+        df = fetch_manual_curation_data(config)
+        assert df.empty
+
+    def test_get_manual_curation_summary(self):
+        """Test getting manual curation summary."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("BRCA1\nTP53\n")
+            f.flush()
+
+            try:
+                config = {
+                    "data_sources": {
+                        "manual_curation": {
+                            "enabled": True,
+                            "lists": [
+                                {
+                                    "name": "Test List",
+                                    "file_path": f.name,
+                                    "gene_column": "gene_symbol",
+                                    "evidence_score": 1.0,
+                                }
+                            ],
+                        }
+                    }
+                }
+
+                summary = get_manual_curation_summary(config)
+
+                assert summary["enabled"] is True
+                assert summary["lists_count"] == 1
+                assert len(summary["validation_errors"]) == 0
+                assert summary["total_genes"] == 2
+            finally:
+                Path(f.name).unlink()
+
+    def test_process_manual_list_empty_file(self):
+        """Test processing manual list with empty file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("")  # Empty file
+            f.flush()
+
+            try:
+                list_config = {
+                    "name": "Empty_List",
+                    "file_path": f.name,
+                    "gene_column": "Gene",
+                    "evidence_score": 1.0,
+                }
+
+                df = process_manual_list(list_config)
+                assert df.empty
+            finally:
+                Path(f.name).unlink()
+
+    def test_process_manual_list_missing_gene_column(self):
+        """Test processing manual list with missing gene column."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("Other_Column,Description\n")
+            f.write("value1,desc1\n")
+            f.write("value2,desc2\n")
+            f.flush()
+
+            try:
+                list_config = {
+                    "name": "Missing_Column_List",
+                    "file_path": f.name,
+                    "gene_column": "Gene_Symbol",  # This column doesn't exist
+                    "evidence_score": 1.0,
+                }
+
+                df = process_manual_list(list_config)
+                assert df.empty
+            finally:
+                Path(f.name).unlink()
+
+    def test_process_manual_list_default_parameters(self):
+        """Test processing manual list with default parameters."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("BRCA1\nTP53\n")
+            f.flush()
+
+            try:
+                # Minimal config - should use defaults
+                list_config = {
+                    "name": "Default_List",
+                    "file_path": f.name,
+                }
+
+                df = process_manual_list(list_config)
+
+                assert df is not None
+                assert len(df) == 2
+                assert all(df["source_evidence_score"] == 1.0)  # Default evidence score
+                assert (
+                    "Column:gene_symbol" in df.iloc[0]["source_details"]
+                )  # Default gene column
             finally:
                 Path(f.name).unlink()

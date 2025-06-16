@@ -20,8 +20,10 @@ from .core.io import create_bed_file
 from .engine.annotator import GeneAnnotator
 from .engine.merger import PanelMerger
 from .sources.a_incidental_findings import fetch_acmg_incidental_data
+from .sources.b_manual_curation import fetch_manual_curation_data
 from .sources.g00_inhouse_panels import fetch_inhouse_panels_data
 from .sources.g01_panelapp import fetch_panelapp_data
+from .sources.g02_hpo import fetch_hpo_neoplasm_data
 
 app = typer.Typer(
     name="custom-panel",
@@ -184,7 +186,7 @@ def run(
 @app.command()
 def fetch(
     source: str = typer.Argument(
-        ..., help="Data source to fetch (panelapp, inhouse, acmg)"
+        ..., help="Data source to fetch (panelapp, inhouse, acmg, manual, hpo)"
     ),
     config_file: str | None = typer.Option(
         None, "--config-file", "-c", help="Configuration file path"
@@ -212,9 +214,13 @@ def fetch(
         df = fetch_inhouse_panels_data(config)
     elif source.lower() == "acmg":
         df = fetch_acmg_incidental_data(config)
+    elif source.lower() == "manual":
+        df = fetch_manual_curation_data(config)
+    elif source.lower() == "hpo":
+        df = fetch_hpo_neoplasm_data(config)
     else:
         console.print(f"[red]Unknown source: {source}[/red]")
-        console.print("Available sources: panelapp, inhouse, acmg")
+        console.print("Available sources: panelapp, inhouse, acmg, manual, hpo")
         raise typer.Exit(1)
 
     if df.empty:
@@ -268,6 +274,31 @@ def config_check(
                         missing_files.append(Path(file_path).name)
                 if missing_files:
                     status = f"⚠ Missing files: {', '.join(missing_files)}"
+
+        elif source_name == "manual_curation" and enabled:
+            lists = source_config.get("lists", [])
+            if not lists:
+                status = "⚠ No lists configured"
+            else:
+                missing_files = []
+                for list_item in lists:
+                    file_path = list_item.get("file_path")
+                    if file_path and not Path(file_path).exists():
+                        missing_files.append(Path(file_path).name)
+                if missing_files:
+                    status = f"⚠ Missing files: {', '.join(missing_files)}"
+
+        elif source_name == "hpo_neoplasm" and enabled:
+            omim_file = source_config.get("omim_file_path")
+            if omim_file and not Path(omim_file).exists():
+                status = f"⚠ OMIM file not found: {Path(omim_file).name}"
+            specific_terms = source_config.get("specific_hpo_terms", [])
+            if (
+                not source_config.get("use_neoplasm_search", True)
+                and not specific_terms
+                and not omim_file
+            ):
+                status = "⚠ No data sources configured"
 
         table.add_row(source_name, str(enabled), status)
 
@@ -337,6 +368,8 @@ def fetch_all_sources(config: dict[str, Any]) -> list[pd.DataFrame]:
         "panelapp": fetch_panelapp_data,
         "inhouse_panels": fetch_inhouse_panels_data,
         "acmg_incidental": fetch_acmg_incidental_data,
+        "manual_curation": fetch_manual_curation_data,
+        "hpo_neoplasm": fetch_hpo_neoplasm_data,
     }
 
     data_sources = config.get("data_sources", {})

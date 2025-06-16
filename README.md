@@ -12,7 +12,9 @@ Custom Panel is a comprehensive tool for creating, managing, and curating gene p
 
 ### Key Features
 
-- **Multi-source data aggregation**: Integrates data from PanelApp, ACMG recommendations, in-house panels, and more
+- **Multi-source data aggregation**: Integrates data from PanelApp, ACMG recommendations, in-house panels, manual curation lists, and HPO/OMIM
+- **Manual curation support**: Process custom gene lists from Excel, CSV, and text files with configurable parameters
+- **HPO/OMIM integration**: Automatic identification of neoplasm-associated genes using HPO ontology and OMIM data
 - **Intelligent scoring system**: Configurable evidence weighting and decision thresholds
 - **Gene standardization**: Automatic gene symbol standardization using HGNC
 - **Genomic annotation**: Rich annotation with Ensembl coordinates, transcripts, and MANE information
@@ -79,6 +81,12 @@ custom-panel fetch inhouse --output-dir results/inhouse
 
 # Fetch ACMG incidental findings
 custom-panel fetch acmg --output-dir results/acmg
+
+# Fetch manual curation lists
+custom-panel fetch manual --output-dir results/manual
+
+# Fetch HPO neoplasm genes
+custom-panel fetch hpo --output-dir results/hpo
 ```
 
 ### 4. Search Available Panels
@@ -128,9 +136,13 @@ scoring:
       panelapp: 1.0
       acmg_incidental: 1.5
       inhouse_panels: 1.2
+      manual_curation: 1.1
+      hpo_neoplasm: 0.7
     somatic:
       cosmic: 1.2
       commercial_panels: 0.9
+      manual_curation: 1.0
+      hpo_neoplasm: 0.9
   
   thresholds:
     germline_threshold: 2.0
@@ -162,7 +174,7 @@ Options:
 custom-panel fetch SOURCE [OPTIONS]
 
 Arguments:
-  SOURCE  Data source (panelapp, inhouse, acmg)
+  SOURCE  Data source (panelapp, inhouse, acmg, manual, hpo)
 
 Options:
   -c, --config-file TEXT  Configuration file path
@@ -198,9 +210,10 @@ Options:
 1. **PanelApp**: UK Genomics England and Australia PanelApp APIs
 2. **In-house Panels**: Local Excel, CSV, or text files
 3. **ACMG Incidental Findings**: ACMG SF v3.2 recommendations
-4. **COSMIC**: Cancer Gene Census (planned)
-5. **Commercial Panels**: PDF and Excel parsing (planned)
-6. **HPO**: Human Phenotype Ontology associations (planned)
+4. **Manual Curation**: Custom gene lists from literature review and expert curation
+5. **HPO/OMIM Neoplasm**: Automatic identification of cancer-associated genes using HPO ontology
+6. **COSMIC**: Cancer Gene Census (planned)
+7. **Commercial Panels**: PDF and Excel parsing (planned)
 
 ### Adding Custom Data Sources
 
@@ -223,6 +236,67 @@ Supported file formats:
 - CSV (.csv)
 - TSV (.tsv)
 - Plain text (.txt) - one gene per line
+
+### Manual Curation Lists
+
+Process manually curated gene lists with flexible configuration:
+
+```yaml
+data_sources:
+  manual_curation:
+    enabled: true
+    lists:
+      - name: "Literature_Review_2024"
+        file_path: "data/manual/literature_genes_2024.txt"
+        gene_column: "gene_symbol"  # Column containing gene symbols
+        evidence_score: 1.2
+      - name: "Expert_Panel_Recommendations"
+        file_path: "data/manual/expert_panel_genes.csv"
+        gene_column: "Gene"
+        evidence_score: 1.1
+      - name: "Clinical_Variant_Database"
+        file_path: "data/manual/clinical_variants.xlsx"
+        gene_column: "Gene Symbol"
+        evidence_score: 1.0
+```
+
+Features:
+- Support for multiple file formats (Excel, CSV, TXT)
+- Configurable gene column names
+- Individual evidence scoring per list
+- Automatic gene extraction and standardization
+
+### HPO/OMIM Neoplasm Integration
+
+Automatically identify cancer-associated genes using HPO ontology:
+
+```yaml
+data_sources:
+  hpo_neoplasm:
+    enabled: true
+    # Automatically search for neoplasm-related HPO terms
+    use_neoplasm_search: true
+    # Specific HPO terms to include
+    specific_hpo_terms:
+      - "HP:0002664"  # Neoplasm
+      - "HP:0030358"  # Non-small cell lung carcinoma
+      - "HP:0002860"  # Squamous cell carcinoma
+    # Optional OMIM file for additional associations
+    omim_file_path: "data/hpo/omim_neoplasm_genes.csv"
+    omim_gene_column: "Gene Symbol"
+    omim_disease_column: "Disease"
+    omim_id_column: "OMIM ID"
+    # Scoring parameters
+    base_evidence_score: 0.6
+    max_hierarchy_depth: 5
+```
+
+Features:
+- Automatic neoplasm term discovery in HPO
+- Hierarchical HPO term traversal
+- OMIM file integration for additional gene-disease associations
+- Configurable evidence scoring based on data source diversity
+- Comprehensive gene-phenotype relationship mapping
 
 ## Output Formats
 
@@ -349,6 +423,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Ensembl** for genomic coordinates and annotation
 - **PanelApp** (UK Genomics England) for curated gene panels
 - **ACMG** for incidental findings recommendations
+- **HPO** (Human Phenotype Ontology) for phenotype-gene associations
+- **OMIM** for comprehensive gene-disease relationship data
 
 ## Citation
 

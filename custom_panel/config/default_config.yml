@@ -78,26 +78,42 @@ data_sources:
     file_path: "data/acmg/acmg_incidental_findings.txt"
     evidence_score: 1.5  # Higher weight for ACMG recommendations
 
-  # HPO (Human Phenotype Ontology) configuration
-  hpo:
-    enabled: false
-    # HPO terms to search for associated genes
-    terms:
-      - "HP:0002664"  # Neoplasm
-      - "HP:0001626"  # Abnormality of the cardiovascular system
-    evidence_score: 0.6
-
   # Manual curation lists
   manual_curation:
     enabled: true
     lists:
       - name: "Literature_Review_2024"
         file_path: "data/manual/literature_genes_2024.txt"
+        gene_column: "gene_symbol"  # Default column name for text files
         evidence_score: 1.2
       - name: "Expert_Panel_Recommendations"
         file_path: "data/manual/expert_panel_genes.csv"
         gene_column: "Gene"
         evidence_score: 1.1
+      - name: "Clinical_Variant_Database"
+        file_path: "data/manual/clinical_variants.xlsx"
+        gene_column: "Gene Symbol"
+        evidence_score: 1.0
+
+  # HPO/OMIM neoplasm gene identification
+  hpo_neoplasm:
+    enabled: true
+    # Automatically search for neoplasm-related HPO terms
+    use_neoplasm_search: true
+    # Specific HPO terms to include (in addition to neoplasm search)
+    specific_hpo_terms:
+      - "HP:0002664"  # Neoplasm
+      - "HP:0030358"  # Non-small cell lung carcinoma
+      - "HP:0002860"  # Squamous cell carcinoma
+    # Optional OMIM file for additional gene-disease associations
+    omim_file_path: "data/hpo/omim_neoplasm_genes.csv"
+    omim_gene_column: "Gene Symbol"
+    omim_disease_column: "Disease"
+    omim_id_column: "OMIM ID"
+    # Scoring parameters
+    base_evidence_score: 0.6
+    # Maximum depth to traverse HPO hierarchy
+    max_hierarchy_depth: 5
 
 # Scoring and decision logic
 scoring:
@@ -109,16 +125,16 @@ scoring:
       commercial_panels: 0.8
       cosmic: 0.9
       acmg_incidental: 1.5
-      hpo: 0.6
       manual_curation: 1.1
+      hpo_neoplasm: 0.7
     somatic:
       panelapp: 0.8
       inhouse_panels: 1.0
       commercial_panels: 0.9
       cosmic: 1.2
       acmg_incidental: 0.5
-      hpo: 0.4
       manual_curation: 1.0
+      hpo_neoplasm: 0.9
 
   # Decision thresholds
   thresholds:
@@ -155,6 +171,13 @@ apis:
 
   # Ensembl API settings
   ensembl:
+    timeout: 30
+    max_retries: 3
+    retry_delay: 1.0
+    cache_size: 5000
+
+  # HPO API settings
+  hpo:
     timeout: 30
     max_retries: 3
     retry_delay: 1.0
