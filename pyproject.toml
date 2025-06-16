@@ -27,6 +27,11 @@ types-requests = "^2.31.0"
 types-pyyaml = "^6.0.0"
 pandas-stubs = "^2.0.0"
 
+[tool.poetry.group.scrapers.dependencies]
+selenium = "^4.15.0"
+webdriver-manager = "^4.0.0"
+pypdf = "^3.17.0"
+
 [tool.poetry.scripts]
 custom-panel = "custom_panel.main:app"
 

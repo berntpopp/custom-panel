@@ -213,7 +213,205 @@ Options:
 4. **Manual Curation**: Custom gene lists from literature review and expert curation
 5. **HPO/OMIM Neoplasm**: Automatic identification of cancer-associated genes using HPO ontology
 6. **COSMIC**: Cancer Gene Census (planned)
-7. **Commercial Panels**: PDF and Excel parsing (planned)
+7. **Commercial Panels**: Web scraping of 15 commercial diagnostic panel websites
+
+### Commercial Panel Web Scrapers
+
+The tool includes a comprehensive web scraping framework for extracting gene lists from commercial diagnostic panel websites. This replaces brittle manual processes with an automated, maintainable system.
+
+#### Supported Commercial Panels
+
+The scrapers framework currently supports **15 commercial diagnostic panel providers**:
+
+1. **Myriad Genetics** - myRisk Hereditary Cancer Panel
+2. **Blueprint Genetics** - Hereditary Cancer Panels (19 sub-panels)
+3. **Centogene** - Solid Tumor Panel
+4. **Fulgent Genetics** - Comprehensive Cancer Panel
+5. **CEGAT** - Tumor Syndromes Panel
+6. **Invitae** - Comprehensive Cancer Panel
+7. **MGZ Munich** - Hereditary Cancer Panel
+8. **University of Chicago** - Hereditary Cancer Panel
+9. **Prevention Genetics** - Cancer Panel
+10. **Mayo Clinic Labs** - Hereditary Expanded Cancer Panel
+11. **GeneDx** - Comprehensive Cancer Panel
+12. **ARUP Laboratories** - Hereditary Cancer Panel
+13. **Cincinnati Children's (CGL)** - Hereditary Cancer Panel
+14. **NeoGenomics** - Comprehensive Cancer Panel
+15. **Natera** - Hereditary Cancer Test
+
+#### Running the Scrapers
+
+**Standalone Scraper Runner:**
+```bash
+# Run all enabled scrapers
+python scrapers/run_scrapers.py
+
+# Run specific scrapers
+python scrapers/run_scrapers.py --names myriad_myrisk blueprint_genetics
+
+# Dry run to see what would be executed
+python scrapers/run_scrapers.py --dry-run
+
+# Run with custom output directory
+python scrapers/run_scrapers.py --output-dir /path/to/custom/output
+
+# Enable verbose logging
+python scrapers/run_scrapers.py --verbose
+```
+
+**Integrated with Custom Panel CLI:**
+```bash
+# Fetch commercial panel data (requires scraped JSON files)
+custom-panel fetch commercial_panels --output-dir results/commercial
+```
+
+#### Architecture Overview
+
+**Decoupled Design:**
+- **Independent Scrapers**: Run separately from the main custom-panel tool
+- **Standardized Output**: All scrapers produce consistent JSON format
+- **Fault Isolation**: Scraping failures don't affect core tool functionality
+- **Easy Maintenance**: Update scrapers without touching core logic
+
+**Framework Components:**
+```
+scrapers/
+├── run_scrapers.py          # Master runner script with CLI
+├── parsers/                 # Individual parser implementations
+│   ├── base_parser.py       # Abstract base class
+│   ├── parse_myriad.py      # Myriad Genetics parser
+│   ├── parse_blueprint.py   # Blueprint Genetics parser
+│   └── ...                  # 15 total parsers
+└── README.md               # Scraper-specific documentation
+```
+
+#### Parser Implementation Details
+
+**Two Parsing Approaches:**
+1. **Static Content** (`requests` + `BeautifulSoup`): For simple HTML pages
+2. **Dynamic Content** (`Selenium` + `ChromeDriver`): For JavaScript-heavy sites
+
+**Parsing Strategies:**
+- **XPath Selectors**: Precise element targeting (matches original R implementation)
+- **CSS Selectors**: Modern web scraping approach
+- **Regex Extraction**: Fallback for complex content patterns
+- **Multi-level Fallbacks**: Robust error handling with alternative strategies
+
+**Example Parser Structure:**
+```python
+class MyriadParser(BaseParser):
+    def parse(self) -> list[str]:
+        # Primary: XPath selector matching R script
+        genes = self._parse_with_xpath('//td[contains(@class,"gene")]')
+        
+        # Fallback: CSS selector approach  
+        if not genes:
+            genes = self._parse_with_css('td[class*="gene"]')
+            
+        # Final fallback: Regex extraction
+        if not genes:
+            genes = self._parse_with_regex(r'\b[A-Z][A-Z0-9]{1,7}\b')
+            
+        return self._clean_and_validate(genes)
+```
+
+#### Output Format
+
+**Standardized JSON Schema:**
+```json
+{
+  "panel_name": "myriad_myrisk",
+  "source_url": "https://myriad.com/gene-table/",
+  "retrieval_date": "2024-01-15",
+  "genes": ["BRCA1", "BRCA2", "TP53", "PTEN", "ATM", ...]
+}
+```
+
+**Gene Processing:**
+- **Symbol Cleaning**: Remove asterisks, parenthetical content, whitespace
+- **Validation**: Length (1-20 chars), character set (A-Z, 0-9, -, _), contains letters
+- **Skip Terms**: Filters out common non-genes ("GENE", "DNA", "PANEL", etc.)
+- **Deduplication**: Removes duplicates while preserving order
+- **HGNC Integration**: Validates against HGNC gene nomenclature (in main tool)
+
+#### Configuration
+
+**Scraper Configuration** (`custom_panel/config/default_config.yml`):
+```yaml
+scrapers:
+  myriad_myrisk:
+    enabled: true
+    url: "https://myriad.com/gene-table/"
+    parser_module: "parse_myriad"
+    parser_class: "MyriadParser"
+    output_path: "data/scraped/myriad_myrisk.json"
+  
+  blueprint_genetics:
+    enabled: true
+    url: "https://blueprintgenetics.com/tests/panels/hereditary-cancer/"
+    subpanel_urls:
+      - "https://blueprintgenetics.com/tests/panels/hematology/comprehensive-hematology-and-hereditary-cancer-panel/"
+      - "https://blueprintgenetics.com/tests/panels/hereditary-cancer/comprehensive-hereditary-cancer-panel/"
+      # ... 17 more sub-panel URLs
+    parser_module: "parse_blueprint"
+    parser_class: "BlueprintParser"
+    output_path: "data/scraped/blueprint_genetics.json"
+```
+
+**Integration Configuration:**
+```yaml
+data_sources:
+  commercial_panels:
+    enabled: true
+    panels:
+      - name: "Myriad_myRisk"
+        file_path: "data/scraped/myriad_myrisk.json"
+        evidence_score: 0.8
+      - name: "Blueprint_Genetics"
+        file_path: "data/scraped/blueprint_genetics.json"
+        evidence_score: 0.8
+```
+
+#### Maintenance and Updates
+
+**Website Change Monitoring:**
+- Scrapers include robust fallback strategies for layout changes
+- XPath selectors aligned with original R implementation for consistency
+- CSS selectors provide modern alternative approaches
+- Comprehensive logging for debugging failed extractions
+
+**Adding New Providers:**
+1. Create new parser class inheriting from `BaseParser`
+2. Implement `parse()` method with site-specific logic
+3. Add configuration entry to `default_config.yml`
+4. Add integration to commercial panels data source
+5. Include comprehensive tests with mock HTML fixtures
+
+**Testing Framework:**
+```bash
+# Run scraper tests
+poetry run pytest tests/test_scrapers.py -v
+
+# Test specific parser
+poetry run pytest tests/test_scrapers.py::TestParsers::test_myriad_parser
+
+# Test CLI integration
+poetry run pytest tests/test_cli_integration.py -v
+```
+
+#### Error Handling and Monitoring
+
+**Robust Error Handling:**
+- Network timeouts and retry logic
+- Graceful degradation with multiple parsing strategies
+- Comprehensive logging for debugging
+- Selenium driver management and cleanup
+
+**Monitoring:**
+- Success/failure metrics per scraper
+- Gene count validation against expected ranges
+- Output file validation and formatting checks
+- Performance metrics and execution timing
 
 ### Adding Custom Data Sources
 
