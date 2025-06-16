@@ -6,7 +6,6 @@ This script suppresses known deprecation warnings from dependencies
 that are outside our control.
 """
 
-import sys
 import warnings
 
 # Suppress deprecation warnings before any other imports
