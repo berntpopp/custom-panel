@@ -26,6 +26,7 @@ from .sources.g00_inhouse_panels import fetch_inhouse_panels_data
 from .sources.g01_panelapp import fetch_panelapp_data
 from .sources.g02_hpo import fetch_hpo_neoplasm_data
 from .sources.g03_commercial_panels import fetch_commercial_panels_data
+from .sources.s01_cosmic import fetch_cosmic_data
 from .sources.s02_somatic_commercial import fetch_somatic_commercial_data
 
 # Suppress ALL deprecation warnings at module level
@@ -230,7 +231,7 @@ def run(
 def fetch(
     source: str = typer.Argument(
         ...,
-        help="Data source to fetch (panelapp, inhouse, acmg, manual, hpo, commercial, somatic_commercial)",
+        help="Data source to fetch (panelapp, inhouse, acmg, manual, hpo, commercial, cosmic, somatic_commercial)",
     ),
     config_file: Optional[str] = typer.Option(  # noqa: UP007
         None, "--config-file", "-c", help="Configuration file path"
@@ -264,12 +265,14 @@ def fetch(
         df = fetch_hpo_neoplasm_data(config)
     elif source.lower() == "commercial":
         df = fetch_commercial_panels_data(config)
+    elif source.lower() == "cosmic":
+        df = fetch_cosmic_data(config)
     elif source.lower() == "somatic_commercial":
         df = fetch_somatic_commercial_data(config)
     else:
         console.print(f"[red]Unknown source: {source}[/red]")
         console.print(
-            "Available sources: panelapp, inhouse, acmg, manual, hpo, commercial, somatic_commercial"
+            "Available sources: panelapp, inhouse, acmg, manual, hpo, commercial, cosmic, somatic_commercial"
         )
         raise typer.Exit(1)
 
@@ -421,6 +424,7 @@ def fetch_all_sources(config: dict[str, Any]) -> list[pd.DataFrame]:
         "manual_curation": fetch_manual_curation_data,
         "hpo_neoplasm": fetch_hpo_neoplasm_data,
         "commercial_panels": fetch_commercial_panels_data,
+        "cosmic": fetch_cosmic_data,
         "somatic_commercial": fetch_somatic_commercial_data,
     }
 
