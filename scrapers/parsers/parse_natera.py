@@ -6,6 +6,7 @@ Uses Selenium as the content is dynamic and looks for text following "Genes:" la
 """
 
 import logging
+import os
 import time
 
 from selenium import webdriver
@@ -36,20 +37,42 @@ class NateraParser(BaseParser):
         """
         driver = None
         try:
-            # Setup Chrome options for headless browsing
+            # Temporarily set no_proxy environment variable for localhost
+            original_no_proxy = os.environ.get("no_proxy", "")
+            os.environ["no_proxy"] = "localhost,127.0.0.1"
+
+            # Setup Chrome options for headless browsing (WSL-compatible)
             chrome_options = Options()
             chrome_options.add_argument("--headless")
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--disable-web-security")
+            chrome_options.add_argument("--disable-features=VizDisplayCompositor")
             chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument("--remote-debugging-port=9224")
+            chrome_options.add_argument("--disable-background-timer-throttling")
+            chrome_options.add_argument("--disable-renderer-backgrounding")
+            chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+            # Configure proxy for Charite network
+            chrome_options.add_argument("--proxy-server=http://proxy.charite.de:8080")
             chrome_options.add_argument(
                 "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             )
 
-            # Initialize driver
-            service = Service(ChromeDriverManager().install())
-            driver = webdriver.Chrome(service=service, options=chrome_options)
+            # Initialize driver - try manual ChromeDriver first, then fallback
+            try:
+                # Try manually downloaded ChromeDriver for Chrome 137
+                service = Service("/tmp/chromedriver-linux64/chromedriver")
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+            except Exception:
+                try:
+                    # Fallback to WebDriver Manager
+                    service = Service(ChromeDriverManager().install())
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
+                except Exception as e:
+                    logger.error(f"Failed to initialize ChromeDriver: {e}")
+                    raise
 
             # Load the page
             driver.get(self.url)
@@ -64,23 +87,60 @@ class NateraParser(BaseParser):
 
             genes = []
 
-            # Find strong tags with "Genes:" and extract following text
-            strong_elements = driver.find_elements(By.TAG_NAME, "strong")
-            for strong in strong_elements:
-                if "genes:" in strong.text.lower():
-                    # Get the parent element and extract text after "Genes:"
-                    parent = strong.find_element(By.XPATH, "..")
-                    text = parent.text
+            # R script uses: //strong[contains(text(),"Genes:")]/following-sibling::span|//strong[contains(text(),"Genes:")]/following-sibling::text()
+            # Find strong tags with "Genes:" and extract following siblings
+            try:
+                # Try the exact XPath from R script
+                gene_elements = driver.find_elements(
+                    By.XPATH,
+                    '//strong[contains(text(),"Genes:")]/following-sibling::span | //strong[contains(text(),"Genes:")]/following-sibling::text()',
+                )
+                for element in gene_elements:
+                    text = element.text if hasattr(element, "text") else str(element)
+                    if text:
+                        # Split by comma and parse like R script
+                        for gene in text.split(","):
+                            gene = gene.strip()
+                            if gene:
+                                cleaned_gene = self.clean_gene_symbol(gene)
+                                if cleaned_gene and self.validate_gene_symbol(
+                                    cleaned_gene
+                                ):
+                                    genes.append(cleaned_gene)
+            except Exception:
+                # Fallback to original approach
+                strong_elements = driver.find_elements(By.TAG_NAME, "strong")
+                for strong in strong_elements:
+                    if "genes:" in strong.text.lower():
+                        # Get following sibling elements
+                        try:
+                            following_elements = driver.execute_script(
+                                """
+                                var element = arguments[0];
+                                var siblings = [];
+                                var sibling = element.nextSibling;
+                                while (sibling) {
+                                    if (sibling.nodeType === 1 || sibling.nodeType === 3) {
+                                        siblings.push(sibling.textContent || sibling.data || '');
+                                    }
+                                    sibling = sibling.nextSibling;
+                                }
+                                return siblings.join(' ');
+                            """,
+                                strong,
+                            )
 
-                    # Find the part after "Genes:"
-                    if "genes:" in text.lower():
-                        gene_part = text.lower().split("genes:")[1].strip()
-
-                        # Parse gene list
-                        for gene in gene_part.split(","):
-                            cleaned_gene = self.clean_gene_symbol(gene)
-                            if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
-                                genes.append(cleaned_gene)
+                            if following_elements:
+                                for gene in following_elements.split(","):
+                                    gene = gene.strip()
+                                    if gene:
+                                        cleaned_gene = self.clean_gene_symbol(gene)
+                                        if cleaned_gene and self.validate_gene_symbol(
+                                            cleaned_gene
+                                        ):
+                                            genes.append(cleaned_gene)
+                        except Exception:
+                            continue
 
             # If no specific pattern found, look for gene lists generally
             if not genes:
@@ -114,5 +174,11 @@ class NateraParser(BaseParser):
             logger.error(f"Error parsing Natera panel: {e}")
             raise
         finally:
+            # Restore original no_proxy environment variable
+            if "original_no_proxy" in locals():
+                if original_no_proxy:
+                    os.environ["no_proxy"] = original_no_proxy
+                else:
+                    os.environ.pop("no_proxy", None)
             if driver:
                 driver.quit()

@@ -379,7 +379,7 @@ scrapers:
   # University of Chicago
   uchicago:
     enabled: true
-    url: "https://dnatesting.uchicago.edu/tests/hereditary-cancer-panel"
+    url: "https://dnatesting.uchicago.edu/tests/comprehensive-hereditary-cancer-panel"
     parser_module: "parse_uchicago"
     parser_class: "UChicagoParser"
     output_path: "data/scraped/uchicago.json"
@@ -387,7 +387,7 @@ scrapers:
   # Prevention Genetics
   prevention_genetics:
     enabled: true
-    url: "https://www.preventiongenetics.com/testInfo?val=Comprehensive+Cancer+Panel"
+    url: "https://www.preventiongenetics.com/testInfo?val=Cancer-Panel"
     parser_module: "parse_prevention"
     parser_class: "PreventionParser"
     output_path: "data/scraped/prevention_genetics.json"
@@ -395,7 +395,7 @@ scrapers:
   # Mayo Clinic
   mayo_clinic:
     enabled: true
-    url: "https://www.mayocliniclabs.com/test-catalog/Overview/606154"
+    url: "https://www.mayocliniclabs.com/test-catalog/Overview/614318"
     parser_module: "parse_mayo"
     parser_class: "MayoParser"
     output_path: "data/scraped/mayo_clinic.json"
@@ -403,7 +403,7 @@ scrapers:
   # GeneDx
   genedx_comprehensive:
     enabled: true
-    url: "https://www.genedx.com/test/comprehensive-cancer-panel/"
+    url: "https://www.genedx.com/tests/detail/oncogenedx-custom-panel-871"
     parser_module: "parse_genedx"
     parser_class: "GenedxParser"
     output_path: "data/scraped/genedx_comprehensive.json"
@@ -411,15 +411,15 @@ scrapers:
   # ARUP Laboratories
   arup:
     enabled: true
-    url: "https://www.aruplab.com/testing-information/0051386"
+    url: "https://arupconsult.com/ati/hereditary-cancer-panel"
     parser_module: "parse_arup"
     parser_class: "ArupParser"
     output_path: "data/scraped/arup.json"
   
-  # CGL (Cincinnati Children's)
+  # CGL (Cancer Genetics Lab)
   cgl:
     enabled: true
-    url: "https://www.cincinnatichildrens.org/service/c/clinical-genetics"
+    url: "http://cancergeneticslab.ca/genes/hereditary-cancer-panel/"
     parser_module: "parse_cgl"
     parser_class: "CglParser"
     output_path: "data/scraped/cgl.json"
@@ -427,7 +427,7 @@ scrapers:
   # NeoGenomics
   neogenomics:
     enabled: true
-    url: "https://neogenomics.com/test-menu/neocomprehensive-solid-tumor-panel"
+    url: "https://neogenomics.com/test-menu/full-comprehensive-cancer-panel-germline"
     parser_module: "parse_neogenomics"
     parser_class: "NeogenomicsParser"
     output_path: "data/scraped/neogenomics.json"
@@ -435,7 +435,7 @@ scrapers:
   # Natera
   natera:
     enabled: true
-    url: "https://www.natera.com/oncology/signatera-ctdna-test/"
+    url: "https://www.natera.com/oncology/empower-hereditary-cancer-test/clinicians/"
     parser_module: "parse_natera"
     parser_class: "NateraParser"
     output_path: "data/scraped/natera.json"

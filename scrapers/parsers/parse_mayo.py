@@ -29,9 +29,19 @@ class MayoParser(BaseParser):
             Exception: If parsing fails
         """
         try:
-            # Make request
+            # Make request with proxy support
             try:
-                response = requests.get(self.url, timeout=30)
+                # Setup proxy configuration for Charite network
+                proxies = {
+                    "http": "http://proxy.charite.de:8080",
+                    "https": "http://proxy.charite.de:8080",
+                }
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                }
+                response = requests.get(
+                    self.url, proxies=proxies, headers=headers, timeout=30
+                )
                 response.raise_for_status()
             except requests.RequestException as e:
                 logger.error(
@@ -44,18 +54,48 @@ class MayoParser(BaseParser):
 
             genes = []
 
-            # Find italic tags containing gene lists
-            italic_tags = soup.find_all("i")
-            for italic in italic_tags:
-                text = italic.get_text(strip=True)
-                if text and (
-                    "," in text or len(text.split()) > 1
-                ):  # Likely a gene list
-                    # Split by comma and extract genes
-                    for gene_part in text.split(","):
-                        cleaned_gene = self.clean_gene_symbol(gene_part)
-                        if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
-                            genes.append(cleaned_gene)
+            # Look for genes in the Genetics Test Information section
+            genetics_info = soup.find("div", class_="GeneticsTestInformation-value")
+            if genetics_info:
+                # Find the paragraph containing the gene list
+                paragraphs = genetics_info.find_all("p")
+                for paragraph in paragraphs:
+                    text = paragraph.get_text(strip=True)
+                    # Check if this paragraph contains gene symbols (comma-separated list)
+                    if "," in text and any(
+                        word.isupper() and len(word) <= 7 for word in text.split()
+                    ):
+                        logger.info(
+                            "Found gene list in Genetics Test Information section"
+                        )
+                        # Split by comma and extract genes
+                        gene_parts = text.split(",")
+                        for gene_part in gene_parts:
+                            # Clean up annotations like "(including promoters 1A and 1B)"
+                            gene_part = gene_part.strip()
+                            # Remove parenthetical information
+                            import re
+
+                            gene_part = re.sub(r"\s*\([^)]*\)", "", gene_part)
+
+                            cleaned_gene = self.clean_gene_symbol(gene_part)
+                            if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
+                                genes.append(cleaned_gene)
+                        break  # Found the gene list, no need to continue
+
+            # Fallback: Find italic tags containing gene lists (original logic)
+            if not genes:
+                italic_tags = soup.find_all("i")
+                for italic in italic_tags:
+                    text = italic.get_text(strip=True)
+                    if text and (
+                        "," in text or len(text.split()) > 1
+                    ):  # Likely a gene list
+                        # Split by comma and extract genes
+                        for gene_part in text.split(","):
+                            cleaned_gene = self.clean_gene_symbol(gene_part)
+                            if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
+                                genes.append(cleaned_gene)
 
             # Also check em tags
             if not genes:
@@ -68,20 +108,24 @@ class MayoParser(BaseParser):
                             if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
                                 genes.append(cleaned_gene)
 
-            # General search for gene patterns
+            # General search for gene patterns in divs/spans that might contain gene lists
             if not genes:
                 for element in soup.find_all(["div", "span", "p", "li"]):
                     text = element.get_text()
-                    if any(
-                        keyword in text.lower() for keyword in ["gene", "panel", "test"]
-                    ):
+                    # Look for comma-separated lists that might be genes
+                    if "," in text and len(text) < 2000:  # Reasonable length limit
                         import re
 
-                        potential_genes = re.findall(r"\b[A-Z][A-Z0-9]{1,7}\b", text)
-                        for gene in potential_genes:
-                            cleaned_gene = self.clean_gene_symbol(gene)
-                            if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
-                                genes.append(cleaned_gene)
+                        # Extract potential gene symbols (2-7 uppercase letters/numbers)
+                        potential_genes = re.findall(r"\b[A-Z][A-Z0-9]{1,6}\b", text)
+                        # Only proceed if we find multiple potential genes
+                        if len(potential_genes) >= 5:
+                            for gene in potential_genes:
+                                cleaned_gene = self.clean_gene_symbol(gene)
+                                if cleaned_gene and self.validate_gene_symbol(
+                                    cleaned_gene
+                                ):
+                                    genes.append(cleaned_gene)
 
             # Remove duplicates while preserving order
             unique_genes = []

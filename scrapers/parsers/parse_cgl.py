@@ -1,5 +1,5 @@
 """
-CGL (Cincinnati Children's) parser.
+CGL (Cancer Genetics Lab) parser.
 
 This module extracts gene information from CGL panel pages.
 Looks for genes in paragraphs following "GENES TARGETED" headers.
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class CglParser(BaseParser):
-    """Parser for CGL (Cincinnati Children's) panels."""
+    """Parser for CGL (Cancer Genetics Lab) panels."""
 
     def parse(self) -> list[str]:
         """
@@ -42,30 +42,50 @@ class CglParser(BaseParser):
 
             genes = []
 
+            # R script uses: //h2[contains(text(),"GENES TARGETED")]//following::p
             # Find h2 with "GENES TARGETED" text and look for following p tags
             genes_targeted_headers = soup.find_all(
                 "h2", string=lambda text: text and "genes targeted" in text.lower()
             )
 
             for header in genes_targeted_headers:
-                # Find the next paragraph
-                current = header.next_sibling
-                while current:
-                    if hasattr(current, "name") and current.name == "p":
-                        text = current.get_text(strip=True)
-                        if text:
-                            # Parse comma-separated gene list with significant string manipulation
-                            # Split by various delimiters
-                            for delimiter in [",", ";", "\n", "\t"]:
-                                parts = text.split(delimiter)
-                                for part in parts:
-                                    cleaned_gene = self.clean_gene_symbol(part)
-                                    if cleaned_gene and self.validate_gene_symbol(
-                                        cleaned_gene
-                                    ):
-                                        genes.append(cleaned_gene)
-                        break
-                    current = current.next_sibling
+                # Find all following paragraphs, not just the next one
+                for p_tag in header.find_all_next("p"):
+                    text = p_tag.get_text(strip=True)
+                    if text:
+                        # R script applies several filters and cleaning
+                        if any(
+                            skip in text
+                            for skip in [
+                                "Single nucleotide variants",
+                                "Variants not presumed by nature",
+                                "Genomic DNA is subjected to FFPE repair",
+                                "Variants are validated",
+                            ]
+                        ):
+                            continue
+
+                        # Remove R script patterns
+                        text = text.replace("Entire coding region: ", "")
+                        text = text.replace("Partial Genes: ", "")
+                        text = text.replace(
+                            "Copy Number Variants (not applicable to FFPE specimens): Copy number variants are called in all of the above genes as well as:",
+                            "",
+                        )
+
+                        # Split by semicolon like R script
+                        parts = text.split(";")
+                        for part in parts:
+                            part = part.strip()
+                            if part:
+                                # Remove underscore patterns like R script
+                                if "_" in part:
+                                    part = part.split("_")[0]
+                                cleaned_gene = self.clean_gene_symbol(part)
+                                if cleaned_gene and self.validate_gene_symbol(
+                                    cleaned_gene
+                                ):
+                                    genes.append(cleaned_gene)
 
             # If specific approach didn't work, look for gene patterns generally
             if not genes:
