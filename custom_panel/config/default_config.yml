@@ -113,21 +113,11 @@ data_sources:
   manual_curation:
     enabled: true
     lists:
-      - name: "Literature_Review_2024"
-        file_path: "data/manual/literature_genes_2024.txt"
-        gene_column: "gene_symbol"  # Default column name for text files
+      - name: "manual_gene-list_2023"
+        file_path: "data/manual/manual_gene-list.xlsx"
+        gene_column: "genes"  # Default column name for text files
         evidence_score: 1.2
         category: "germline"  # "germline" or "somatic"
-      - name: "Expert_Panel_Recommendations"
-        file_path: "data/manual/expert_panel_genes.csv"
-        gene_column: "Gene"
-        evidence_score: 1.1
-        category: "germline"  # "germline" or "somatic"
-      - name: "Clinical_Variant_Database"
-        file_path: "data/manual/clinical_variants.xlsx"
-        gene_column: "Gene Symbol"
-        evidence_score: 1.0
-        category: "somatic"  # "germline" or "somatic"
 
   # Somatic commercial panels (direct file download and processing)
   somatic_commercial:
