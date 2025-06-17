@@ -1145,7 +1145,7 @@ class TestCOSMICData:
 
         errors = validate_cosmic_config(config)
         assert len(errors) > 0
-        assert any("census_url is required" in error for error in errors)
+        assert any("requires either credentials" in error for error in errors)
         assert any(
             "cache_expiry_days must be a positive integer" in error for error in errors
         )
@@ -1234,8 +1234,10 @@ class TestCOSMICData:
             "data_sources": {
                 "cosmic": {
                     "enabled": True,
+                    "email": "test@example.com",
+                    "password": "testpass",
                     "census_url": "https://example.com/census.csv",
-                    "cache_dir": ".cache/cosmic",
+                    "cache_dir": ".cache/cosmic_test",
                     "cache_expiry_days": 30,
                     "germline_scoring": {"enabled": True},
                     "somatic_scoring": {"enabled": False},
@@ -1246,8 +1248,9 @@ class TestCOSMICData:
         summary = get_cosmic_summary(config)
 
         assert summary["enabled"] is True
+        assert summary["has_credentials"] is True
         assert summary["census_url"] == "https://example.com/census.csv"
-        assert summary["cache_dir"] == ".cache/cosmic"
+        assert summary["cache_dir"] == ".cache/cosmic_test"
         assert summary["cache_expiry_days"] == 30
         assert summary["germline_enabled"] is True
         assert summary["somatic_enabled"] is False

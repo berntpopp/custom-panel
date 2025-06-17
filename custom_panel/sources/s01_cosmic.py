@@ -1,8 +1,9 @@
 """
-COSMIC Cancer Gene Census data source extractor.
+COSMIC Cancer Gene Census data source extractor with authentication.
 
 This module fetches and processes the COSMIC Cancer Gene Census, providing
 both germline and somatic evidence scoring based on tier classifications.
+Includes authentication support for accessing COSMIC data through login.
 """
 
 import logging
@@ -17,10 +18,261 @@ from ..core.io import create_standard_dataframe
 
 logger = logging.getLogger(__name__)
 
+# COSMIC URLs
+COSMIC_LOGIN_URL = "https://cancer.sanger.ac.uk/cosmic/login"
+COSMIC_FILE_DOWNLOAD_URL = "https://cancer.sanger.ac.uk/cosmic/file_download/GRCh38/cosmic/v97/cancer_gene_census.csv"
+
+
+class COSMICAuthenticationError(Exception):
+    """Raised when COSMIC authentication fails."""
+
+    pass
+
+
+class COSMICSession:
+    """Manages COSMIC authentication and session handling."""
+
+    def __init__(self, email: str, password: str):
+        """
+        Initialize COSMIC session.
+
+        Args:
+            email: COSMIC account email
+            password: COSMIC account password
+        """
+        self.email = email
+        self.password = password
+        self.session = requests.Session()
+        self._setup_session()
+
+    def _setup_session(self) -> None:
+        """Setup session with appropriate headers."""
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Cache-Control": "max-age=0",
+                "Sec-CH-UA": '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+                "Sec-CH-UA-Mobile": "?0",
+                "Sec-CH-UA-Platform": '"Windows"',
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "same-origin",
+                "Sec-Fetch-User": "?1",
+                "Upgrade-Insecure-Requests": "1",
+            }
+        )
+
+    def login(self) -> None:
+        """
+        Authenticate with COSMIC using credentials.
+
+        Raises:
+            COSMICAuthenticationError: If login fails
+        """
+        logger.info("Authenticating with COSMIC...")
+
+        try:
+            # First, get the login page to establish session
+            login_page_response = self.session.get(COSMIC_LOGIN_URL, timeout=30)
+            login_page_response.raise_for_status()
+
+            # Prepare login data
+            login_data = {
+                "email": self.email,
+                "pass": self.password,
+                "r_url": "",  # redirect URL (empty for default)
+                "d": "0",  # download flag
+            }
+
+            # Set appropriate headers for form submission
+            login_headers = {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Origin": "https://cancer.sanger.ac.uk",
+                "Referer": COSMIC_LOGIN_URL,
+            }
+
+            # Perform login
+            login_response = self.session.post(
+                COSMIC_LOGIN_URL,
+                data=login_data,
+                headers=login_headers,
+                timeout=30,
+                allow_redirects=True,
+            )
+            login_response.raise_for_status()
+
+            # Check if login was successful
+            logger.debug(f"Login response URL: {login_response.url}")
+            logger.debug(f"Login response status: {login_response.status_code}")
+
+            # Check for explicit error indicators
+            response_text_lower = login_response.text.lower()
+            if "invalid" in response_text_lower or "incorrect" in response_text_lower:
+                raise COSMICAuthenticationError("Invalid credentials")
+
+            # If we're still on the login page, check for error messages
+            if "login" in login_response.url.lower():
+                if "error" in response_text_lower or "failed" in response_text_lower:
+                    raise COSMICAuthenticationError(
+                        "Login failed - please check credentials"
+                    )
+                # Sometimes COSMIC returns to login page even on success
+                logger.warning("Still on login page, but no explicit error detected")
+
+            logger.info("Successfully authenticated with COSMIC")
+
+        except requests.RequestException as e:
+            logger.error(f"Network error during COSMIC login: {e}")
+            raise COSMICAuthenticationError(f"Failed to connect to COSMIC: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error during COSMIC login: {e}")
+            raise COSMICAuthenticationError(f"Login failed: {e}") from e
+
+    def get_download_url(self, file_endpoint: str) -> str:
+        """
+        Get authenticated download URL for a COSMIC file.
+
+        Args:
+            file_endpoint: The file download endpoint
+
+        Returns:
+            Authenticated download URL
+
+        Raises:
+            COSMICAuthenticationError: If unable to get download URL
+        """
+        try:
+            logger.info(f"Getting download URL for: {file_endpoint}")
+
+            response = self.session.get(file_endpoint, timeout=30)
+            response.raise_for_status()
+
+            logger.debug(f"Download URL response status: {response.status_code}")
+            logger.debug(
+                f"Download URL response content type: {response.headers.get('content-type', 'unknown')}"
+            )
+
+            # Check if we're being redirected to login (authentication failed)
+            if "login" in response.url.lower():
+                raise COSMICAuthenticationError(
+                    "Authentication expired or invalid - redirected to login"
+                )
+
+            # Parse JSON response to get the actual download URL
+            try:
+                data = response.json()
+                download_url = data.get("url")
+                if not download_url:
+                    logger.error(f"No download URL in response: {data}")
+                    raise COSMICAuthenticationError(
+                        "No download URL returned by COSMIC"
+                    )
+
+                logger.info("Successfully obtained authenticated download URL")
+                logger.debug(
+                    f"Download URL: {download_url[:100]}..."
+                )  # Log first 100 chars for security
+                return download_url
+
+            except ValueError as e:
+                logger.error(
+                    f"Invalid JSON response from COSMIC. Response text (first 500 chars): {response.text[:500]}"
+                )
+                logger.error(f"Full response headers: {dict(response.headers)}")
+                raise COSMICAuthenticationError(f"Invalid response format: {e}") from e
+
+        except requests.RequestException as e:
+            logger.error(f"Network error getting download URL: {e}")
+            raise COSMICAuthenticationError(f"Failed to get download URL: {e}") from e
+
+    def download_file(self, download_url: str, cache_path: Path) -> None:
+        """
+        Download file from authenticated URL.
+
+        Args:
+            download_url: Authenticated download URL
+            cache_path: Local path to save the file
+
+        Raises:
+            COSMICAuthenticationError: If download fails
+        """
+        logger.info(f"Downloading COSMIC file to: {cache_path}")
+
+        # Create cache directory
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            response = self.session.get(download_url, timeout=300, stream=True)
+            response.raise_for_status()
+
+            # Save file with progress tracking
+            total_size = int(response.headers.get("content-length", 0))
+            downloaded_size = 0
+
+            with open(cache_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded_size += len(chunk)
+
+                        # Log progress for large files
+                        if (
+                            total_size > 0 and downloaded_size % (1024 * 1024) == 0
+                        ):  # Every MB
+                            progress = (downloaded_size / total_size) * 100
+                            logger.debug(f"Download progress: {progress:.1f}%")
+
+            logger.info(
+                f"Successfully downloaded COSMIC file ({downloaded_size:,} bytes)"
+            )
+
+        except requests.RequestException as e:
+            logger.error(f"Failed to download COSMIC file: {e}")
+            if cache_path.exists():
+                cache_path.unlink()  # Remove partial download
+            raise COSMICAuthenticationError(f"Download failed: {e}") from e
+
+
+def _download_cosmic_census_authenticated(
+    email: str, password: str, cache_path: Path
+) -> None:
+    """
+    Download COSMIC Cancer Gene Census file with authentication.
+
+    Args:
+        email: COSMIC account email
+        password: COSMIC account password
+        cache_path: Local path to save the file
+
+    Raises:
+        COSMICAuthenticationError: If authentication or download fails
+    """
+    try:
+        # Create authenticated session
+        cosmic_session = COSMICSession(email, password)
+
+        # Login to COSMIC
+        cosmic_session.login()
+
+        # Get authenticated download URL
+        download_url = cosmic_session.get_download_url(COSMIC_FILE_DOWNLOAD_URL)
+
+        # Download the file
+        cosmic_session.download_file(download_url, cache_path)
+
+    except COSMICAuthenticationError:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during COSMIC download: {e}")
+        raise COSMICAuthenticationError(f"Download failed: {e}") from e
+
 
 def _download_cosmic_census(url: str, cache_path: Path) -> None:
     """
-    Download COSMIC Cancer Gene Census file.
+    Download COSMIC Cancer Gene Census file (legacy unauthenticated method).
 
     Args:
         url: URL to download from
@@ -223,7 +475,7 @@ def _process_cosmic_genes(
 
 def fetch_cosmic_data(config: dict[str, Any]) -> pd.DataFrame:
     """
-    Fetch COSMIC Cancer Gene Census data with caching and dual-category processing.
+    Fetch COSMIC Cancer Gene Census data with authentication and caching.
 
     Args:
         config: Configuration dictionary
@@ -237,26 +489,55 @@ def fetch_cosmic_data(config: dict[str, Any]) -> pd.DataFrame:
         logger.info("COSMIC data source is disabled")
         return pd.DataFrame()
 
-    # Get configuration parameters
-    census_url = cosmic_config.get("census_url")
-    if not census_url:
-        logger.error("COSMIC census_url not configured")
-        return pd.DataFrame()
-
     cache_dir = Path(cosmic_config.get("cache_dir", ".cache/cosmic"))
     cache_expiry_days = cosmic_config.get("cache_expiry_days", 30)
     cache_path = cache_dir / "cosmic_gene_census.csv"
 
     # Check cache and download if needed
     if not _is_cache_valid(cache_path, cache_expiry_days):
-        try:
-            _download_cosmic_census(census_url, cache_path)
-        except requests.RequestException as e:
-            logger.error(f"Failed to download COSMIC census: {e}")
-            if cache_path.exists():
-                logger.warning("Using expired cache file")
+        logger.info("COSMIC cache expired or missing, downloading new data...")
+
+        # Try authenticated download first
+        email = cosmic_config.get("email")
+        password = cosmic_config.get("password")
+
+        if email and password:
+            logger.info("Using authenticated COSMIC download")
+            try:
+                _download_cosmic_census_authenticated(email, password, cache_path)
+            except COSMICAuthenticationError as e:
+                logger.error(f"Authenticated download failed: {e}")
+                logger.error("Please check your COSMIC credentials in config.local.yml")
+                logger.error("Required configuration:")
+                logger.error("data_sources:")
+                logger.error("  cosmic:")
+                logger.error("    email: your-cosmic-email@example.com")
+                logger.error("    password: your-cosmic-password")
+                return pd.DataFrame()
+        else:
+            # Fallback to legacy URL if provided
+            census_url = cosmic_config.get("census_url")
+            if census_url:
+                logger.warning(
+                    "No COSMIC credentials found, trying legacy URL download"
+                )
+                try:
+                    _download_cosmic_census(census_url, cache_path)
+                except requests.RequestException as e:
+                    logger.error(f"Legacy download failed: {e}")
+                    if cache_path.exists():
+                        logger.warning("Using expired cache file")
+                    else:
+                        logger.error("No cache file available, cannot proceed")
+                        return pd.DataFrame()
             else:
-                logger.error("No cache file available, cannot proceed")
+                logger.error("No COSMIC credentials or legacy URL configured")
+                logger.error("Please add COSMIC credentials to config.local.yml:")
+                logger.error("data_sources:")
+                logger.error("  cosmic:")
+                logger.error("    enabled: true")
+                logger.error("    email: your-cosmic-email@example.com")
+                logger.error("    password: your-cosmic-password")
                 return pd.DataFrame()
     else:
         logger.info(f"Using cached COSMIC census: {cache_path}")
@@ -310,9 +591,21 @@ def validate_cosmic_config(config: dict[str, Any]) -> list[str]:
     if not cosmic_config.get("enabled", False):
         return errors  # Skip validation if disabled
 
-    # Check required parameters
-    if not cosmic_config.get("census_url"):
-        errors.append("COSMIC census_url is required")
+    # Check authentication credentials
+    email = cosmic_config.get("email")
+    password = cosmic_config.get("password")
+    census_url = cosmic_config.get("census_url")
+
+    if not email and not password and not census_url:
+        errors.append(
+            "COSMIC requires either credentials (email/password) or legacy census_url"
+        )
+    elif email and not password:
+        errors.append("COSMIC email provided but password missing")
+    elif password and not email:
+        errors.append("COSMIC password provided but email missing")
+    elif email and "@" not in email:
+        errors.append("COSMIC email appears to be invalid")
 
     # Validate cache settings
     cache_expiry = cosmic_config.get("cache_expiry_days")
@@ -352,6 +645,9 @@ def get_cosmic_summary(config: dict[str, Any]) -> dict[str, Any]:
 
     summary = {
         "enabled": cosmic_config.get("enabled", False),
+        "has_credentials": bool(
+            cosmic_config.get("email") and cosmic_config.get("password")
+        ),
         "census_url": cosmic_config.get("census_url"),
         "cache_dir": cosmic_config.get("cache_dir", ".cache/cosmic"),
         "cache_expiry_days": cosmic_config.get("cache_expiry_days", 30),

@@ -62,38 +62,43 @@ def setup_logging(log_level: str = "INFO") -> None:
 
 def load_config(config_file: Optional[str] = None) -> dict[str, Any]:  # noqa: UP007
     """Load configuration from file."""
-    if config_file:
-        config_path = Path(config_file)
-    else:
-        # Try to find default config
-        default_config = Path(__file__).parent / "config" / "default_config.yml"
-        if default_config.exists():
-            config_path = default_config
-        else:
-            typer.echo(
-                "No configuration file found. Use --config-file to specify one.",
-                err=True,
-            )
-            raise typer.Exit(1)
+    # Always start with default config
+    default_config_path = Path(__file__).parent / "config" / "default_config.yml"
 
-    if not config_path.exists():
-        typer.echo(f"Configuration file not found: {config_path}", err=True)
+    if not default_config_path.exists():
+        typer.echo(
+            "Default configuration file not found. Installation may be corrupted.",
+            err=True,
+        )
         raise typer.Exit(1)
 
     try:
-        with open(config_path) as f:
+        # Load default config first
+        with open(default_config_path) as f:
             config = yaml.safe_load(f)
+        typer.echo(f"Loaded default configuration from: {default_config_path}")
 
-        typer.echo(f"Loaded configuration from: {config_path}")
+        # If a specific config file was provided, treat it as override
+        if config_file:
+            override_path = Path(config_file)
+            if not override_path.exists():
+                typer.echo(f"Configuration file not found: {override_path}", err=True)
+                raise typer.Exit(1)
 
-        # Try to load local configuration overrides
-        local_config_path = Path("config.local.yml")
-        if local_config_path.exists():
-            typer.echo(f"Loading local config overrides from: {local_config_path}")
-            with open(local_config_path) as f:
-                local_config = yaml.safe_load(f)
-                if local_config:
-                    config = _merge_configs(config, local_config)
+            typer.echo(f"Loading config overrides from: {override_path}")
+            with open(override_path) as f:
+                override_config = yaml.safe_load(f)
+                if override_config:
+                    config = _merge_configs(config, override_config)
+        else:
+            # No specific config file, check for local overrides
+            local_config_path = Path("config.local.yml")
+            if local_config_path.exists():
+                typer.echo(f"Loading local config overrides from: {local_config_path}")
+                with open(local_config_path) as f:
+                    local_config = yaml.safe_load(f)
+                    if local_config:
+                        config = _merge_configs(config, local_config)
 
         return config
     except Exception as e:

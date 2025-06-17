@@ -1,0 +1,36 @@
+# Example Local Configuration File
+# Copy this to config.local.yml and update with your credentials
+# DO NOT commit config.local.yml to version control!
+
+data_sources:
+  # COSMIC Cancer Gene Census (requires authentication)
+  cosmic:
+    # Your COSMIC account credentials
+    email: your-cosmic-email@example.com
+    password: your-cosmic-password
+    
+    # Note: All other COSMIC settings (scoring, cache, etc.) are defined in default_config.yml
+    # You only need to provide credentials here
+
+  # HPO/OMIM neoplasm data (requires OMIM access)
+  hpo_neoplasm:
+    enabled: true
+    # Your OMIM genemap2 download URL with authentication token
+    omim_genemap2_url: https://data.omim.org/downloads/YOUR_KEY_HERE/genemap2.txt
+
+  # Other data sources can be configured here...
+  panelapp:
+    enabled: true
+    # Additional panelapp configuration...
+    
+  # Enable/disable other sources as needed
+  inhouse_panels:
+    enabled: false
+  manual_curation:
+    enabled: false
+  commercial_panels:
+    enabled: false
+  acmg_incidental:
+    enabled: true
+  somatic_commercial:
+    enabled: false
