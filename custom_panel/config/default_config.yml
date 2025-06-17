@@ -339,7 +339,7 @@ scrapers:
   # Centogene panels
   centogene:
     enabled: true
-    url: "https://www.centogene.com/diagnostics/our-tests/ngs-panels/oncology"
+    url: "https://www.centoportal.com/order/new/products/analysis-method?queryType=TEST&query=Solid%20tumor"
     parser_module: "parse_centogene"
     parser_class: "CentogeneParser"
     output_path: "data/scraped/centogene.json"
