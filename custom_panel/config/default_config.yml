@@ -394,7 +394,7 @@ scrapers:
   
   # Mayo Clinic
   mayo_clinic:
-    enabled: true
+    enabled: false  # Requires Selenium with complex proxy bypass - disabled for now
     url: "https://www.mayocliniclabs.com/test-catalog/Overview/614318"
     parser_module: "parse_mayo"
     parser_class: "MayoParser"

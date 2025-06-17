@@ -29,28 +29,90 @@ class MayoParser(BaseParser):
             Exception: If parsing fails
         """
         try:
-            # Make request with proxy support
+            # Try requests first, fallback to Selenium for strong anti-bot protection
+            html_content = None
             try:
-                # Setup proxy configuration for Charite network
-                proxies = {
-                    "http": "http://proxy.charite.de:8080",
-                    "https": "http://proxy.charite.de:8080",
-                }
+                import time
+                
                 headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'cross-site',
+                    'Sec-Fetch-User': '?1',
+                    'Cache-Control': 'max-age=0',
+                    'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                    'sec-ch-ua-mobile': '?0',
+                    'sec-ch-ua-platform': '"macOS"'
                 }
-                response = requests.get(
-                    self.url, proxies=proxies, headers=headers, timeout=30
-                )
+                
+                session = requests.Session()
+                session.headers.update(headers)
+                response = session.get(self.url, timeout=30)
                 response.raise_for_status()
+                html_content = response.content
+                
             except requests.RequestException as e:
-                logger.error(
-                    f"Network request to Mayo Clinic URL failed: {self.url} - {e}"
-                )
-                raise  # Re-raise the exception to be caught by the master runner
+                logger.warning(f"Requests method failed for Mayo Clinic: {e}. Trying Selenium...")
+                
+                # Fallback to Selenium
+                try:
+                    from selenium import webdriver
+                    from selenium.webdriver.chrome.options import Options
+                    from selenium.webdriver.common.by import By
+                    from selenium.webdriver.support.ui import WebDriverWait
+                    from selenium.webdriver.support import expected_conditions as EC
+                    import time
+                    
+                    # Setup Chrome options
+                    chrome_options = Options()
+                    chrome_options.add_argument('--headless')  # Run in background
+                    chrome_options.add_argument('--no-sandbox')
+                    chrome_options.add_argument('--disable-dev-shm-usage')
+                    chrome_options.add_argument('--disable-gpu')
+                    chrome_options.add_argument('--window-size=1920,1080')
+                    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                    chrome_options.add_argument('--no-proxy-server')  # Bypass proxy for direct connection
+                    chrome_options.add_argument('--disable-web-security')
+                    chrome_options.add_argument('--allow-running-insecure-content')
+                    chrome_options.add_argument('--disable-features=VizDisplayCompositor')
+                    
+                    # Create driver
+                    driver = webdriver.Chrome(options=chrome_options)
+                    
+                    try:
+                        # Navigate to page
+                        driver.get(self.url)
+                        
+                        # Wait for page to load
+                        WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.TAG_NAME, "body"))
+                        )
+                        
+                        # Additional wait for content to load
+                        time.sleep(3)
+                        
+                        html_content = driver.page_source.encode('utf-8')
+                        logger.info("Successfully retrieved Mayo Clinic page with Selenium")
+                        
+                    finally:
+                        driver.quit()
+                        
+                except Exception as selenium_error:
+                    logger.error(f"Selenium method also failed for Mayo Clinic: {selenium_error}")
+                    raise Exception(f"Both requests and Selenium failed. Last error: {selenium_error}")
+            
+            if not html_content:
+                raise Exception("Failed to retrieve page content")
 
             # Parse HTML
-            soup = BeautifulSoup(response.content, "html.parser")
+            soup = BeautifulSoup(html_content, "html.parser")
 
             genes = []
 

@@ -56,11 +56,23 @@ class CegatParser(BaseParser):
                         for em in em_tags:
                             text = em.get_text(strip=True)
                             if text:
-                                cleaned_gene = self.clean_gene_symbol(text)
-                                if cleaned_gene and self.validate_gene_symbol(
-                                    cleaned_gene
-                                ):
-                                    genes.append(cleaned_gene)
+                                # Check if this is a comma-separated list of genes
+                                if "," in text:
+                                    # Split by comma and process each gene
+                                    potential_genes = [g.strip() for g in text.split(",")]
+                                    for gene in potential_genes:
+                                        cleaned_gene = self.clean_gene_symbol(gene)
+                                        if cleaned_gene and self.validate_gene_symbol(
+                                            cleaned_gene
+                                        ):
+                                            genes.append(cleaned_gene)
+                                else:
+                                    # Single gene
+                                    cleaned_gene = self.clean_gene_symbol(text)
+                                    if cleaned_gene and self.validate_gene_symbol(
+                                        cleaned_gene
+                                    ):
+                                        genes.append(cleaned_gene)
 
                     # Move to next sibling
                     current = current.next_sibling
@@ -74,10 +86,25 @@ class CegatParser(BaseParser):
                 em_tags = soup.find_all("em")
                 for em in em_tags:
                     text = em.get_text(strip=True)
-                    if text and len(text) <= 20:
-                        cleaned_gene = self.clean_gene_symbol(text)
-                        if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
-                            genes.append(cleaned_gene)
+                    if text:
+                        # Check if this is a comma-separated list
+                        if "," in text and len(text) > 20:
+                            # This might be a gene list
+                            potential_genes = [g.strip() for g in text.split(",")]
+                            # Only process if it looks like a gene list (multiple valid genes)
+                            valid_genes = []
+                            for gene in potential_genes:
+                                cleaned_gene = self.clean_gene_symbol(gene)
+                                if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
+                                    valid_genes.append(cleaned_gene)
+                            # If we found multiple valid genes, add them all
+                            if len(valid_genes) > 5:  # Threshold to confirm it's a gene list
+                                genes.extend(valid_genes)
+                        elif len(text) <= 20:
+                            # Single gene
+                            cleaned_gene = self.clean_gene_symbol(text)
+                            if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
+                                genes.append(cleaned_gene)
 
             # Look for gene information in other elements
             if not genes:
