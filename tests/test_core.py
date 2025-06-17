@@ -382,7 +382,7 @@ class TestIO:
             validate_panel_dataframe(df)
 
         # Invalid evidence scores
-        df = create_standard_dataframe(["BRCA1"], "Test", [2.0])  # Score > 1.0
+        df = create_standard_dataframe(["BRCA1"], "Test", [6.0])  # Score > 5.0
         with pytest.raises(ValueError, match="source_evidence_score must be between"):
             validate_panel_dataframe(df)
 

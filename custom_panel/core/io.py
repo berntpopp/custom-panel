@@ -18,7 +18,7 @@ STANDARD_COLUMNS = [
     "hgnc_id",  # str: HGNC ID (e.g., "HGNC:5")
     "gene_name_reported",  # str: Original gene name from source
     "source_name",  # str: Data source identifier
-    "source_evidence_score",  # float: Normalized evidence score (0.0-1.0)
+    "source_evidence_score",  # float: Normalized evidence score (0.0-5.0)
     "source_details",  # str: Additional source-specific information
 ]
 
@@ -119,7 +119,7 @@ def create_standard_dataframe(
 
     df = pd.DataFrame(
         {
-            "approved_symbol": [""] * n_genes,  # Will be filled by HGNC annotation
+            "approved_symbol": genes,  # Raw gene symbols, will be normalized by HGNC annotation
             "hgnc_id": [""] * n_genes,  # Will be filled by HGNC annotation
             "gene_name_reported": gene_names_reported,  # Original symbols from source
             "source_name": [source_name] * n_genes,

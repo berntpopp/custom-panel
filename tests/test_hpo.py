@@ -12,7 +12,7 @@ from custom_panel.core.hpo_client import HPOClient
 from custom_panel.sources.g02_hpo import (
     _calculate_evidence_score,
     _create_source_details,
-    _get_genes_from_omim_file,
+    _extract_genes_from_omim,
     fetch_hpo_neoplasm_data,
     get_hpo_neoplasm_summary,
     validate_hpo_neoplasm_config,
@@ -115,21 +115,26 @@ class TestHPOClient:
         client = HPOClient()
         genes = client.get_term_genes("HP:0002664")
 
-        assert len(genes) == 2
-        assert genes[0]["gene_symbol"] == "TP53"
-        assert genes[0]["entrez_id"] == "7157"
-        assert genes[1]["gene_symbol"] == "BRCA1"
+        # Current HPO API doesn't provide gene associations directly
+        assert len(genes) == 0
 
     @patch("custom_panel.core.hpo_client.requests.Session.get")
     def test_get_descendant_terms(self, mock_get):
         """Test getting descendant terms."""
 
-        # Mock responses for term hierarchy
+        # Mock responses for descendants endpoint (preferred) and fallback to individual terms
         def side_effect(url, **kwargs):
             mock_response = Mock()
             mock_response.raise_for_status.return_value = None
 
-            if "HP:0002664" in url:  # Root term
+            if "descendants" in url and "HP:0002664" in url:
+                # Mock descendants endpoint response
+                mock_response.json.return_value = [
+                    {"id": "HP:0012531"},
+                    {"id": "HP:0012532"},
+                    {"id": "HP:0012533"},
+                ]
+            elif "HP:0002664" in url:  # Root term
                 mock_response.json.return_value = {
                     "id": "HP:0002664",
                     "name": "Neoplasm",
@@ -218,9 +223,11 @@ class TestHPONeoplasm:
 
     def test_validate_hpo_neoplasm_config_valid(self):
         """Test validation of valid HPO neoplasm config."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("Gene Symbol,Disease\n")
-            f.write("TP53,Li-Fraumeni syndrome\n")
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("# OMIM genemap2.txt\n")
+            f.write(
+                "1\t123\t456\t1p36.33\t\t191170\tTP53\tTumor protein p53\tTP53\t7157\t\t\tLi-Fraumeni syndrome, 151623 (3)\t\n"
+            )
             f.flush()
 
             try:
@@ -228,10 +235,9 @@ class TestHPONeoplasm:
                     "data_sources": {
                         "hpo_neoplasm": {
                             "enabled": True,
-                            "omim_file_path": f.name,
-                            "specific_hpo_terms": ["HP:0002664", "HP:0012531"],
+                            "omim_genemap2_path": f.name,
                             "base_evidence_score": 0.7,
-                            "max_hierarchy_depth": 5,
+                            "cache_expiry_days": 30,
                         }
                     }
                 }
@@ -247,10 +253,9 @@ class TestHPONeoplasm:
             "data_sources": {
                 "hpo_neoplasm": {
                     "enabled": True,
-                    "omim_file_path": "/nonexistent/file.csv",
-                    "specific_hpo_terms": ["INVALID_ID", "HP:0002664"],
+                    "omim_genemap2_path": "/nonexistent/file.txt",
                     "base_evidence_score": 1.5,  # Invalid range
-                    "max_hierarchy_depth": 25,  # Invalid range
+                    "cache_expiry_days": -1,  # Invalid range
                 }
             }
         }
@@ -258,113 +263,142 @@ class TestHPONeoplasm:
         errors = validate_hpo_neoplasm_config(config)
         assert len(errors) > 0
         assert any("does not exist" in error for error in errors)
-        assert any("must be a valid HPO ID" in error for error in errors)
         assert any("base_evidence_score must be between" in error for error in errors)
-        assert any("max_hierarchy_depth must be between" in error for error in errors)
+        assert any(
+            "cache_expiry_days must be a positive integer" in error for error in errors
+        )
 
-    def test_get_genes_from_omim_file_csv(self):
-        """Test getting genes from OMIM CSV file."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("Gene Symbol,Disease,OMIM ID\n")
-            f.write("TP53,Li-Fraumeni syndrome,151623\n")
-            f.write("BRCA1,Breast cancer,113705\n")
-            f.flush()
-
-            try:
-                config = {
-                    "omim_gene_column": "Gene Symbol",
-                    "omim_disease_column": "Disease",
-                    "omim_id_column": "OMIM ID",
-                }
-
-                genes = _get_genes_from_omim_file(f.name, config)
-
-                assert len(genes) == 2
-                assert "TP53" in genes
-                assert "BRCA1" in genes
-                assert "Li-Fraumeni syndrome" in genes["TP53"]["diseases"]
-                assert "OMIM" in genes["TP53"]["evidence_sources"]
-                assert "omim_file" in genes["TP53"]["source_methods"]
-            finally:
-                Path(f.name).unlink()
-
-    def test_get_genes_from_omim_file_excel(self):
-        """Test getting genes from OMIM Excel file."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            excel_path = Path(tmpdir) / "omim_data.xlsx"
-            df = pd.DataFrame(
-                {
-                    "Gene": ["TP53", "BRCA1", "EGFR"],
-                    "Disease": ["Li-Fraumeni", "Breast cancer", "Lung cancer"],
-                    "OMIM": ["151623", "113705", "131550"],
-                }
-            )
-            df.to_excel(excel_path, index=False)
-
-            config = {
-                "omim_gene_column": "Gene",
-                "omim_disease_column": "Disease",
-                "omim_id_column": "OMIM",
+    def test_extract_genes_from_omim(self):
+        """Test extracting genes from OMIM data."""
+        # Create mock OMIM DataFrame
+        omim_df = pd.DataFrame(
+            {
+                "approved_symbol": ["TP53", "BRCA1", "KRAS"],
+                "phenotypes": [
+                    "Li-Fraumeni syndrome, 151623 (3), Autosomal dominant; Colorectal cancer, 114500 (3)",
+                    "Breast-ovarian cancer, familial, 1, 604370 (3), Autosomal dominant",
+                    "Cardiofaciocutaneous syndrome, 115150 (3); Noonan syndrome, 163950 (3)",
+                ],
+                "entrez_gene_id": ["7157", "672", "3845"],
+                "mim_number": ["191170", "113705", "190070"],
             }
+        )
 
-            genes = _get_genes_from_omim_file(str(excel_path), config)
+        # Create mock phenotype DataFrame
+        phenotype_df = pd.DataFrame(
+            {
+                "database_id": ["OMIM:151623", "OMIM:604370", "OMIM:115150"],
+                "hpo_id": ["HP:0002664", "HP:0000729", "HP:0001631"],
+                "disease_name": [
+                    "Li-Fraumeni syndrome",
+                    "Breast cancer",
+                    "Cardiofaciocutaneous syndrome",
+                ],
+            }
+        )
 
-            assert len(genes) == 3
-            assert "TP53" in genes
-            assert "BRCA1" in genes
-            assert "EGFR" in genes
+        config = {"base_evidence_score": 0.7}
+        omim_ids = ["151623", "604370"]
 
-    def test_get_genes_from_omim_file_missing(self):
-        """Test getting genes from missing OMIM file."""
-        config = {}
-        genes = _get_genes_from_omim_file("/nonexistent/file.csv", config)
+        genes = _extract_genes_from_omim(omim_df, omim_ids, phenotype_df, config)
+
+        assert len(genes) == 2
+        assert "TP53" in genes
+        assert "BRCA1" in genes
+        assert "151623" in genes["TP53"]["omim_ids"]
+        assert "604370" in genes["BRCA1"]["omim_ids"]
+
+    def test_extract_genes_from_omim_no_matches(self):
+        """Test extracting genes with no OMIM ID matches."""
+        omim_df = pd.DataFrame(
+            {
+                "approved_symbol": ["TEST1"],
+                "phenotypes": ["Test disease, 999999 (3)"],
+            }
+        )
+
+        phenotype_df = pd.DataFrame(
+            {
+                "database_id": ["OMIM:888888"],
+                "hpo_id": ["HP:0000001"],
+                "disease_name": ["Different disease"],
+            }
+        )
+
+        config = {"base_evidence_score": 0.7}
+        omim_ids = ["151623"]
+
+        genes = _extract_genes_from_omim(omim_df, omim_ids, phenotype_df, config)
+        assert len(genes) == 0
+
+    def test_extract_genes_from_omim_empty_phenotypes(self):
+        """Test extracting genes with empty phenotypes."""
+        omim_df = pd.DataFrame(
+            {
+                "approved_symbol": ["TEST1"],
+                "phenotypes": [""],
+                "entrez_gene_id": ["12345"],
+                "mim_number": ["600000"],
+            }
+        )
+
+        phenotype_df = pd.DataFrame(
+            {
+                "database_id": ["OMIM:151623"],
+                "hpo_id": ["HP:0002664"],
+                "disease_name": ["Some disease"],
+            }
+        )
+        config = {"base_evidence_score": 0.7}
+        omim_ids = ["151623"]
+
+        genes = _extract_genes_from_omim(omim_df, omim_ids, phenotype_df, config)
         assert len(genes) == 0
 
     def test_calculate_evidence_score(self):
         """Test evidence score calculation."""
-        config = {"base_evidence_score": 0.5}
+        config = {"base_evidence_score": 0.7}
 
-        # Gene with multiple data sources and HPO terms
+        # Gene with multiple HPO terms and diseases
         gene_data = {
-            "source_methods": {"neoplasm_search", "specific_terms", "omim_file"},
-            "hpo_terms": [{"hpo_id": "HP:0002664"}, {"hpo_id": "HP:0012531"}],
-            "diseases": {"Disease1", "Disease2", "Disease3"},
+            "hpo_terms": {"HP:0002664", "HP:0012531", "HP:0001234"},  # 3 terms
+            "diseases": {"Disease1", "Disease2", "Disease3"},  # 3 diseases
             "entrez_id": "7157",
         }
 
         score = _calculate_evidence_score(gene_data, config)
 
-        # Base (0.5) + source bonus (0.3) + hpo bonus (0.1) + disease bonus (0.06) + entrez bonus (0.05) = 1.01, capped at 1.0
-        assert score == 1.0
+        # Base (0.7) + hpo bonus (3 * 0.02 = 0.06) + disease bonus (3 * 0.02 = 0.06) + entrez bonus (0.05) = 0.87
+        expected_score = 0.7 + 0.06 + 0.06 + 0.05
+        assert abs(score - expected_score) < 0.01
 
         # Gene with minimal data
         minimal_gene_data = {
-            "source_methods": {"neoplasm_search"},
-            "hpo_terms": [],
+            "hpo_terms": set(),
             "diseases": set(),
             "entrez_id": None,
         }
 
         minimal_score = _calculate_evidence_score(minimal_gene_data, config)
-        # Base (0.5) + source bonus (0.1) = 0.6
-        assert minimal_score == 0.6
+        # Just base score: 0.7
+        assert minimal_score == 0.7
 
     def test_create_source_details(self):
         """Test creating source details string."""
         gene_data = {
-            "source_methods": {"neoplasm_search", "omim_file"},
-            "hpo_terms": [{"hpo_id": "HP:0002664"}, {"hpo_id": "HP:0012531"}],
-            "diseases": {"Disease1", "Disease2"},
-            "evidence_sources": {"HPO", "OMIM"},
+            "hpo_terms": {"HP:0002664", "HP:0012531"},  # 2 terms
+            "diseases": {"Disease1", "Disease2"},  # 2 diseases
+            "omim_ids": {"151623", "604370"},  # 2 OMIM IDs
+            "mim_number": "191170",
             "entrez_id": "7157",
         }
 
         details = _create_source_details(gene_data)
 
-        assert "Methods:neoplasm_search,omim_file" in details
         assert "HPO_terms:2" in details
         assert "Diseases:2" in details
-        assert "Evidence:HPO,OMIM" in details
+        assert "OMIM_IDs:2" in details
+        assert "MIM:191170" in details
         assert "Entrez:7157" in details
 
     @patch("custom_panel.sources.g02_hpo.HPOClient")
@@ -377,32 +411,18 @@ class TestHPONeoplasm:
 
     @patch("custom_panel.sources.g02_hpo.HPOClient")
     def test_fetch_hpo_neoplasm_data_neoplasm_search(self, mock_client_class):
-        """Test fetching data using neoplasm search."""
+        """Test fetching data - should return empty since no OMIM genemap2 is configured."""
         # Mock HPO client
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        # Mock neoplasm terms
-        mock_client.find_neoplasm_terms.return_value = [
-            {"id": "HP:0002664", "name": "Neoplasm"}
-        ]
-
-        # Mock hierarchy genes
-        mock_client.get_genes_for_phenotype_hierarchy.return_value = {
-            "TP53": {
-                "gene_symbol": "TP53",
-                "entrez_id": "7157",
-                "hpo_terms": [{"hpo_id": "HP:0002664", "disease_name": "Li-Fraumeni"}],
-                "diseases": ["Li-Fraumeni syndrome"],
-                "evidence_sources": ["HPO"],
-            }
-        }
+        # Mock descendant terms
+        mock_client.get_descendant_terms.return_value = {"HP:0002664", "HP:0012531"}
 
         config = {
             "data_sources": {
                 "hpo_neoplasm": {
                     "enabled": True,
-                    "use_neoplasm_search": True,
                     "base_evidence_score": 0.5,
                 }
             }
@@ -410,37 +430,23 @@ class TestHPONeoplasm:
 
         df = fetch_hpo_neoplasm_data(config)
 
-        assert len(df) == 1
-        assert df.iloc[0]["approved_symbol"] == "TP53"
-        assert df.iloc[0]["source_name"] == "HPO_OMIM_Neoplasm"
-        assert df.iloc[0]["source_evidence_score"] >= 0.5
+        # Should return empty since no OMIM genemap2 URL or path is configured
+        assert df.empty
 
     @patch("custom_panel.sources.g02_hpo.HPOClient")
     def test_fetch_hpo_neoplasm_data_specific_terms(self, mock_client_class):
-        """Test fetching data using specific HPO terms."""
+        """Test fetching data - should return empty since no OMIM genemap2 is configured."""
         # Mock HPO client
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        # Mock hierarchy genes for specific terms
-        mock_client.get_genes_for_phenotype_hierarchy.return_value = {
-            "BRCA1": {
-                "gene_symbol": "BRCA1",
-                "entrez_id": "672",
-                "hpo_terms": [
-                    {"hpo_id": "HP:0002664", "disease_name": "Breast cancer"}
-                ],
-                "diseases": ["Breast cancer"],
-                "evidence_sources": ["HPO"],
-            }
-        }
+        # Mock descendant terms
+        mock_client.get_descendant_terms.return_value = {"HP:0002664"}
 
         config = {
             "data_sources": {
                 "hpo_neoplasm": {
                     "enabled": True,
-                    "use_neoplasm_search": False,
-                    "specific_hpo_terms": ["HP:0002664"],
                     "base_evidence_score": 0.7,
                 }
             }
@@ -448,39 +454,89 @@ class TestHPONeoplasm:
 
         df = fetch_hpo_neoplasm_data(config)
 
-        assert len(df) == 1
-        assert df.iloc[0]["approved_symbol"] == "BRCA1"
-        assert df.iloc[0]["source_evidence_score"] >= 0.7
+        # Should return empty since no OMIM genemap2 URL or path is configured
+        assert df.empty
 
     def test_fetch_hpo_neoplasm_data_omim_file(self):
-        """Test fetching data using OMIM file."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("Gene Symbol,Disease\n")
-            f.write("TP53,Li-Fraumeni syndrome\n")
-            f.write("BRCA1,Breast cancer\n")
-            f.flush()
+        """Test fetching data using OMIM genemap2 file."""
+        # Create temporary OMIM genemap2 file
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False
+        ) as omim_f:
+            omim_f.write("# OMIM genemap2.txt\n")
+            omim_f.write(
+                "17\t43044295\t43125483\t17q21.31\t\t191170\tTP53\tTumor protein p53\tTP53\t7157\t\t\tLi-Fraumeni syndrome, 151623 (3); Colorectal cancer, 114500 (3)\t\n"
+            )
+            omim_f.write(
+                "17\t43044295\t43125483\t17q21.31\t\t113705\tBRCA1\tBRCA1 DNA repair associated\tBRCA1\t672\t\t\tBreast-ovarian cancer, familial, 1, 604370 (3)\t\n"
+            )
+            omim_f.flush()
 
-            try:
-                config = {
-                    "data_sources": {
-                        "hpo_neoplasm": {
-                            "enabled": True,
-                            "use_neoplasm_search": False,
-                            "omim_file_path": f.name,
-                            "base_evidence_score": 0.6,
+            # Create temporary phenotype.hpoa file
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".hpoa", delete=False
+            ) as pheno_f:
+                pheno_f.write(
+                    "#database_id\tdisease_name\tqualifier\thpo_id\treference\tevidence\tonset\tfrequency\tsex\tmodifier\taspect\tbiocuration\n"
+                )
+                pheno_f.write(
+                    "OMIM:151623\tLi-Fraumeni syndrome\t\tHP:0002664\tPMID:123\tTAS\t\t\t\t\tP\t\n"
+                )
+                pheno_f.write(
+                    "OMIM:604370\tBreast-ovarian cancer, familial, 1\t\tHP:0002664\tPMID:456\tTAS\t\t\t\t\tP\t\n"
+                )
+                pheno_f.flush()
+
+                try:
+                    config = {
+                        "data_sources": {
+                            "hpo_neoplasm": {
+                                "enabled": True,
+                                "omim_genemap2_path": omim_f.name,
+                                "base_evidence_score": 0.6,
+                                "cache_dir": Path(pheno_f.name).parent,
+                            }
                         }
                     }
-                }
 
-                with patch("custom_panel.sources.g02_hpo.HPOClient"):
-                    df = fetch_hpo_neoplasm_data(config)
+                    # Copy phenotype file to expected cache location
+                    cache_dir = Path(pheno_f.name).parent
+                    expected_pheno_path = cache_dir / "phenotype.hpoa"
+                    import shutil
 
-                assert len(df) == 2
-                assert "TP53" in df["approved_symbol"].values
-                assert "BRCA1" in df["approved_symbol"].values
-                assert all(df["source_name"] == "HPO_OMIM_Neoplasm")
-            finally:
-                Path(f.name).unlink()
+                    shutil.copy2(pheno_f.name, expected_pheno_path)
+
+                    with patch(
+                        "custom_panel.sources.g02_hpo.HPOClient"
+                    ) as mock_client_class:
+                        mock_client = Mock()
+                        mock_client_class.return_value = mock_client
+
+                        # Mock get_descendant_terms to return neoplasm terms
+                        mock_client.get_descendant_terms.return_value = {"HP:0002664"}
+
+                        # Mock file validity and parsing
+                        mock_client.is_cache_valid.return_value = True
+
+                        # Use real parsing methods
+                        from custom_panel.core.hpo_client import HPOClient
+
+                        mock_client.parse_phenotype_hpoa = (
+                            HPOClient.parse_phenotype_hpoa
+                        )
+                        mock_client.parse_omim_genemap2 = HPOClient.parse_omim_genemap2
+
+                        df = fetch_hpo_neoplasm_data(config)
+
+                    assert len(df) == 2
+                    assert "TP53" in df["approved_symbol"].values
+                    assert "BRCA1" in df["approved_symbol"].values
+                    assert all(df["source_name"] == "HPO_OMIM_Neoplasm")
+
+                finally:
+                    Path(omim_f.name).unlink(missing_ok=True)
+                    Path(pheno_f.name).unlink(missing_ok=True)
+                    expected_pheno_path.unlink(missing_ok=True)
 
     def test_get_hpo_neoplasm_summary(self):
         """Test getting HPO neoplasm summary."""
@@ -488,9 +544,9 @@ class TestHPONeoplasm:
             "data_sources": {
                 "hpo_neoplasm": {
                     "enabled": True,
-                    "use_neoplasm_search": True,
-                    "specific_hpo_terms": ["HP:0002664", "HP:0012531"],
-                    "omim_file_path": "/path/to/omim.csv",
+                    "omim_genemap2_path": "/path/to/omim.txt",
+                    "base_evidence_score": 0.8,
+                    "cache_expiry_days": 15,
                 }
             }
         }
@@ -498,10 +554,11 @@ class TestHPONeoplasm:
         summary = get_hpo_neoplasm_summary(config)
 
         assert summary["enabled"] is True
-        assert summary["use_neoplasm_search"] is True
-        assert summary["specific_hpo_terms_count"] == 2
-        assert summary["omim_file_configured"] is True
-        assert "estimated_genes" in summary
+        assert summary["omim_genemap2_configured"] is True
+        assert summary["base_evidence_score"] == 0.8
+        assert summary["cache_expiry_days"] == 15
+        assert "phenotype_hpoa_url" in summary
+        assert "neoplasm_root_term" in summary
 
     def test_fetch_hpo_neoplasm_data_no_sources(self):
         """Test when no data sources are configured."""
