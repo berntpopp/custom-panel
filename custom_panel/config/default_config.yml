@@ -173,22 +173,22 @@ data_sources:
   # HPO/OMIM neoplasm gene identification
   hpo_neoplasm:
     enabled: true
-    # Automatically search for neoplasm-related HPO terms
-    use_neoplasm_search: true
-    # Specific HPO terms to include (in addition to neoplasm search)
-    specific_hpo_terms:
-      - "HP:0002664"  # Neoplasm
-      - "HP:0030358"  # Non-small cell lung carcinoma
-      - "HP:0002860"  # Squamous cell carcinoma
-    # Optional OMIM file for additional gene-disease associations
-    omim_file_path: "data/hpo/omim_neoplasm_genes.csv"
-    omim_gene_column: "Gene Symbol"
-    omim_disease_column: "Disease"
-    omim_id_column: "OMIM ID"
+    # OMIM genemap2.txt file configuration
+    # Option 1: Provide direct URL with your personal access token (recommended)
+    # Get your token from: https://omim.org/downloads
+    # Example: "https://data.omim.org/downloads/YOUR_TOKEN/genemap2.txt"
+    omim_genemap2_url: null  # Set this in local config or environment
+    
+    # Option 2: Provide local file path if you've already downloaded it
+    omim_genemap2_path: "data/omim/genemap2.txt"
+    
+    # Cache settings for both phenotype.hpoa and genemap2 files
+    cache_dir: ".cache/hpo"
+    cache_expiry_days: 30
+    
     # Scoring parameters
-    base_evidence_score: 0.6
-    # Maximum depth to traverse HPO hierarchy
-    max_hierarchy_depth: 5
+    base_evidence_score: 0.7
+    # Note: The neoplasm root term HP:0002664 is automatically used
 
 # Scoring and decision logic
 scoring:

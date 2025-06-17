@@ -193,3 +193,7 @@ results/*.parquet
 
 # results
 results/
+
+# Local configuration files containing sensitive tokens/keys
+config.local.yml
+*.local.yml

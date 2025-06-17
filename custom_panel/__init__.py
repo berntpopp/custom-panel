@@ -16,19 +16,21 @@ os.environ.setdefault("PYTHONWARNINGS", "ignore::DeprecationWarning")
 # Suppress ALL deprecation warnings globally and immediately
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+
 # Redirect stderr temporarily to suppress import-time warnings
 class _WarningFilter:
-    def __init__(self):
+    def __init__(self) -> None:
         self._original_stderr = sys.stderr
-        self._buffer = []
-        
-    def write(self, text):
+        self._buffer: list[str] = []
+
+    def write(self, text: str) -> None:
         if "CryptographyDeprecationWarning" in text or "ARC4 has been moved" in text:
             return  # Suppress these specific warnings
         self._original_stderr.write(text)
-        
-    def flush(self):
+
+    def flush(self) -> None:
         self._original_stderr.flush()
+
 
 # Temporarily replace stderr during package initialization
 _temp_stderr = _WarningFilter()

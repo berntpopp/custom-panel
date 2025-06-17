@@ -1,0 +1,21 @@
+# Local Configuration Template for Custom Panel
+# Copy this file to config.local.yml and fill in your personal values
+# This file will be ignored by git for security
+
+# OMIM Access Configuration
+# Get your personal access token from: https://omim.org/downloads
+# Replace YOUR_TOKEN with your actual token
+data_sources:
+  hpo_neoplasm:
+    omim_genemap2_url: "https://data.omim.org/downloads/YOUR_TOKEN/genemap2.txt"
+
+# Optional: Override other settings for your local environment
+# performance:
+#   max_workers: 8
+#   batch_size: 200
+
+# apis:
+#   hgnc:
+#     timeout: 60
+#   ensembl:
+#     timeout: 60

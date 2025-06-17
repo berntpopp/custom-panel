@@ -4,12 +4,9 @@ Command-line interface for the custom-panel tool.
 This module provides the main CLI commands using Typer.
 """
 
-import warnings
-# Suppress ALL deprecation warnings at module level
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 import logging
 import sys
+import warnings
 from pathlib import Path
 from typing import Any, Optional
 
@@ -30,6 +27,9 @@ from .sources.g01_panelapp import fetch_panelapp_data
 from .sources.g02_hpo import fetch_hpo_neoplasm_data
 from .sources.g03_commercial_panels import fetch_commercial_panels_data
 from .sources.s02_somatic_commercial import fetch_somatic_commercial_data
+
+# Suppress ALL deprecation warnings at module level
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 app = typer.Typer(
     name="custom-panel",
@@ -59,7 +59,7 @@ def setup_logging(log_level: str = "INFO") -> None:
     )
 
 
-def load_config(config_file: Optional[str] = None) -> dict[str, Any]:
+def load_config(config_file: Optional[str] = None) -> dict[str, Any]:  # noqa: UP007
     """Load configuration from file."""
     if config_file:
         config_path = Path(config_file)
@@ -84,24 +84,51 @@ def load_config(config_file: Optional[str] = None) -> dict[str, Any]:
             config = yaml.safe_load(f)
 
         typer.echo(f"Loaded configuration from: {config_path}")
+
+        # Try to load local configuration overrides
+        local_config_path = Path("config.local.yml")
+        if local_config_path.exists():
+            typer.echo(f"Loading local config overrides from: {local_config_path}")
+            with open(local_config_path) as f:
+                local_config = yaml.safe_load(f)
+                if local_config:
+                    config = _merge_configs(config, local_config)
+
         return config
     except Exception as e:
         typer.echo(f"Error loading configuration: {e}", err=True)
         raise typer.Exit(1) from e
 
 
+def _merge_configs(
+    base_config: dict[str, Any], override_config: dict[str, Any]
+) -> dict[str, Any]:
+    """Recursively merge override configuration into base configuration."""
+    import copy
+
+    result = copy.deepcopy(base_config)
+
+    for key, value in override_config.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _merge_configs(result[key], value)
+        else:
+            result[key] = value
+
+    return result
+
+
 @app.command()
 def run(
-    config_file: Optional[str] = typer.Option(
+    config_file: Optional[str] = typer.Option(  # noqa: UP007
         None, "--config-file", "-c", help="Configuration file path"
     ),
-    output_dir: Optional[str] = typer.Option(
+    output_dir: Optional[str] = typer.Option(  # noqa: UP007
         None, "--output-dir", "-o", help="Output directory"
     ),
-    germline_threshold: Optional[float] = typer.Option(
+    germline_threshold: Optional[float] = typer.Option(  # noqa: UP007
         None, "--germline-threshold", help="Override germline score threshold"
     ),
-    somatic_threshold: Optional[float] = typer.Option(
+    somatic_threshold: Optional[float] = typer.Option(  # noqa: UP007
         None, "--somatic-threshold", help="Override somatic score threshold"
     ),
     log_level: str = typer.Option(
@@ -205,7 +232,7 @@ def fetch(
         ...,
         help="Data source to fetch (panelapp, inhouse, acmg, manual, hpo, commercial, somatic_commercial)",
     ),
-    config_file: Optional[str] = typer.Option(
+    config_file: Optional[str] = typer.Option(  # noqa: UP007
         None, "--config-file", "-c", help="Configuration file path"
     ),
     output_dir: str = typer.Option(
@@ -261,7 +288,7 @@ def fetch(
 
 @app.command()
 def config_check(
-    config_file: Optional[str] = typer.Option(
+    config_file: Optional[str] = typer.Option(  # noqa: UP007
         None, "--config-file", "-c", help="Configuration file path"
     ),
 ) -> None:
@@ -344,7 +371,7 @@ def config_check(
 @app.command()
 def search_panels(
     query: str = typer.Argument(..., help="Search term for panel names"),
-    config_file: Optional[str] = typer.Option(
+    config_file: Optional[str] = typer.Option(  # noqa: UP007
         None, "--config-file", "-c", help="Configuration file path"
     ),
     log_level: str = typer.Option("INFO", "--log-level", help="Log level"),
