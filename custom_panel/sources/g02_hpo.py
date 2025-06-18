@@ -41,7 +41,7 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with HPO neoplasm data
     """
-    hpo_config = config.get("data_sources", {}).get("hpo_neoplasm", {})
+    hpo_config = config.get("data_sources", {}).get("HPO_Neoplasm", {})
 
     if not hpo_config.get("enabled", True):
         logger.info("HPO neoplasm data source is disabled")
@@ -163,7 +163,7 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
 
         standardized_df = create_standard_dataframe(
             genes=genes_list,
-            source_name="HPO_OMIM_Neoplasm",
+            source_name="HPO_Neoplasm",
             evidence_scores=evidence_scores,
             source_details=source_details,
             gene_names_reported=genes_list,
@@ -358,7 +358,7 @@ def validate_hpo_neoplasm_config(config: dict[str, Any]) -> list[str]:
         List of validation errors
     """
     errors = []
-    hpo_config = config.get("data_sources", {}).get("hpo_neoplasm", {})
+    hpo_config = config.get("data_sources", {}).get("HPO_Neoplasm", {})
 
     if not isinstance(hpo_config, dict):
         errors.append("hpo_neoplasm config must be a dictionary")
@@ -402,7 +402,7 @@ def get_hpo_neoplasm_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    hpo_config = config.get("data_sources", {}).get("hpo_neoplasm", {})
+    hpo_config = config.get("data_sources", {}).get("HPO_Neoplasm", {})
 
     summary = {
         "enabled": hpo_config.get("enabled", True),

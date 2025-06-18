@@ -131,7 +131,7 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with PanelApp data
     """
-    panelapp_config = config.get("data_sources", {}).get("panelapp", {})
+    panelapp_config = config.get("data_sources", {}).get("PanelApp", {})
 
     if not panelapp_config.get("enabled", True):
         logger.info("PanelApp data source is disabled")
@@ -284,7 +284,7 @@ def search_panelapp_panels(
     Returns:
         List of matching panels
     """
-    panelapp_config = config.get("data_sources", {}).get("panelapp", {})
+    panelapp_config = config.get("data_sources", {}).get("PanelApp", {})
 
     if not panelapp_config.get("enabled", True):
         return []

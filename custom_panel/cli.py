@@ -19,6 +19,7 @@ from rich.table import Table
 
 from .core.io import create_bed_file
 from .core.output_manager import OutputManager
+from .core.utils import normalize_count
 from .engine.annotator import GeneAnnotator
 from .engine.merger import PanelMerger
 from .sources.a_incidental_findings import fetch_acmg_incidental_data
@@ -223,96 +224,184 @@ def run(
                 task, description=f"Fetched data from {len(raw_dataframes)} sources"
             )
 
-            # Step 2: Standardize symbols for each source dataframe BEFORE merging
-            progress.update(task, description="Standardizing gene symbols...")
-            standardized_dfs = []
-            for df in raw_dataframes:
-                # Get source name for logging
-                source_name = (
-                    df["source_name"].iloc[0]
-                    if not df.empty and "source_name" in df.columns
-                    else "Unknown"
+            # Step 2: Centralized gene symbol standardization
+            progress.update(
+                task, description="Centralizing gene symbol standardization..."
+            )
+
+            # Combine all raw dataframes into one for efficient standardization
+            unified_df = pd.concat(raw_dataframes, ignore_index=True)
+
+            # Extract ALL unique symbols across all sources
+            all_unique_symbols = (
+                unified_df["approved_symbol"].dropna().unique().tolist()
+            )
+            logger.info(
+                f"Total unique symbols across all sources: {len(all_unique_symbols)}"
+            )
+
+            # Make a single batch call to standardize ALL symbols
+            progress.update(
+                task,
+                description=f"Standardizing {len(all_unique_symbols)} unique symbols...",
+            )
+            symbol_map = annotator.standardize_gene_symbols(all_unique_symbols)
+
+            # Count total changes
+            total_changed = sum(
+                1
+                for orig, info in symbol_map.items()
+                if info["approved_symbol"] is not None
+                and orig != info["approved_symbol"]
+            )
+            logger.info(
+                f"Standardized {total_changed}/{len(all_unique_symbols)} gene symbols"
+            )
+
+            # Create mapping dictionaries
+            approved_symbol_map = {
+                k: v["approved_symbol"] for k, v in symbol_map.items()
+            }
+            hgnc_id_map = {
+                k: v["hgnc_id"] for k, v in symbol_map.items() if v["hgnc_id"]
+            }
+
+            # Apply standardization to unified dataframe
+            unified_df["approved_symbol"] = (
+                unified_df["approved_symbol"]
+                .map(approved_symbol_map)
+                .fillna(unified_df["approved_symbol"])
+            )
+
+            # Add HGNC ID column if not exists
+            if "hgnc_id" not in unified_df.columns:
+                unified_df["hgnc_id"] = None
+
+            # Apply HGNC ID mapping
+            unified_df["hgnc_id"] = (
+                unified_df["approved_symbol"]
+                .map(lambda x: hgnc_id_map.get(x))
+                .fillna(unified_df["hgnc_id"])
+            )
+
+            # Step 3: Pre-aggregate by source groups
+            progress.update(task, description="Pre-aggregating source groups...")
+
+            # Add source_group column based on configuration
+            data_sources = config.get("data_sources", {})
+            source_to_group = {}
+
+            for group_name, group_config in data_sources.items():
+                if isinstance(group_config, dict):
+                    if group_config.get("source_group", False):
+                        # This is a source group - map all its panels
+                        for panel in group_config.get("panels", []):
+                            if isinstance(panel, dict):
+                                source_to_group[panel.get("name")] = group_name
+                    else:
+                        # Standalone source - it is its own group
+                        source_to_group[group_name] = group_name
+
+            # Apply source group mapping with prefix matching
+            def map_source_to_group(source_name):
+                # Try exact match first
+                if source_name in source_to_group:
+                    return source_to_group[source_name]
+
+                # Try prefix matching for sources with colons (e.g., "PanelApp_UK:panel_name")
+                if ":" in source_name:
+                    prefix = source_name.split(":")[0]
+                    if prefix in source_to_group:
+                        return source_to_group[prefix]
+
+                # Try partial matches for sources with different naming
+                for key, group in source_to_group.items():
+                    if source_name.startswith(key) or key in source_name:
+                        return group
+
+                # If no match found, return the source name itself as a standalone group
+                return source_name
+
+            unified_df["source_group"] = unified_df["source_name"].apply(
+                map_source_to_group
+            )
+
+            # Pre-aggregate each source group
+            aggregated_sources = []
+
+            for group_name, group_df in unified_df.groupby("source_group"):
+                group_config = data_sources.get(group_name, {})
+
+                # Group by gene symbol within this source group
+                gene_groups = []
+
+                for gene_symbol, gene_df in group_df.groupby("approved_symbol"):
+                    # Count internal sources
+                    internal_source_count = gene_df["source_name"].nunique()
+
+                    # Calculate internal confidence score if this is a source group
+                    if group_config.get("source_group", False):
+                        normalization = group_config.get("normalization", {})
+                        internal_confidence = normalize_count(
+                            internal_source_count,
+                            method=normalization.get("method", "linear"),
+                            params=normalization,
+                        )
+                    else:
+                        # Standalone sources have confidence of 1.0
+                        internal_confidence = 1.0
+
+                    # Create aggregated record for this gene in this source group
+                    aggregated_record = {
+                        "approved_symbol": gene_symbol,
+                        "hgnc_id": gene_df["hgnc_id"].iloc[0],  # Should be same for all
+                        "gene_name_reported": gene_df["gene_name_reported"].iloc[0]
+                        if "gene_name_reported" in gene_df.columns
+                        else gene_symbol,
+                        "source_name": group_name,  # Use group name as source for aggregated data
+                        "source_evidence_score": group_config.get(
+                            "evidence_score", 1.0
+                        ),
+                        "source_details": f"{internal_source_count} sources in {group_name}",
+                        "source_group": group_name,
+                        "internal_source_count": internal_source_count,
+                        "internal_confidence_score": internal_confidence,
+                        "category": group_config.get("category", "germline"),
+                        "original_sources": list(gene_df["source_name"].unique()),
+                    }
+
+                    gene_groups.append(aggregated_record)
+
+                # Create DataFrame for this source group
+                group_aggregated_df = pd.DataFrame(gene_groups)
+
+                # Save intermediate aggregated data
+                output_manager.save_standardized_data(
+                    group_aggregated_df,
+                    f"aggregated_{group_name}",
+                    {
+                        g: {"approved_symbol": g, "hgnc_id": hgnc_id_map.get(g)}
+                        for g in group_aggregated_df["approved_symbol"].unique()
+                    },
                 )
 
-                # Get unique symbols from this source
-                raw_symbols = df["approved_symbol"].dropna().unique().tolist()
-                if not raw_symbols:
-                    logger.warning(f"Source '{source_name}': No symbols to standardize")
-                    continue
-
+                aggregated_sources.append(group_aggregated_df)
                 logger.info(
-                    f"\nStandardizing symbols for source '{source_name}': {len(raw_symbols)} unique symbols"
-                )
-                logger.debug(
-                    f"Source '{source_name}': First 10 symbols: {raw_symbols[:10]}"
+                    f"Source group '{group_name}': {len(group_aggregated_df)} unique genes "
+                    f"from {group_df['source_name'].nunique()} sources"
                 )
 
-                # Standardize them
-                symbol_map = annotator.standardize_gene_symbols(raw_symbols)
-
-                # Count changes
-                changed_count = sum(
-                    1
-                    for orig, info in symbol_map.items()
-                    if orig != info["approved_symbol"]
-                )
-                logger.info(
-                    f"Source '{source_name}': {changed_count}/{len(raw_symbols)} symbols changed during standardization"
-                )
-
-                if changed_count > 0:
-                    # Log some examples of changes
-                    examples = [
-                        (orig, info["approved_symbol"])
-                        for orig, info in symbol_map.items()
-                        if orig != info["approved_symbol"]
-                    ][:5]
-                    for orig, std in examples:
-                        logger.debug(f"  {orig} -> {std}")
-                    if changed_count > 5:
-                        logger.debug(f"  ... and {changed_count - 5} more changes")
-
-                # Create separate mapping dictionaries
-                approved_symbol_map = {
-                    k: v["approved_symbol"] for k, v in symbol_map.items()
-                }
-                hgnc_id_map = {
-                    k: v["hgnc_id"] for k, v in symbol_map.items() if v["hgnc_id"]
-                }
-
-                # Apply the mappings
-                df["approved_symbol"] = (
-                    df["approved_symbol"]
-                    .map(approved_symbol_map)
-                    .fillna(df["approved_symbol"])
-                )
-
-                # Add HGNC ID column if not exists
-                if "hgnc_id" not in df.columns:
-                    df["hgnc_id"] = None
-
-                # Map HGNC IDs based on the approved symbol
-                for idx, row in df.iterrows():
-                    symbol = row["approved_symbol"]
-                    if symbol in hgnc_id_map:
-                        df.at[idx, "hgnc_id"] = hgnc_id_map[symbol]
-
-                # Save standardized data
-                output_manager.save_standardized_data(df, source_name, symbol_map)
-
-                standardized_dfs.append(df)
-
-                logger.info(f"Source '{source_name}': Standardization complete")
-
-            if not standardized_dfs:
+            if not aggregated_sources:
                 console.print(
-                    "[red]No valid genes after standardization. Exiting.[/red]"
+                    "[red]No valid genes after pre-aggregation. Exiting.[/red]"
                 )
                 raise typer.Exit(1)
 
-            # Step 3: Merge and score genes
-            progress.update(task, description="Merging and scoring genes...")
-            master_df = merger.create_master_list(standardized_dfs, output_manager)
+            # Step 4: Merge and score pre-aggregated sources
+            progress.update(
+                task, description="Merging and scoring pre-aggregated sources..."
+            )
+            master_df = merger.create_master_list(aggregated_sources, output_manager)
             if master_df.empty:
                 console.print(
                     "[red]No genes in master list after merging. Exiting.[/red]"
@@ -566,15 +655,15 @@ def fetch_all_sources(
     """Fetch data from all enabled sources."""
     dataframes = []
 
-    # Define source functions
+    # Define source functions - updated to match new config keys
     source_functions = {
-        "panelapp": fetch_panelapp_data,
-        "inhouse_panels": fetch_inhouse_panels_data,
-        "acmg_incidental": fetch_acmg_incidental_data,
-        "manual_curation": fetch_manual_curation_data,
-        "hpo_neoplasm": fetch_hpo_neoplasm_data,
-        "commercial_panels": fetch_commercial_panels_data,
-        "cosmic_germline": fetch_cosmic_germline_data,
+        "PanelApp": fetch_panelapp_data,
+        "Inhouse_Panels": fetch_inhouse_panels_data,
+        "ACMG_Incidental_Findings": fetch_acmg_incidental_data,
+        "Manual_Curation": fetch_manual_curation_data,
+        "HPO_Neoplasm": fetch_hpo_neoplasm_data,
+        "Commercial_Panels": fetch_commercial_panels_data,
+        "COSMIC_Germline": fetch_cosmic_germline_data,
     }
 
     data_sources = config.get("data_sources", {})

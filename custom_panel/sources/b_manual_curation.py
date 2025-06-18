@@ -32,7 +32,7 @@ def fetch_manual_curation_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with manual curation data
     """
-    manual_config = config.get("data_sources", {}).get("manual_curation", {})
+    manual_config = config.get("data_sources", {}).get("Manual_Curation", {})
 
     if not manual_config.get("enabled", True):
         logger.info("Manual curation data source is disabled")
@@ -170,7 +170,7 @@ def validate_manual_curation_config(config: dict[str, Any]) -> list[str]:
         List of validation errors
     """
     errors = []
-    manual_config = config.get("data_sources", {}).get("manual_curation", {})
+    manual_config = config.get("data_sources", {}).get("Manual_Curation", {})
 
     if not isinstance(manual_config, dict):
         errors.append("manual_curation config must be a dictionary")
@@ -231,7 +231,7 @@ def get_manual_curation_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    manual_config = config.get("data_sources", {}).get("manual_curation", {})
+    manual_config = config.get("data_sources", {}).get("Manual_Curation", {})
 
     summary = {
         "enabled": manual_config.get("enabled", True),

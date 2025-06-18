@@ -35,13 +35,15 @@ class TestCLIIntegration:
             # Create config with commercial panels enabled
             config = {
                 "data_sources": {
-                    "panelapp": {"enabled": False},
-                    "inhouse_panels": {"enabled": False},
-                    "acmg_incidental": {"enabled": False},
-                    "manual_curation": {"enabled": False},
-                    "hpo_neoplasm": {"enabled": False},
-                    "commercial_panels": {
+                    "PanelApp": {"enabled": False},
+                    "Inhouse_Panels": {"enabled": False},
+                    "ACMG_Incidental_Findings": {"enabled": False},
+                    "Manual_Curation": {"enabled": False},
+                    "HPO_Neoplasm": {"enabled": False},
+                    "COSMIC_Germline": {"enabled": False},
+                    "Commercial_Panels": {
                         "enabled": True,
+                        "source_group": True,
                         "panels": [
                             {
                                 "name": "Test Panel",
@@ -70,12 +72,13 @@ class TestCLIIntegration:
         """Test that commercial panels are skipped when disabled."""
         config = {
             "data_sources": {
-                "panelapp": {"enabled": False},
-                "inhouse_panels": {"enabled": False},
-                "acmg_incidental": {"enabled": False},
-                "manual_curation": {"enabled": False},
-                "hpo_neoplasm": {"enabled": False},
-                "commercial_panels": {"enabled": False},
+                "PanelApp": {"enabled": False},
+                "Inhouse_Panels": {"enabled": False},
+                "ACMG_Incidental_Findings": {"enabled": False},
+                "Manual_Curation": {"enabled": False},
+                "HPO_Neoplasm": {"enabled": False},
+                "COSMIC_Germline": {"enabled": False},
+                "Commercial_Panels": {"enabled": False},
             }
         }
 
@@ -93,7 +96,7 @@ class TestCLIIntegration:
         # Test that the fetch_all_sources function has commercial_panels in source_functions
         # This verifies the integration was done correctly
         config = {
-            "data_sources": {"commercial_panels": {"enabled": True, "panels": []}}
+            "data_sources": {"Commercial_Panels": {"enabled": True, "panels": []}}
         }
 
         # This should not error out - if commercial_panels wasn't integrated,

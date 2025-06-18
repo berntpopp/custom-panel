@@ -484,7 +484,7 @@ def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with COSMIC germline data only
     """
-    cosmic_config = config.get("data_sources", {}).get("cosmic_germline", {})
+    cosmic_config = config.get("data_sources", {}).get("COSMIC_Germline", {})
 
     if not cosmic_config.get("enabled", False):
         logger.info("COSMIC data source is disabled")
@@ -585,7 +585,7 @@ def validate_cosmic_config(config: dict[str, Any]) -> list[str]:
         List of validation errors
     """
     errors: list[str] = []
-    cosmic_config = config.get("data_sources", {}).get("cosmic_germline", {})
+    cosmic_config = config.get("data_sources", {}).get("COSMIC_Germline", {})
 
     if not cosmic_config.get("enabled", False):
         return errors  # Skip validation if disabled
@@ -639,7 +639,7 @@ def get_cosmic_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    cosmic_config = config.get("data_sources", {}).get("cosmic_germline", {})
+    cosmic_config = config.get("data_sources", {}).get("COSMIC_Germline", {})
 
     summary = {
         "enabled": cosmic_config.get("enabled", False),

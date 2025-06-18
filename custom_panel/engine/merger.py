@@ -28,7 +28,7 @@ class PanelMerger:
         """
         self.config = config
         self.scoring_config = config.get("scoring", {})
-        self.category_weights = self.scoring_config.get("category_weights", {})
+        self.source_group_weights = self.scoring_config.get("source_group_weights", {})
         self.thresholds = self.scoring_config.get("thresholds", {})
 
         # Quality control settings
@@ -57,13 +57,13 @@ class PanelMerger:
             f"Starting merger pipeline with {len(dataframes)} source dataframes"
         )
 
-        # Log source statistics
+        # Log source group statistics
         source_stats = {}
         for df in dataframes:
-            if not df.empty and "source_name" in df.columns:
-                source_name = df["source_name"].iloc[0]
-                source_stats[source_name] = len(df)
-        logger.info(f"Source statistics: {source_stats}")
+            if not df.empty and "source_group" in df.columns:
+                source_group = df["source_group"].iloc[0]
+                source_stats[source_group] = len(df)
+        logger.info(f"Source group statistics: {source_stats}")
 
         # Step 1: Merge all dataframes
         merged_df = self._merge_dataframes(dataframes)
@@ -124,10 +124,15 @@ class PanelMerger:
 
         # Remove duplicates if configured
         if self.qc_config.get("remove_duplicates", True):
-            # Remove exact duplicates based on gene symbol and source
-            filtered_df = filtered_df.drop_duplicates(
-                subset=["approved_symbol", "source_name"], keep="first"
-            )
+            # Choose columns for duplicate detection based on what's available
+            if "source_group" in filtered_df.columns:
+                # Pre-aggregated data - use source_group
+                subset_cols = ["approved_symbol", "source_group"]
+            else:
+                # Raw data - use source_name
+                subset_cols = ["approved_symbol", "source_name"]
+            
+            filtered_df = filtered_df.drop_duplicates(subset=subset_cols, keep="first")
 
         removed_count = original_count - len(filtered_df)
         if removed_count > 0:
@@ -142,7 +147,7 @@ class PanelMerger:
 
         logger.info("Calculating gene scores")
         logger.debug(
-            f"Scoring configuration - Category weights: {self.category_weights}"
+            f"Scoring configuration - Source group weights: {self.source_group_weights}"
         )
         logger.debug(
             f"Scoring configuration - Max evidence score: {self.scoring_config.get('max_evidence_score', 'No limit')}"
@@ -160,22 +165,16 @@ class PanelMerger:
         source_details_list = []
 
         for gene_symbol, group in grouped:
-            # Filter evidence by category (only germline)
-            if "category" in group.columns:
-                evidence_df = group[group["category"] == "germline"]
+            # Calculate final score using pre-aggregated data
+            score = self._calculate_gene_score(group)
+
+            # Aggregate source information (handle both raw and pre-aggregated data)
+            if "source_group" in group.columns:
+                source_groups = group["source_group"].unique().tolist()
             else:
-                # Backward compatibility: score all evidence as germline
-                evidence_df = group.copy()
-
-            # Calculate score for germline evidence data
-            score = 0.0
-            if not evidence_df.empty:
-                score = self._calculate_category_score(evidence_df, "germline")
-
-            # Aggregate source information
-            sources = group["source_name"].unique().tolist()
-            source_count = len(sources)
-            source_names = ";".join(sources)
+                source_groups = group["source_name"].unique().tolist()
+            source_count = len(source_groups)
+            source_names = ";".join(source_groups)
 
             # Aggregate source details
             details = group["source_details"].dropna().tolist()
@@ -226,68 +225,45 @@ class PanelMerger:
 
         return scored_df
 
-    def _calculate_category_score(self, group: pd.DataFrame, category: str) -> float:
+    def _calculate_gene_score(self, group: pd.DataFrame) -> float:
         """
-        Calculate weighted score for a specific category (germline/somatic).
+        Calculate final gene score from pre-aggregated source groups.
 
         Args:
-            group: DataFrame group for one gene
-            category: Category name ("germline" or "somatic")
+            group: DataFrame group for one gene (pre-aggregated by source group)
 
         Returns:
-            Weighted score for the category
+            Final weighted score for the gene
         """
-        category_weights = self.category_weights.get(category, {})
         total_score = 0.0
 
         for _, row in group.iterrows():
-            source_name = row["source_name"]
-            evidence_score = row.get("source_evidence_score", 0.0)
+            # Handle both raw data (source_name) and pre-aggregated data (source_group)
+            if "source_group" in row:
+                source_identifier = row["source_group"]
+            else:
+                source_identifier = row["source_name"]
+            
+            base_score = row.get("source_evidence_score", 1.0)
+            internal_confidence = row.get("internal_confidence_score", 1.0)
 
-            # Map source name to weight key
-            weight_key = self._map_source_to_weight_key(source_name)
-            weight = category_weights.get(weight_key, 1.0)
+            # Get weight for this source
+            weight = self.source_group_weights.get(source_identifier, 1.0)
 
-            # Calculate weighted score
-            weighted_score = evidence_score * weight
-            total_score += weighted_score
+            # Calculate contribution: base_score * internal_confidence * weight
+            score_contribution = base_score * internal_confidence * weight
+            total_score += score_contribution
+
+            logger.debug(
+                f"Gene score contribution from {source_identifier}: "
+                f"{base_score:.2f} * {internal_confidence:.2f} * {weight:.2f} = {score_contribution:.2f}"
+            )
 
         # Apply maximum score limit if configured
         max_score = self.scoring_config.get("max_evidence_score", float("inf"))
         return min(total_score, max_score)
 
-    def _map_source_to_weight_key(self, source_name: str) -> str:
-        """
-        Map a source name to a weight configuration key.
-
-        Args:
-            source_name: Source name from the data
-
-        Returns:
-            Weight configuration key
-        """
-        source_name_lower = source_name.lower()
-
-        # Define mapping rules
-        if "panelapp" in source_name_lower:
-            return "panelapp"
-        elif "acmg" in source_name_lower or "incidental" in source_name_lower:
-            return "acmg_incidental"
-        elif "cosmic" in source_name_lower:
-            return "cosmic"
-        elif (
-            "commercial" in source_name_lower
-            or "illumina" in source_name_lower
-            or "agilent" in source_name_lower
-        ):
-            return "commercial_panels"
-        elif "hpo" in source_name_lower:
-            return "hpo"
-        elif "manual" in source_name_lower or "curation" in source_name_lower:
-            return "manual_curation"
-        else:
-            # Default to inhouse_panels for unrecognized sources
-            return "inhouse_panels"
+    # _map_source_to_weight_key method is now obsolete and removed
 
     def _apply_decision_logic(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply decision thresholds to determine gene inclusion."""

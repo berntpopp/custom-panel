@@ -208,7 +208,7 @@ def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with ACMG incidental findings data
     """
-    acmg_config = config.get("data_sources", {}).get("acmg_incidental", {})
+    acmg_config = config.get("data_sources", {}).get("ACMG_Incidental_Findings", {})
 
     if not acmg_config.get("enabled", True):
         logger.info("ACMG incidental findings data source is disabled")
@@ -407,7 +407,7 @@ def validate_acmg_config(config: dict[str, Any]) -> list[str]:
         List of validation errors
     """
     errors = []
-    acmg_config = config.get("data_sources", {}).get("acmg_incidental", {})
+    acmg_config = config.get("data_sources", {}).get("ACMG_Incidental_Findings", {})
 
     # Check evidence score
     evidence_score = acmg_config.get("evidence_score", 1.5)
@@ -432,7 +432,7 @@ def get_acmg_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    acmg_config = config.get("data_sources", {}).get("acmg_incidental", {})
+    acmg_config = config.get("data_sources", {}).get("ACMG_Incidental_Findings", {})
 
     summary = {
         "enabled": acmg_config.get("enabled", True),

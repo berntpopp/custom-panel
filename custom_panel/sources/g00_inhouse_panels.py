@@ -26,7 +26,7 @@ def fetch_inhouse_panels_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with in-house panel data
     """
-    inhouse_config = config.get("data_sources", {}).get("inhouse_panels", {})
+    inhouse_config = config.get("data_sources", {}).get("Inhouse_Panels", {})
 
     if not inhouse_config.get("enabled", True):
         logger.info("In-house panels data source is disabled")
@@ -357,7 +357,7 @@ def get_inhouse_panel_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    inhouse_config = config.get("data_sources", {}).get("inhouse_panels", {})
+    inhouse_config = config.get("data_sources", {}).get("Inhouse_Panels", {})
     panels_config = inhouse_config.get("panels", [])
 
     summary = {

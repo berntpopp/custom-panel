@@ -219,15 +219,16 @@ class TestPanelMerger:
         """Test merger initialization."""
         config = {
             "scoring": {
-                "category_weights": {
-                    "germline": {"panelapp": 1.0, "acmg_incidental": 1.5}
+                "source_group_weights": {
+                    "PanelApp": 1.0,
+                    "ACMG_Incidental_Findings": 1.5,
                 },
                 "thresholds": {"score_threshold": 2.0},
             }
         }
 
         merger = PanelMerger(config)
-        assert merger.category_weights["germline"]["panelapp"] == 1.0
+        assert merger.source_group_weights["PanelApp"] == 1.0
         assert merger.thresholds["score_threshold"] == 2.0
 
     def test_merge_dataframes(self):
@@ -241,67 +242,79 @@ class TestPanelMerger:
         assert len(merged) == 4  # All records preserved
         assert len(merged["approved_symbol"].unique()) == 3  # 3 unique genes
 
-    def test_calculate_category_score(self):
-        """Test category score calculation."""
-        # Create test data
+    def test_calculate_gene_score(self):
+        """Test gene score calculation with pre-aggregated data."""
+        # Create pre-aggregated test data
         df = pd.DataFrame(
             {
                 "approved_symbol": ["BRCA1", "BRCA1"],
-                "source_name": ["PanelApp_UK:Test", "ACMG_Incidental_Findings"],
+                "source_group": ["PanelApp", "ACMG_Incidental_Findings"],
                 "source_evidence_score": [1.0, 1.5],
+                "internal_confidence_score": [0.8, 1.0],
             }
         )
 
         config = {
             "scoring": {
-                "category_weights": {
-                    "germline": {"panelapp": 1.0, "acmg_incidental": 1.5}
+                "source_group_weights": {
+                    "PanelApp": 1.0,
+                    "ACMG_Incidental_Findings": 1.5,
                 }
             }
         }
 
         merger = PanelMerger(config)
-        score = merger._calculate_category_score(df, "germline")
+        score = merger._calculate_gene_score(df)
 
-        # Score should be (1.0 * 1.0) + (1.5 * 1.5) = 3.25
-        assert score == 3.25
+        # Expected: (1.0 * 0.8 * 1.0) + (1.5 * 1.0 * 1.5) = 0.8 + 2.25 = 3.05
+        assert abs(score - 3.05) < 0.01
 
-    def test_map_source_to_weight_key(self):
-        """Test mapping source names to weight keys."""
-        merger = PanelMerger({})
+    def test_source_group_weights_direct_mapping(self):
+        """Test that source groups are mapped directly from configuration."""
+        config = {
+            "scoring": {
+                "source_group_weights": {
+                    "PanelApp": 1.0,
+                    "Commercial_Panels": 0.8,
+                    "ACMG_Incidental_Findings": 1.5,
+                }
+            }
+        }
 
-        assert merger._map_source_to_weight_key("PanelApp_UK:Test") == "panelapp"
-        assert (
-            merger._map_source_to_weight_key("ACMG_Incidental_Findings")
-            == "acmg_incidental"
-        )
-        assert merger._map_source_to_weight_key("COSMIC_Cancer_Census") == "cosmic"
-        assert (
-            merger._map_source_to_weight_key("Commercial_Panel") == "commercial_panels"
-        )
-        assert merger._map_source_to_weight_key("Custom_Panel") == "inhouse_panels"
+        merger = PanelMerger(config)
+
+        # Test that source group weights are correctly configured
+        assert merger.source_group_weights["PanelApp"] == 1.0
+        assert merger.source_group_weights["Commercial_Panels"] == 0.8
+        assert merger.source_group_weights["ACMG_Incidental_Findings"] == 1.5
 
     def test_calculate_scores(self):
-        """Test score calculation for merged data."""
-        # Create test data with multiple sources for same gene
+        """Test score calculation for pre-aggregated data."""
+        # Create pre-aggregated test data
         df = pd.DataFrame(
             {
                 "approved_symbol": ["BRCA1", "BRCA1", "TP53"],
                 "hgnc_id": ["HGNC:1100", "HGNC:1100", "HGNC:11998"],
-                "source_name": [
-                    "PanelApp_UK:Test",
-                    "ACMG_Incidental",
-                    "PanelApp_UK:Test",
+                "source_group": [
+                    "PanelApp",
+                    "ACMG_Incidental_Findings",
+                    "PanelApp",
                 ],
                 "source_evidence_score": [1.0, 1.5, 0.8],
-                "source_details": ["Green", "ACMG", "Amber"],
+                "internal_confidence_score": [0.9, 1.0, 0.7],
+                "source_details": [
+                    "3 sources in PanelApp",
+                    "ACMG",
+                    "1 source in PanelApp",
+                ],
             }
         )
 
         config = {
             "scoring": {
-                "category_weights": {
-                    "germline": {"panelapp": 1.0, "acmg_incidental": 1.5}
+                "source_group_weights": {
+                    "PanelApp": 1.0,
+                    "ACMG_Incidental_Findings": 1.5,
                 }
             }
         }
@@ -313,12 +326,13 @@ class TestPanelMerger:
 
         # Check BRCA1 scores
         brca1_row = scored_df[scored_df["approved_symbol"] == "BRCA1"].iloc[0]
-        expected_score = (1.0 * 1.0) + (1.5 * 1.5)  # 3.25
+        # Expected: (1.0 * 0.9 * 1.0) + (1.5 * 1.0 * 1.5) = 0.9 + 2.25 = 3.15
+        expected_score = 3.15
 
-        assert brca1_row["score"] == expected_score
+        assert abs(brca1_row["score"] - expected_score) < 0.01
         assert brca1_row["source_count"] == 2
-        assert "PanelApp_UK:Test" in brca1_row["source_names"]
-        assert "ACMG_Incidental" in brca1_row["source_names"]
+        assert "PanelApp" in brca1_row["source_names"]
+        assert "ACMG_Incidental_Findings" in brca1_row["source_names"]
 
     def test_apply_decision_logic(self):
         """Test applying decision thresholds."""
