@@ -177,8 +177,13 @@ class OutputManager:
         file_path = step_dir / f"{filename}.{file_extension}"
 
         try:
-            # Save the data
-            save_panel_data(data, file_path, file_format)
+            # Save the data - skip validation for scored data which has different schema
+            if step == "scored_data":
+                # Scored data has different schema, save directly
+                self._save_data_direct(data, file_path, file_format)
+            else:
+                # Use standard validation for other data types
+                save_panel_data(data, file_path, file_format)
 
             # Save metadata if provided
             if metadata:
@@ -305,6 +310,28 @@ class OutputManager:
 
         except Exception as e:
             logger.warning(f"Failed to cleanup old runs: {e}")
+
+    def _save_data_direct(self, df: pd.DataFrame, path: Path, format: str) -> None:
+        """
+        Save data directly without validation (for scored data with different schema).
+        
+        Args:
+            df: DataFrame to save
+            path: Output file path  
+            format: Output format
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
+        if format.lower() == "parquet":
+            df.to_parquet(path, index=False, engine="pyarrow")
+        elif format.lower() == "csv":
+            df.to_csv(path, index=False)
+        elif format.lower() == "excel":
+            df.to_excel(path, index=False, engine="openpyxl")
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+        
+        logger.info(f"Saved {len(df)} records to {path} (direct save)")
 
 
 class JsonFormatter(logging.Formatter):
