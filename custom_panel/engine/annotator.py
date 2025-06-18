@@ -77,13 +77,14 @@ class GeneAnnotator:
         unique_genes = gene_df["approved_symbol"].dropna().unique().tolist()
         logger.info(f"Annotating {len(unique_genes)} unique genes")
 
-        # Step 1: Standardize gene symbols using HGNC
-        standardized_symbols = self._standardize_gene_symbols(unique_genes)
+        # Skip standardization - symbols were already standardized before merging
+        # Just create identity mapping
+        standardized_symbols = {symbol: symbol for symbol in unique_genes}
 
-        # Step 2: Get genomic annotations
+        # Step 1: Get genomic annotations
         annotations = self._get_gene_annotations(list(standardized_symbols.values()))
 
-        # Step 3: Add annotations to the DataFrame
+        # Step 2: Add annotations to the DataFrame
         annotated_df = self._add_annotations_to_dataframe(
             gene_df, standardized_symbols, annotations
         )
@@ -91,9 +92,11 @@ class GeneAnnotator:
         logger.info(f"Successfully annotated {len(annotated_df)} gene records")
         return annotated_df
 
-    def _standardize_gene_symbols(self, gene_symbols: list[str]) -> dict[str, str]:
+    def standardize_gene_symbols(self, gene_symbols: list[str]) -> dict[str, str]:
         """
         Standardize gene symbols using HGNC batch API.
+        
+        This method is public to allow standardization before merging.
 
         Args:
             gene_symbols: List of gene symbols to standardize

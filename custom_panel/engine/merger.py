@@ -50,7 +50,15 @@ class PanelMerger:
 
             return pd.DataFrame(columns=STANDARD_COLUMNS)
 
-        logger.info(f"Merging {len(dataframes)} source dataframes")
+        logger.info(f"Starting merger pipeline with {len(dataframes)} source dataframes")
+        
+        # Log source statistics
+        source_stats = {}
+        for df in dataframes:
+            if not df.empty and "source_name" in df.columns:
+                source_name = df["source_name"].iloc[0]
+                source_stats[source_name] = len(df)
+        logger.info(f"Source statistics: {source_stats}")
 
         # Step 1: Merge all dataframes
         merged_df = self._merge_dataframes(dataframes)
@@ -79,6 +87,12 @@ class PanelMerger:
         merged_df = merge_panel_dataframes(valid_dfs)
 
         logger.info(f"Merged {len(valid_dfs)} dataframes into {len(merged_df)} records")
+        
+        # Log unique genes count
+        if "approved_symbol" in merged_df.columns:
+            unique_genes = merged_df["approved_symbol"].nunique()
+            logger.info(f"Total unique genes before aggregation: {unique_genes}")
+        
         return merged_df
 
     def _apply_quality_control(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -113,6 +127,8 @@ class PanelMerger:
             return df
 
         logger.info("Calculating gene scores")
+        logger.debug(f"Scoring configuration - Category weights: {self.category_weights}")
+        logger.debug(f"Scoring configuration - Max evidence score: {self.scoring_config.get('max_evidence_score', 'No limit')}")
 
         # Group by approved gene symbol
         grouped = df.groupby("approved_symbol")
@@ -196,6 +212,22 @@ class PanelMerger:
         scored_df = scored_df.sort_values("total_score", ascending=False)
 
         logger.info(f"Calculated scores for {len(scored_df)} unique genes")
+        
+        # Log score distribution summary
+        if "germline_score" in scored_df.columns:
+            germline_stats = scored_df["germline_score"].describe()
+            logger.info(f"Germline score distribution - mean: {germline_stats['mean']:.2f}, "
+                       f"median: {germline_stats['50%']:.2f}, max: {germline_stats['max']:.2f}")
+        
+        if "somatic_score" in scored_df.columns:
+            somatic_stats = scored_df["somatic_score"].describe()
+            logger.info(f"Somatic score distribution - mean: {somatic_stats['mean']:.2f}, "
+                       f"median: {somatic_stats['50%']:.2f}, max: {somatic_stats['max']:.2f}")
+        
+        if "source_count" in scored_df.columns:
+            source_dist = scored_df["source_count"].value_counts().sort_index()
+            logger.info(f"Source count distribution: {dict(source_dist)}")
+        
         return scored_df
 
     def _calculate_category_score(self, group: pd.DataFrame, category: str) -> float:
@@ -270,6 +302,10 @@ class PanelMerger:
         germline_threshold = self.thresholds.get("germline_threshold", 2.0)
         somatic_threshold = self.thresholds.get("somatic_threshold", 1.5)
         min_sources = self.thresholds.get("min_sources", 1)
+        
+        # Log threshold configuration
+        logger.info(f"Applying decision thresholds - Germline: {germline_threshold}, "
+                   f"Somatic: {somatic_threshold}, Min sources: {min_sources}")
 
         # Apply decision logic
         df = df.copy()
@@ -291,6 +327,26 @@ class PanelMerger:
             f"Decision results: {germline_genes}/{total_genes} germline, "
             f"{somatic_genes}/{total_genes} somatic, {any_genes}/{total_genes} total"
         )
+        
+        # Log examples of included/excluded genes for debugging
+        if logger.isEnabledFor(logging.DEBUG):
+            # Show top included germline genes
+            if germline_genes > 0:
+                top_germline = df[df["include_germline"]].nlargest(5, "germline_score")
+                logger.debug("Top 5 included germline genes:")
+                for _, gene in top_germline.iterrows():
+                    logger.debug(f"  {gene['approved_symbol']}: score={gene['germline_score']:.2f}, sources={gene['source_count']}")
+            
+            # Show some excluded genes close to threshold
+            close_to_threshold = df[
+                ~df["include_germline"] & 
+                (df["germline_score"] > germline_threshold * 0.8) & 
+                (df["germline_score"] < germline_threshold)
+            ]
+            if len(close_to_threshold) > 0:
+                logger.debug(f"\nGenes close to germline threshold but excluded:")
+                for _, gene in close_to_threshold.head(5).iterrows():
+                    logger.debug(f"  {gene['approved_symbol']}: score={gene['germline_score']:.2f}, sources={gene['source_count']}")
 
         return df
 

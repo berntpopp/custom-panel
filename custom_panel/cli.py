@@ -202,7 +202,7 @@ def run(
                 if not raw_symbols:
                     continue
                 # Standardize them
-                symbol_map = annotator._standardize_gene_symbols(raw_symbols)
+                symbol_map = annotator.standardize_gene_symbols(raw_symbols)
                 # Apply the mapping
                 df["approved_symbol"] = (
                     df["approved_symbol"].map(symbol_map).fillna(df["approved_symbol"])
