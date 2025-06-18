@@ -55,6 +55,7 @@ class BaseParser(ABC):
         # Remove common artifacts
         gene = gene.strip()
         gene = gene.replace("*", "")  # Remove asterisks
+        gene = gene.replace("#", "")  # Remove hash symbols
         gene = gene.split("(")[0].strip()  # Remove parenthetical content
         gene = gene.split(",")[0].strip()  # Take first gene if comma-separated
 
