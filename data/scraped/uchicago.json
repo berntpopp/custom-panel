@@ -1,7 +1,7 @@
 {
   "panel_name": "uchicago",
   "source_url": "https://dnatesting.uchicago.edu/tests/comprehensive-hereditary-cancer-panel",
-  "retrieval_date": "2025-06-17",
+  "retrieval_date": "2025-06-18",
   "genes": [
     "AIP",
     "ALK",

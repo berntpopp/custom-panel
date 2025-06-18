@@ -59,7 +59,9 @@ class CegatParser(BaseParser):
                                 # Check if this is a comma-separated list of genes
                                 if "," in text:
                                     # Split by comma and process each gene
-                                    potential_genes = [g.strip() for g in text.split(",")]
+                                    potential_genes = [
+                                        g.strip() for g in text.split(",")
+                                    ]
                                     for gene in potential_genes:
                                         cleaned_gene = self.clean_gene_symbol(gene)
                                         if cleaned_gene and self.validate_gene_symbol(
@@ -95,10 +97,14 @@ class CegatParser(BaseParser):
                             valid_genes = []
                             for gene in potential_genes:
                                 cleaned_gene = self.clean_gene_symbol(gene)
-                                if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
+                                if cleaned_gene and self.validate_gene_symbol(
+                                    cleaned_gene
+                                ):
                                     valid_genes.append(cleaned_gene)
                             # If we found multiple valid genes, add them all
-                            if len(valid_genes) > 5:  # Threshold to confirm it's a gene list
+                            if (
+                                len(valid_genes) > 5
+                            ):  # Threshold to confirm it's a gene list
                                 genes.extend(valid_genes)
                         elif len(text) <= 20:
                             # Single gene

@@ -42,66 +42,84 @@ class CglParser(BaseParser):
 
             genes = []
 
-            # R script uses: //h2[contains(text(),"GENES TARGETED")]//following::p
-            # Find h2 with "GENES TARGETED" text and look for following p tags
-            genes_targeted_headers = soup.find_all(
-                "h2", string=lambda text: text and "genes targeted" in text.lower()
-            )
+            # Look for any text containing patterns like GENE_NM_XXXXXX
+            # We'll search the entire page content for these patterns
+            page_text = soup.get_text()
 
-            for header in genes_targeted_headers:
-                # Find all following paragraphs, not just the next one
-                for p_tag in header.find_all_next("p"):
-                    text = p_tag.get_text(strip=True)
-                    if text:
-                        # R script applies several filters and cleaning
+            import re
+
+            # Find all patterns that look like GENE_NM_XXXXXX or GENE_TRANSCRIPT
+            # Changed {2,10} to {1,10} to allow 2-character genes like FH
+            gene_patterns = re.findall(r"\b([A-Z][A-Z0-9]{1,10})_[A-Z0-9_]+", page_text)
+
+            if gene_patterns:
+                logger.info(f"Found {len(gene_patterns)} gene patterns in page")
+                for gene_symbol in gene_patterns:
+                    cleaned_gene = self.clean_gene_symbol(gene_symbol)
+                    if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
+                        genes.append(cleaned_gene)
+
+            # If no underscore patterns found, look for GENES TARGETED sections specifically
+            if not genes:
+                # Look for elements with "genes targeted" and extract following content
+                for element in soup.find_all(
+                    text=lambda text: text and "genes targeted" in text.lower()
+                ):
+                    parent = element.parent
+                    logger.info(
+                        "Found 'GENES TARGETED' text, looking for gene content..."
+                    )
+
+                    # Look for content in following elements
+                    for next_element in parent.find_all_next(
+                        ["p", "div", "li", "span"], limit=20
+                    ):
+                        text = next_element.get_text(strip=True)
+                        if not text:
+                            continue
+
+                        # Skip navigation and descriptive text
                         if any(
-                            skip in text
+                            skip in text.lower()
                             for skip in [
-                                "Single nucleotide variants",
-                                "Variants not presumed by nature",
-                                "Genomic DNA is subjected to FFPE repair",
-                                "Variants are validated",
+                                "table of contents",
+                                "toggle",
+                                "overview",
+                                "test requirements",
+                                "turn-around time",
+                                "results reporting",
+                                "method",
+                                "built with",
+                                "copyright",
+                                "cancer genetics and genomics laboratory",
                             ]
                         ):
                             continue
 
-                        # Remove R script patterns
-                        text = text.replace("Entire coding region: ", "")
-                        text = text.replace("Partial Genes: ", "")
-                        text = text.replace(
-                            "Copy Number Variants (not applicable to FFPE specimens): Copy number variants are called in all of the above genes as well as:",
-                            "",
-                        )
-
-                        # Split by semicolon like R script
-                        parts = text.split(";")
-                        for part in parts:
-                            part = part.strip()
-                            if part:
-                                # Remove underscore patterns like R script
+                        # Look for semicolon-separated gene lists or gene patterns
+                        if (
+                            ";" in text and len(text) < 1000
+                        ):  # Reasonable length for gene list
+                            parts = text.split(";")
+                            for part in parts:
+                                part = part.strip()
                                 if "_" in part:
-                                    part = part.split("_")[0]
-                                cleaned_gene = self.clean_gene_symbol(part)
-                                if cleaned_gene and self.validate_gene_symbol(
-                                    cleaned_gene
-                                ):
-                                    genes.append(cleaned_gene)
+                                    gene_symbol = part.split("_")[0].strip()
+                                    if gene_symbol and len(gene_symbol) >= 3:
+                                        cleaned_gene = self.clean_gene_symbol(
+                                            gene_symbol
+                                        )
+                                        if cleaned_gene and self.validate_gene_symbol(
+                                            cleaned_gene
+                                        ):
+                                            genes.append(cleaned_gene)
 
-            # If specific approach didn't work, look for gene patterns generally
-            if not genes:
-                for element in soup.find_all(["p", "div", "span", "li"]):
-                    text = element.get_text()
-                    if any(
-                        keyword in text.lower()
-                        for keyword in ["gene", "panel", "target"]
-                    ):
-                        import re
+                        # Stop after finding some genes
+                        if len(genes) > 5:
+                            break
 
-                        potential_genes = re.findall(r"\b[A-Z][A-Z0-9]{1,7}\b", text)
-                        for gene in potential_genes:
-                            cleaned_gene = self.clean_gene_symbol(gene)
-                            if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
-                                genes.append(cleaned_gene)
+                    if genes:
+                        break
 
             # Remove duplicates while preserving order
             unique_genes = []
