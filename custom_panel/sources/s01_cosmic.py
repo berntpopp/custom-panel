@@ -555,7 +555,9 @@ def fetch_cosmic_data(config: dict[str, Any]) -> pd.DataFrame:
 
     # Ensure germline scoring is enabled
     if not germline_config.get("enabled", False):
-        logger.warning("COSMIC germline scoring is disabled. Enable it in configuration to include COSMIC data.")
+        logger.warning(
+            "COSMIC germline scoring is disabled. Enable it in configuration to include COSMIC data."
+        )
         return pd.DataFrame()
 
     germline_df = _process_cosmic_genes(df, "germline", germline_config)

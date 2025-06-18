@@ -95,7 +95,7 @@ class GeneAnnotator:
     def standardize_gene_symbols(self, gene_symbols: list[str]) -> dict[str, str]:
         """
         Standardize gene symbols using HGNC batch API.
-        
+
         This method is public to allow standardization before merging.
 
         Args:

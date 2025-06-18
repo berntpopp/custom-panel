@@ -38,6 +38,7 @@ app = typer.Typer(
 )
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -197,17 +198,54 @@ def run(
             progress.update(task, description="Standardizing gene symbols...")
             standardized_dfs = []
             for df in raw_dataframes:
+                # Get source name for logging
+                source_name = (
+                    df["source_name"].iloc[0]
+                    if not df.empty and "source_name" in df.columns
+                    else "Unknown"
+                )
+
                 # Get unique symbols from this source
                 raw_symbols = df["approved_symbol"].dropna().unique().tolist()
                 if not raw_symbols:
+                    logger.warning(f"Source '{source_name}': No symbols to standardize")
                     continue
+
+                logger.info(
+                    f"\nStandardizing symbols for source '{source_name}': {len(raw_symbols)} unique symbols"
+                )
+                logger.debug(
+                    f"Source '{source_name}': First 10 symbols: {raw_symbols[:10]}"
+                )
+
                 # Standardize them
                 symbol_map = annotator.standardize_gene_symbols(raw_symbols)
+
+                # Count changes
+                changed_count = sum(
+                    1 for orig, std in symbol_map.items() if orig != std
+                )
+                logger.info(
+                    f"Source '{source_name}': {changed_count}/{len(raw_symbols)} symbols changed during standardization"
+                )
+
+                if changed_count > 0:
+                    # Log some examples of changes
+                    examples = [
+                        (orig, std) for orig, std in symbol_map.items() if orig != std
+                    ][:5]
+                    for orig, std in examples:
+                        logger.debug(f"  {orig} -> {std}")
+                    if changed_count > 5:
+                        logger.debug(f"  ... and {changed_count - 5} more changes")
+
                 # Apply the mapping
                 df["approved_symbol"] = (
                     df["approved_symbol"].map(symbol_map).fillna(df["approved_symbol"])
                 )
                 standardized_dfs.append(df)
+
+                logger.info(f"Source '{source_name}': Standardization complete")
 
             if not standardized_dfs:
                 console.print(

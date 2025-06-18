@@ -245,8 +245,14 @@ class HGNCClient:
             exact_matches = len(found_symbols)
             need_postprocess = len(original_symbols) - exact_matches
             logger.debug(
-                f"Batch results: {len(original_symbols)} submitted, {exact_matches} exact matches, {need_postprocess} need postprocessing"
+                f"HGNC batch API results: {len(original_symbols)} symbols submitted, {exact_matches} exact matches found, {need_postprocess} need further processing"
             )
+
+            if need_postprocess > 0 and logger.isEnabledFor(logging.DEBUG):
+                unmatched = [s for s in original_symbols if s not in found_symbols]
+                logger.debug(
+                    f"Symbols requiring alias/prev_symbol search: {unmatched[:10]}{'...' if len(unmatched) > 10 else ''}"
+                )
 
             # For symbols not found in batch, try individual lookups with aliases/prev symbols
             postprocess_fixed = 0
@@ -260,7 +266,7 @@ class HGNCClient:
 
             if need_postprocess > 0:
                 logger.debug(
-                    f"Postprocessing results: {postprocess_fixed} out of {need_postprocess} symbols were fixed"
+                    f"Alias/prev_symbol search results: {postprocess_fixed} out of {need_postprocess} symbols were successfully resolved"
                 )
 
         except requests.RequestException as e:
@@ -272,9 +278,18 @@ class HGNCClient:
                 result[original_symbol] = self.standardize_symbol(original_symbol)
 
         changed_count = sum(1 for k, v in result.items() if k.upper() != v.upper())
-        logger.info(
-            f"Batch complete: {len(symbols)} symbols processed, {changed_count} standardized to different symbols"
+        logger.debug(
+            f"HGNC batch complete: {len(symbols)} symbols processed, {changed_count} standardized to different symbols"
         )
+
+        if changed_count > 0 and logger.isEnabledFor(logging.DEBUG):
+            changes = [
+                (orig, std)
+                for orig, std in result.items()
+                if orig.upper() != std.upper()
+            ][:5]
+            logger.debug(f"Example standardizations: {changes}")
+
         return result
 
     def standardize_symbols(self, symbols: list[str]) -> dict[str, str]:
