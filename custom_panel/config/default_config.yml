@@ -226,6 +226,43 @@ output:
     # Extend gene coordinates by this many base pairs
     padding: 0
 
+  # Intermediate file output for debugging
+  intermediate_files:
+    # Enable intermediate file output
+    enabled: true
+    # Output format for intermediate files ("csv", "excel", "parquet")
+    format: "excel"
+    # Include raw source data
+    include_raw_data: true
+    # Include standardized data
+    include_standardized_data: true
+    # Include merged data before scoring
+    include_merged_data: true
+    # Include scored data before decision logic
+    include_scored_data: true
+    # Include annotated final data
+    include_annotated_data: true
+    # Compress output files
+    compress: false
+
+  # Structured logging to files
+  file_logging:
+    # Enable logging to files
+    enabled: false
+    # Log format ("json", "text")
+    format: "text"
+    # Include debug logs
+    include_debug: true
+    # Separate log files by component
+    separate_by_component: true
+    # Components to log separately (if separate_by_component is true)
+    components:
+      - "hgnc_client"
+      - "ensembl_client"
+      - "merger"
+      - "annotator"
+      - "sources"
+
 # Quality control
 quality_control:
   # Remove genes not found in HGNC
@@ -256,6 +293,23 @@ performance:
   enable_caching: true
   # Cache directory
   cache_dir: ".cache"
+
+# Directory structure for outputs
+directory_structure:
+  # Base structure for organized outputs
+  use_structured_output: true
+  # Subdirectories for different analysis stages
+  subdirs:
+    raw_data: "01_raw_data"
+    standardized_data: "02_standardized_data"
+    merged_data: "03_merged_data"
+    scored_data: "04_scored_data"
+    annotated_data: "05_annotated_data"
+    final_output: "06_final_output"
+    logs: "logs"
+    cache: "cache"
+  # Timestamp format for run-specific directories
+  timestamp_format: "%Y%m%d_%H%M%S"
 
 # Scrapers configuration for commercial panels
 scrapers:

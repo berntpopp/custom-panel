@@ -18,6 +18,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from .core.io import create_bed_file
+from .core.output_manager import OutputManager
 from .engine.annotator import GeneAnnotator
 from .engine.merger import PanelMerger
 from .sources.a_incidental_findings import fetch_acmg_incidental_data
@@ -143,6 +144,20 @@ def run(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Run without generating output files"
     ),
+    save_intermediate: bool = typer.Option(
+        False, "--save-intermediate", help="Save intermediate files for debugging"
+    ),
+    intermediate_format: Optional[str] = typer.Option(
+        None,
+        "--intermediate-format",
+        help="Format for intermediate files (csv, excel, parquet)",
+    ),
+    log_to_file: bool = typer.Option(False, "--log-to-file", help="Save logs to files"),
+    structured_output: bool = typer.Option(
+        True,
+        "--structured-output/--flat-output",
+        help="Use structured output directories",
+    ),
 ) -> None:
     """
     Run the complete gene panel curation pipeline.
@@ -164,6 +179,24 @@ def run(
             "somatic_threshold"
         ] = somatic_threshold
 
+    # Override intermediate file and logging settings
+    if save_intermediate:
+        config.setdefault("output", {}).setdefault("intermediate_files", {})[
+            "enabled"
+        ] = True
+    if intermediate_format is not None and intermediate_format in [
+        "csv",
+        "excel",
+        "parquet",
+    ]:
+        config.setdefault("output", {}).setdefault("intermediate_files", {})[
+            "format"
+        ] = intermediate_format
+    if log_to_file:
+        config.setdefault("output", {}).setdefault("file_logging", {})["enabled"] = True
+    if not structured_output:
+        config.setdefault("directory_structure", {})["use_structured_output"] = False
+
     output_dir_path = Path(config.get("general", {}).get("output_dir", "results"))
 
     console.print("[bold green]Starting custom-panel pipeline[/bold green]")
@@ -175,18 +208,19 @@ def run(
         )
 
     try:
+        # Initialize engines and output manager
+        annotator = GeneAnnotator(config)
+        merger = PanelMerger(config)
+        output_manager = OutputManager(config, output_dir_path)
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             console=console,
         ) as progress:
-            # Initialize engines
-            annotator = GeneAnnotator(config)
-            merger = PanelMerger(config)
-
             # Step 1: Fetch data from all sources
             task = progress.add_task("Fetching data from sources...", total=None)
-            raw_dataframes = fetch_all_sources(config)
+            raw_dataframes = fetch_all_sources(config, output_manager)
             if not raw_dataframes:
                 console.print("[red]No data fetched from any source. Exiting.[/red]")
                 raise typer.Exit(1)
@@ -243,6 +277,10 @@ def run(
                 df["approved_symbol"] = (
                     df["approved_symbol"].map(symbol_map).fillna(df["approved_symbol"])
                 )
+
+                # Save standardized data
+                output_manager.save_standardized_data(df, source_name, symbol_map)
+
                 standardized_dfs.append(df)
 
                 logger.info(f"Source '{source_name}': Standardization complete")
@@ -255,7 +293,7 @@ def run(
 
             # Step 3: Merge and score genes
             progress.update(task, description="Merging and scoring genes...")
-            master_df = merger.create_master_list(standardized_dfs)
+            master_df = merger.create_master_list(standardized_dfs, output_manager)
             if master_df.empty:
                 console.print(
                     "[red]No genes in master list after merging. Exiting.[/red]"
@@ -266,10 +304,29 @@ def run(
             progress.update(task, description="Annotating final gene list...")
             annotated_df = annotator.annotate_genes(master_df)
 
+            # Save annotated data
+            annotation_summary = annotator.get_annotation_summary(annotated_df)
+            output_manager.save_annotated_data(annotated_df, annotation_summary)
+
             # Step 5: Generate outputs
             if not dry_run:
                 progress.update(task, description="Generating output files...")
-                generate_outputs(annotated_df, config, output_dir_path)
+                final_output_dir = output_manager.get_final_output_dir()
+                generate_outputs(annotated_df, config, final_output_dir)
+
+                # Save run summary
+                run_summary = output_manager.get_run_summary()
+                summary_path = output_manager.run_dir / "run_summary.json"
+                with open(summary_path, "w") as f:
+                    import json
+
+                    json.dump(run_summary, f, indent=2)
+
+                # Cleanup old runs if using structured output
+                if config.get("directory_structure", {}).get(
+                    "use_structured_output", True
+                ):
+                    output_manager.cleanup_old_runs()
 
             progress.remove_task(task)
 
@@ -277,9 +334,21 @@ def run(
         display_summary(annotated_df, config)
 
         if not dry_run:
-            console.print(
-                f"[bold green]Pipeline completed successfully! Results saved to: {output_dir_path}[/bold green]"
-            )
+            if output_manager.use_structured:
+                console.print(
+                    f"[bold green]Pipeline completed successfully! Results saved to: {output_manager.run_dir}[/bold green]"
+                )
+                if output_manager.intermediate_enabled:
+                    console.print("[blue]Intermediate files saved for debugging[/blue]")
+                if output_manager.file_logging_enabled:
+                    log_dir = output_manager.run_dir / output_manager.subdirs.get(
+                        "logs", "logs"
+                    )
+                    console.print(f"[blue]Logs saved to: {log_dir}[/blue]")
+            else:
+                console.print(
+                    f"[bold green]Pipeline completed successfully! Results saved to: {output_dir_path}[/bold green]"
+                )
         else:
             console.print("[bold yellow]Dry run completed successfully![/bold yellow]")
 
@@ -475,7 +544,9 @@ def search_panels(
     console.print(table)
 
 
-def fetch_all_sources(config: dict[str, Any]) -> list[pd.DataFrame]:
+def fetch_all_sources(
+    config: dict[str, Any], output_manager: Optional[OutputManager] = None
+) -> list[pd.DataFrame]:
     """Fetch data from all enabled sources."""
     dataframes = []
 
@@ -504,6 +575,10 @@ def fetch_all_sources(config: dict[str, Any]) -> list[pd.DataFrame]:
             df = fetch_function(config)
 
             if not df.empty:
+                # Save raw source data if output manager is available
+                if output_manager:
+                    output_manager.save_source_data(df, source_name)
+
                 dataframes.append(df)
                 console.print(f"[green]✓ {source_name}: {len(df)} records[/green]")
             else:

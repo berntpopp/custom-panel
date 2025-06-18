@@ -34,12 +34,15 @@ class PanelMerger:
         # Quality control settings
         self.qc_config = config.get("quality_control", {})
 
-    def create_master_list(self, dataframes: list[pd.DataFrame]) -> pd.DataFrame:
+    def create_master_list(
+        self, dataframes: list[pd.DataFrame], output_manager=None
+    ) -> pd.DataFrame:
         """
         Create master gene list from multiple source DataFrames.
 
         Args:
             dataframes: List of standardized DataFrames from different sources
+            output_manager: Optional output manager for saving intermediate files
 
         Returns:
             Master DataFrame with merged and scored genes
@@ -65,11 +68,20 @@ class PanelMerger:
         # Step 1: Merge all dataframes
         merged_df = self._merge_dataframes(dataframes)
 
+        # Save merged data
+        if output_manager:
+            output_manager.save_merged_data(merged_df, source_stats)
+
         # Step 2: Apply quality control filters
         filtered_df = self._apply_quality_control(merged_df)
 
         # Step 3: Aggregate by gene and calculate scores
         scored_df = self._calculate_scores(filtered_df)
+
+        # Save scored data
+        if output_manager:
+            scoring_summary = self.get_scoring_summary(scored_df)
+            output_manager.save_scored_data(scored_df, scoring_summary)
 
         # Step 4: Apply decision thresholds
         final_df = self._apply_decision_logic(scored_df)
