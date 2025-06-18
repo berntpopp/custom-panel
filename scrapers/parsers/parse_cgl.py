@@ -63,7 +63,7 @@ class CglParser(BaseParser):
             if not genes:
                 # Look for elements with "genes targeted" and extract following content
                 for element in soup.find_all(
-                    text=lambda text: text and "genes targeted" in text.lower()
+                    string=lambda text: text and "genes targeted" in text.lower()
                 ):
                     parent = element.parent
                     logger.info(

@@ -64,7 +64,7 @@ class MayoParser(BaseParser):
                     time.sleep(1)
                     session.get(self.url, headers=headers, timeout=30)
                     time.sleep(1)
-                except:
+                except Exception:
                     pass  # Continue even if setup fails
 
                 # Try to download PDF
@@ -269,7 +269,7 @@ class MayoParser(BaseParser):
                     )
                     raise Exception(
                         f"Both requests and Selenium failed. Last error: {selenium_error}"
-                    )
+                    ) from selenium_error
 
             if not html_content:
                 raise Exception("Failed to retrieve page content")

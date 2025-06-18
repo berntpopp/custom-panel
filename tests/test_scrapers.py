@@ -29,12 +29,15 @@ class TestParsers:
         with open(fixture_path) as f:
             mock_html = f.read()
 
-        # Mock the requests.get call
+        # Mock the session.get call
         mock_response = MagicMock()
         mock_response.content = mock_html.encode("utf-8")
         mock_response.raise_for_status.return_value = None
 
-        with patch("requests.get", return_value=mock_response):
+        mock_session = MagicMock()
+        mock_session.get.return_value = mock_response
+
+        with patch("requests.Session", return_value=mock_session):
             parser = MyriadParser("http://test.com")
             genes = parser.parse()
 

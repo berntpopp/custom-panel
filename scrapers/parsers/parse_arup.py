@@ -47,7 +47,7 @@ class ArupParser(BaseParser):
 
             # Try multiple approaches to find "Genes Tested"
             for element in soup.find_all(
-                text=lambda text: text and "genes tested" in text.lower()
+                string=lambda text: text and "genes tested" in text.lower()
             ):
                 parent = element.parent
                 logger.info(f"Found 'Genes Tested' text in element: {parent.name}")
