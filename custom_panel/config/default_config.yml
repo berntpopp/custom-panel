@@ -119,45 +119,6 @@ data_sources:
         evidence_score: 1.2
         category: "germline"  # "germline" or "somatic"
 
-  # Somatic commercial panels (direct file download and processing)
-  somatic_commercial:
-    enabled: true
-    panels:
-      - name: "IDT_xGen_Pan_Cancer"
-        url: "https://www.idtdna.com/pages/products/next-generation-sequencing/workflow/xgen-ngs-hybridization-capture/pre-designed-hyb-cap-panels/pan-cancer-hyb-panel"
-        type: "xlsx"
-        evidence_score: 0.9
-        category: "somatic"
-      - name: "Agilent_SureSelect_Cancer_AllInOne"
-        url: "https://www.agilent.com/cs/library/brochures/NGS%20SureSelect%20Cancer%20All-In-One%20Brochure%205994-0668EN%204.8%20(single%20pages).pdf"
-        type: "pdf"
-        evidence_score: 0.9
-        category: "somatic"
-      - name: "Agilent_SureSelect_Glasgow_Core"
-        url: "https://www.agilent.com/cs/library/flyers/public/flyer-genomics-glasgow-panel-5994-1477en-agilent.pdf"
-        type: "pdf"
-        evidence_score: 0.8
-        category: "somatic"
-      - name: "Agilent_SureSelect_Glasgow_Plus"
-        url: "https://www.agilent.com/cs/library/flyers/public/flyer-genomics-glasgow-panel-5994-1477en-agilent.pdf"
-        type: "pdf"
-        evidence_score: 0.8
-        category: "somatic"
-      - name: "Ion_AmpliSeq_Cancer_Panel"
-        url: "http://assets.thermofisher.com/TFS-Assets/CSD/Reference-Materials/ion-ampliseq-cancer-panel-gene-list.pdf"
-        type: "pdf"
-        evidence_score: 0.8
-        category: "somatic"
-      - name: "Illumina_TruSight_Oncology_500"
-        url: "https://emea.illumina.com/content/dam/illumina-marketing/documents/products/gene_lists/gene_list_trusight_oncology_500.xlsx"
-        type: "xlsx"
-        evidence_score: 0.9
-        category: "somatic"
-      - name: "Illumina_Comprehensive_Panel_v3"
-        url: "https://support.illumina.com/content/dam/illumina-support/documents/downloads/productfiles/ampliseq-for-illumina/ampliseq-for-illumina-comprehensive-panel-v3-manifest-file-bed.zip"
-        type: "zip"
-        evidence_score: 0.8
-        category: "somatic"
 
   # HPO/OMIM neoplasm gene identification
   hpo_neoplasm:
@@ -187,7 +148,6 @@ scoring:
       panelapp: 1.0
       inhouse_panels: 1.2
       commercial_panels: 0.8
-      somatic_commercial: 0.5  # Lower weight for somatic panels in germline context
       cosmic: 0.9
       acmg_incidental: 1.5
       manual_curation: 1.1
@@ -196,7 +156,6 @@ scoring:
       panelapp: 0.8
       inhouse_panels: 1.0
       commercial_panels: 0.9
-      somatic_commercial: 1.2  # High weight for somatic panels in somatic context
       cosmic: 1.2
       acmg_incidental: 0.5
       manual_curation: 1.0

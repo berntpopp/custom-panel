@@ -476,12 +476,13 @@ def _process_cosmic_genes(
 def fetch_cosmic_data(config: dict[str, Any]) -> pd.DataFrame:
     """
     Fetch COSMIC Cancer Gene Census data with authentication and caching.
+    Now focuses exclusively on germline variants.
 
     Args:
         config: Configuration dictionary
 
     Returns:
-        Standardized DataFrame with COSMIC data for both germline and somatic categories
+        Standardized DataFrame with COSMIC germline data only
     """
     cosmic_config = config.get("data_sources", {}).get("cosmic", {})
 
@@ -549,30 +550,22 @@ def fetch_cosmic_data(config: dict[str, Any]) -> pd.DataFrame:
         logger.error(f"Failed to load COSMIC census: {e}")
         return pd.DataFrame()
 
-    # Process both germline and somatic categories
-    result_dfs = []
-
-    # Process germline
+    # Process germline category only
     germline_config = cosmic_config.get("germline_scoring", {})
-    germline_df = _process_cosmic_genes(df, "germline", germline_config)
-    if not germline_df.empty:
-        result_dfs.append(germline_df)
 
-    # Process somatic
-    somatic_config = cosmic_config.get("somatic_scoring", {})
-    somatic_df = _process_cosmic_genes(df, "somatic", somatic_config)
-    if not somatic_df.empty:
-        result_dfs.append(somatic_df)
-
-    # Combine results
-    if not result_dfs:
-        logger.warning("No COSMIC data processed for any category")
+    # Ensure germline scoring is enabled
+    if not germline_config.get("enabled", False):
+        logger.warning("COSMIC germline scoring is disabled. Enable it in configuration to include COSMIC data.")
         return pd.DataFrame()
 
-    final_df = pd.concat(result_dfs, ignore_index=True)
-    logger.info(f"Created COSMIC dataset with {len(final_df)} total gene records")
+    germline_df = _process_cosmic_genes(df, "germline", germline_config)
 
-    return final_df
+    if germline_df.empty:
+        logger.warning("No COSMIC germline data processed")
+        return pd.DataFrame()
+
+    logger.info(f"Created COSMIC germline dataset with {len(germline_df)} gene records")
+    return germline_df
 
 
 def validate_cosmic_config(config: dict[str, Any]) -> list[str]:
