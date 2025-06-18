@@ -180,33 +180,56 @@ def run(
             TextColumn("[progress.description]{task.description}"),
             console=console,
         ) as progress:
+            # Initialize engines
+            annotator = GeneAnnotator(config)
+            merger = PanelMerger(config)
+
             # Step 1: Fetch data from all sources
             task = progress.add_task("Fetching data from sources...", total=None)
-            dataframes = fetch_all_sources(config)
-
-            if not dataframes:
+            raw_dataframes = fetch_all_sources(config)
+            if not raw_dataframes:
                 console.print("[red]No data fetched from any source. Exiting.[/red]")
                 raise typer.Exit(1)
-
             progress.update(
-                task, description=f"Fetched data from {len(dataframes)} sources"
+                task, description=f"Fetched data from {len(raw_dataframes)} sources"
             )
 
-            # Step 2: Merge and score genes
-            progress.update(task, description="Merging and scoring genes...")
-            merger = PanelMerger(config)
-            master_df = merger.create_master_list(dataframes)
+            # Step 2: Standardize symbols for each source dataframe BEFORE merging
+            progress.update(task, description="Standardizing gene symbols...")
+            standardized_dfs = []
+            for df in raw_dataframes:
+                # Get unique symbols from this source
+                raw_symbols = df["approved_symbol"].dropna().unique().tolist()
+                if not raw_symbols:
+                    continue
+                # Standardize them
+                symbol_map = annotator._standardize_gene_symbols(raw_symbols)
+                # Apply the mapping
+                df["approved_symbol"] = (
+                    df["approved_symbol"].map(symbol_map).fillna(df["approved_symbol"])
+                )
+                standardized_dfs.append(df)
 
-            if master_df.empty:
-                console.print("[red]No genes in master list. Exiting.[/red]")
+            if not standardized_dfs:
+                console.print(
+                    "[red]No valid genes after standardization. Exiting.[/red]"
+                )
                 raise typer.Exit(1)
 
-            # Step 3: Annotate genes
-            progress.update(task, description="Annotating genes...")
-            annotator = GeneAnnotator(config)
+            # Step 3: Merge and score genes
+            progress.update(task, description="Merging and scoring genes...")
+            master_df = merger.create_master_list(standardized_dfs)
+            if master_df.empty:
+                console.print(
+                    "[red]No genes in master list after merging. Exiting.[/red]"
+                )
+                raise typer.Exit(1)
+
+            # Step 4: Annotate the final master list
+            progress.update(task, description="Annotating final gene list...")
             annotated_df = annotator.annotate_genes(master_df)
 
-            # Step 4: Generate outputs
+            # Step 5: Generate outputs
             if not dry_run:
                 progress.update(task, description="Generating output files...")
                 generate_outputs(annotated_df, config, output_dir_path)

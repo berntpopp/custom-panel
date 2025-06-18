@@ -168,13 +168,17 @@ class HGNCClient:
         symbol = symbol.strip().upper()
 
         # Try direct symbol lookup
-        gene_info = self.get_gene_info(symbol)
-        if gene_info:
-            return gene_info.get("symbol", symbol)
+        try:
+            response = self._make_request(f"search/symbol/{symbol}", method="GET")
+            docs = response.get("response", {}).get("docs", [])
+            if docs:
+                return docs[0].get("symbol", symbol)
+        except (requests.RequestException, ValueError):
+            pass
 
         # Try previous symbol lookup
         try:
-            response = self._make_request("search/prev_symbol", {"prev_symbol": symbol})
+            response = self._make_request(f"search/prev_symbol/{symbol}", method="GET")
             docs = response.get("response", {}).get("docs", [])
             if docs:
                 return docs[0].get("symbol", symbol)
@@ -183,9 +187,7 @@ class HGNCClient:
 
         # Try alias symbol lookup
         try:
-            response = self._make_request(
-                "search/alias_symbol", {"alias_symbol": symbol}
-            )
+            response = self._make_request(f"search/alias_symbol/{symbol}", method="GET")
             docs = response.get("response", {}).get("docs", [])
             if docs:
                 return docs[0].get("symbol", symbol)
@@ -200,6 +202,8 @@ class HGNCClient:
         """
         Standardize multiple gene symbols using HGNC batch API.
 
+        This method now constructs a proper GET request with an 'OR' query.
+
         Args:
             symbols: Tuple of gene symbols (tuple for caching compatibility)
 
@@ -209,72 +213,67 @@ class HGNCClient:
         if not symbols:
             return {}
 
-        # Keep track of original input symbols and their normalized versions
         original_symbols = list(symbols)
-        normalized_symbols = [symbol.strip().upper() for symbol in symbols]
-        symbol_map = dict(zip(normalized_symbols, original_symbols, strict=True))
+        # The result dictionary will map original input symbols to their standardized counterparts.
+        result = {symbol: symbol for symbol in original_symbols}
 
-        # Try batch direct symbol lookup
-        result = {}
         try:
-            # Use the HGNC batch search endpoint
-            batch_data = {"symbols": normalized_symbols}
-            response = self._make_request("search", method="POST", data=batch_data)
+            # Construct the query for the correct endpoint: "GENE1+OR+GENE2+OR+..."
+            query_str = "+OR+".join([s.upper() for s in original_symbols])
+            endpoint = f"search/symbol/{query_str}"
 
-            # Parse response - HGNC batch endpoint returns a list of docs
+            # Use the correct search/symbol endpoint
+            response = self._make_request(endpoint, method="GET")
+
             docs = response.get("response", {}).get("docs", [])
 
-            # Create mapping from found symbols
+            # Just match by symbol name directly
             found_symbols = set()
             for doc in docs:
-                standardized_symbol = doc.get("symbol")
-                if standardized_symbol:
-                    # Find which input symbol this matches (case-insensitive)
-                    for normalized_input in normalized_symbols:
-                        if normalized_input == standardized_symbol.upper():
-                            original_input = symbol_map[normalized_input]
-                            result[original_input] = standardized_symbol
-                            found_symbols.add(normalized_input)
-                            break
+                approved_symbol = doc.get("symbol")
+                if not approved_symbol:
+                    continue
 
-                    # Also check aliases and previous symbols
-                    alias_symbols = doc.get("alias_symbol", [])
-                    if isinstance(alias_symbols, list):
-                        for alias in alias_symbols:
-                            for normalized_input in normalized_symbols:
-                                if normalized_input == alias.upper():
-                                    original_input = symbol_map[normalized_input]
-                                    result[original_input] = standardized_symbol
-                                    found_symbols.add(normalized_input)
-                                    break
+                # Check if this approved symbol matches any input symbol (case-insensitive)
+                for original_symbol in original_symbols:
+                    if original_symbol.upper() == approved_symbol.upper():
+                        result[original_symbol] = approved_symbol
+                        found_symbols.add(original_symbol)
+                        break
 
-                    prev_symbols = doc.get("prev_symbol", [])
-                    if isinstance(prev_symbols, list):
-                        for prev in prev_symbols:
-                            for normalized_input in normalized_symbols:
-                                if normalized_input == prev.upper():
-                                    original_input = symbol_map[normalized_input]
-                                    result[original_input] = standardized_symbol
-                                    found_symbols.add(normalized_input)
-                                    break
+            # Log batch results
+            exact_matches = len(found_symbols)
+            need_postprocess = len(original_symbols) - exact_matches
+            logger.debug(
+                f"Batch results: {len(original_symbols)} submitted, {exact_matches} exact matches, {need_postprocess} need postprocessing"
+            )
+
+            # For symbols not found in batch, try individual lookups with aliases/prev symbols
+            postprocess_fixed = 0
+            for original_symbol in original_symbols:
+                if original_symbol not in found_symbols:
+                    # Try individual standardization (includes alias and prev symbol lookups)
+                    standardized = self.standardize_symbol(original_symbol)
+                    result[original_symbol] = standardized
+                    if standardized.upper() != original_symbol.upper():
+                        postprocess_fixed += 1
+
+            if need_postprocess > 0:
+                logger.debug(
+                    f"Postprocessing results: {postprocess_fixed} out of {need_postprocess} symbols were fixed"
+                )
 
         except requests.RequestException as e:
             logger.warning(
-                f"Batch symbol standardization failed: {e}, falling back to individual requests"
+                f"Batch symbol standardization failed: {e}. Falling back to individual lookups."
             )
-            # Fall back to individual requests
+            # Fallback to individual, slower lookups if batch fails
             for original_symbol in original_symbols:
                 result[original_symbol] = self.standardize_symbol(original_symbol)
-            return result
 
-        # For symbols not found in batch response, use original symbol
-        for normalized_input in normalized_symbols:
-            if normalized_input not in found_symbols:
-                original_input = symbol_map[normalized_input]
-                result[original_input] = original_input
-
+        changed_count = sum(1 for k, v in result.items() if k.upper() != v.upper())
         logger.info(
-            f"Batch standardized {len([k for k, v in result.items() if k != v])} out of {len(symbols)} symbols"
+            f"Batch complete: {len(symbols)} symbols processed, {changed_count} standardized to different symbols"
         )
         return result
 
@@ -288,8 +287,16 @@ class HGNCClient:
         Returns:
             Dictionary mapping original symbols to standardized symbols
         """
-        # Convert to tuple for caching compatibility and call batch method
-        return self.standardize_symbols_batch(tuple(symbols))
+        # For large lists, split into smaller batches to avoid URL length limits
+        batch_size = 100  # Batch size for URL length limits
+        result = {}
+
+        for i in range(0, len(symbols), batch_size):
+            batch = symbols[i : i + batch_size]
+            batch_result = self.standardize_symbols_batch(tuple(batch))
+            result.update(batch_result)
+
+        return result
 
     def get_cache_info(self) -> dict[str, Any]:
         """

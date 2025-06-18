@@ -111,31 +111,11 @@ class GeneAnnotator:
 
             try:
                 # Use batch standardization for improved performance
-                batch_result = self.hgnc_client.standardize_symbols_batch(tuple(batch))
+                batch_result = self.hgnc_client.standardize_symbols(batch)
                 standardized.update(batch_result)
 
-                # For any symbols not found in batch, use individual fallback
-                failed_symbols = []
-                for symbol in batch:
-                    if symbol not in batch_result or batch_result[symbol] == symbol:
-                        # Check if original symbol lookup actually failed
-                        # (vs. symbol being already standardized)
-                        try:
-                            individual_result = self.hgnc_client.standardize_symbol(
-                                symbol
-                            )
-                            if individual_result != symbol:
-                                standardized[symbol] = individual_result
-                            else:
-                                failed_symbols.append(symbol)
-                        except Exception as e:
-                            logger.warning(f"Failed to standardize {symbol}: {e}")
-                            failed_symbols.append(symbol)
-
-                # Ensure all symbols are in the result
-                for symbol in failed_symbols:
-                    if symbol not in standardized:
-                        standardized[symbol] = symbol
+                # No need for additional individual lookups - the batch method already handles fallbacks internally
+                # The batch method in standardize_symbols() already does individual lookups for symbols not found
 
             except Exception as e:
                 logger.warning(
