@@ -214,7 +214,7 @@ Options:
 4. **Manual Curation**: Custom gene lists from literature review and expert curation
 5. **HPO/OMIM Neoplasm**: Automatic identification of cancer-associated genes using HPO ontology
 6. **COSMIC**: Cancer Gene Census (planned)
-7. **Commercial Panels**: Web scraping of 15 commercial diagnostic panel websites
+7. **Commercial Panels**: Web scraping of 14 commercial diagnostic panel websites
 
 ### Commercial Panel Web Scrapers
 
@@ -222,7 +222,7 @@ The tool includes a comprehensive web scraping framework for extracting gene lis
 
 #### Supported Commercial Panels
 
-The scrapers framework currently supports **15 commercial diagnostic panel providers**:
+The scrapers framework currently supports **14 commercial diagnostic panel providers**:
 
 1. **Myriad Genetics** - myRisk Hereditary Cancer Panel
 2. **Blueprint Genetics** - Hereditary Cancer Panels (19 sub-panels)
@@ -233,12 +233,11 @@ The scrapers framework currently supports **15 commercial diagnostic panel provi
 7. **MGZ Munich** - Hereditary Cancer Panel
 8. **University of Chicago** - Hereditary Cancer Panel
 9. **Prevention Genetics** - Cancer Panel
-10. **Mayo Clinic Labs** - Hereditary Expanded Cancer Panel
-11. **GeneDx** - Comprehensive Cancer Panel
-12. **ARUP Laboratories** - Hereditary Cancer Panel
-13. **Cincinnati Children's (CGL)** - Hereditary Cancer Panel
-14. **NeoGenomics** - Comprehensive Cancer Panel
-15. **Natera** - Hereditary Cancer Test
+10. **GeneDx** - Comprehensive Cancer Panel
+11. **ARUP Laboratories** - Hereditary Cancer Panel
+12. **Cincinnati Children's (CGL)** - Hereditary Cancer Panel
+13. **NeoGenomics** - Comprehensive Cancer Panel
+14. **Natera** - Hereditary Cancer Test
 
 #### Running the Scrapers
 
@@ -282,7 +281,7 @@ scrapers/
 │   ├── base_parser.py       # Abstract base class
 │   ├── parse_myriad.py      # Myriad Genetics parser
 │   ├── parse_blueprint.py   # Blueprint Genetics parser
-│   └── ...                  # 15 total parsers
+│   └── ...                  # 14 total parsers
 └── README.md               # Scraper-specific documentation
 ```
 
