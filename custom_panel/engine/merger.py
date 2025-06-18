@@ -154,38 +154,23 @@ class PanelMerger:
         # Initialize lists for aggregated data
         genes = []
         hgnc_ids = []
-        germline_scores = []
-        somatic_scores = []
-        total_scores = []
+        final_scores = []
         source_counts = []
         source_names_list = []
         source_details_list = []
 
         for gene_symbol, group in grouped:
-            # Explicitly filter evidence by category before scoring
+            # Filter evidence by category (only germline)
             if "category" in group.columns:
-                germline_evidence_df = group[group["category"] == "germline"]
-                somatic_evidence_df = group[group["category"] == "somatic"]
+                evidence_df = group[group["category"] == "germline"]
             else:
-                # Backward compatibility: score all evidence for both categories
-                # (maintains previous behavior for data without category columns)
-                germline_evidence_df = group.copy()
-                somatic_evidence_df = group.copy()
+                # Backward compatibility: score all evidence as germline
+                evidence_df = group.copy()
 
-            # Calculate scores for filtered evidence data
-            germline_score = 0.0
-            if not germline_evidence_df.empty:
-                germline_score = self._calculate_category_score(
-                    germline_evidence_df, "germline"
-                )
-
-            somatic_score = 0.0
-            if not somatic_evidence_df.empty:
-                somatic_score = self._calculate_category_score(
-                    somatic_evidence_df, "somatic"
-                )
-
-            total_score = germline_score + somatic_score
+            # Calculate score for germline evidence data
+            score = 0.0
+            if not evidence_df.empty:
+                score = self._calculate_category_score(evidence_df, "germline")
 
             # Aggregate source information
             sources = group["source_name"].unique().tolist()
@@ -205,9 +190,7 @@ class PanelMerger:
 
             genes.append(gene_symbol)
             hgnc_ids.append(hgnc_id)
-            germline_scores.append(germline_score)
-            somatic_scores.append(somatic_score)
-            total_scores.append(total_score)
+            final_scores.append(score)
             source_counts.append(source_count)
             source_names_list.append(source_names)
             source_details_list.append(source_details)
@@ -217,33 +200,24 @@ class PanelMerger:
             {
                 "approved_symbol": genes,
                 "hgnc_id": hgnc_ids,
-                "germline_score": germline_scores,
-                "somatic_score": somatic_scores,
-                "total_score": total_scores,
+                "score": final_scores,
                 "source_count": source_counts,
                 "source_names": source_names_list,
                 "source_details": source_details_list,
             }
         )
 
-        # Sort by total score (highest first)
-        scored_df = scored_df.sort_values("total_score", ascending=False)
+        # Sort by score (highest first)
+        scored_df = scored_df.sort_values("score", ascending=False)
 
         logger.info(f"Calculated scores for {len(scored_df)} unique genes")
 
         # Log score distribution summary
-        if "germline_score" in scored_df.columns:
-            germline_stats = scored_df["germline_score"].describe()
+        if "score" in scored_df.columns:
+            score_stats = scored_df["score"].describe()
             logger.info(
-                f"Germline score distribution - mean: {germline_stats['mean']:.2f}, "
-                f"median: {germline_stats['50%']:.2f}, max: {germline_stats['max']:.2f}"
-            )
-
-        if "somatic_score" in scored_df.columns:
-            somatic_stats = scored_df["somatic_score"].describe()
-            logger.info(
-                f"Somatic score distribution - mean: {somatic_stats['mean']:.2f}, "
-                f"median: {somatic_stats['50%']:.2f}, max: {somatic_stats['max']:.2f}"
+                f"Score distribution - mean: {score_stats['mean']:.2f}, "
+                f"median: {score_stats['50%']:.2f}, max: {score_stats['max']:.2f}"
             )
 
         if "source_count" in scored_df.columns:
@@ -321,59 +295,49 @@ class PanelMerger:
             return df
 
         # Get thresholds
-        germline_threshold = self.thresholds.get("germline_threshold", 2.0)
-        somatic_threshold = self.thresholds.get("somatic_threshold", 1.5)
+        score_threshold = self.thresholds.get("score_threshold", 2.0)
         min_sources = self.thresholds.get("min_sources", 1)
 
         # Log threshold configuration
         logger.info(
-            f"Applying decision thresholds - Germline: {germline_threshold}, "
-            f"Somatic: {somatic_threshold}, Min sources: {min_sources}"
+            f"Applying decision thresholds - Score: {score_threshold}, "
+            f"Min sources: {min_sources}"
         )
 
         # Apply decision logic
         df = df.copy()
-        df["include_germline"] = (df["germline_score"] >= germline_threshold) & (
+        df["include"] = (df["score"] >= score_threshold) & (
             df["source_count"] >= min_sources
         )
-        df["include_somatic"] = (df["somatic_score"] >= somatic_threshold) & (
-            df["source_count"] >= min_sources
-        )
-        df["include_any"] = df["include_germline"] | df["include_somatic"]
 
         # Log decision results
         total_genes = len(df)
-        germline_genes = df["include_germline"].sum()
-        somatic_genes = df["include_somatic"].sum()
-        any_genes = df["include_any"].sum()
+        included_genes = df["include"].sum()
 
-        logger.info(
-            f"Decision results: {germline_genes}/{total_genes} germline, "
-            f"{somatic_genes}/{total_genes} somatic, {any_genes}/{total_genes} total"
-        )
+        logger.info(f"Decision results: {included_genes}/{total_genes} genes included")
 
         # Log examples of included/excluded genes for debugging
         if logger.isEnabledFor(logging.DEBUG):
-            # Show top included germline genes
-            if germline_genes > 0:
-                top_germline = df[df["include_germline"]].nlargest(5, "germline_score")
-                logger.debug("Top 5 included germline genes:")
-                for _, gene in top_germline.iterrows():
+            # Show top included genes
+            if included_genes > 0:
+                top_genes = df[df["include"]].nlargest(5, "score")
+                logger.debug("Top 5 included genes:")
+                for _, gene in top_genes.iterrows():
                     logger.debug(
-                        f"  {gene['approved_symbol']}: score={gene['germline_score']:.2f}, sources={gene['source_count']}"
+                        f"  {gene['approved_symbol']}: score={gene['score']:.2f}, sources={gene['source_count']}"
                     )
 
             # Show some excluded genes close to threshold
             close_to_threshold = df[
-                ~df["include_germline"]
-                & (df["germline_score"] > germline_threshold * 0.8)
-                & (df["germline_score"] < germline_threshold)
+                ~df["include"]
+                & (df["score"] > score_threshold * 0.8)
+                & (df["score"] < score_threshold)
             ]
             if len(close_to_threshold) > 0:
-                logger.debug("\nGenes close to germline threshold but excluded:")
+                logger.debug("\nGenes close to threshold but excluded:")
                 for _, gene in close_to_threshold.head(5).iterrows():
                     logger.debug(
-                        f"  {gene['approved_symbol']}: score={gene['germline_score']:.2f}, sources={gene['source_count']}"
+                        f"  {gene['approved_symbol']}: score={gene['score']:.2f}, sources={gene['source_count']}"
                     )
 
         return df
@@ -393,34 +357,19 @@ class PanelMerger:
 
         summary = {
             "total_genes": len(df),
-            "genes_with_germline_inclusion": df["include_germline"].sum()
-            if "include_germline" in df.columns
-            else 0,
-            "genes_with_somatic_inclusion": df["include_somatic"].sum()
-            if "include_somatic" in df.columns
-            else 0,
-            "genes_with_any_inclusion": df["include_any"].sum()
-            if "include_any" in df.columns
+            "genes_with_inclusion": df["include"].sum()
+            if "include" in df.columns
             else 0,
         }
 
         # Score distributions
-        if "germline_score" in df.columns:
-            summary["germline_score_stats"] = {
-                "mean": df["germline_score"].mean(),
-                "median": df["germline_score"].median(),
-                "min": df["germline_score"].min(),
-                "max": df["germline_score"].max(),
-                "std": df["germline_score"].std(),
-            }
-
-        if "somatic_score" in df.columns:
-            summary["somatic_score_stats"] = {
-                "mean": df["somatic_score"].mean(),
-                "median": df["somatic_score"].median(),
-                "min": df["somatic_score"].min(),
-                "max": df["somatic_score"].max(),
-                "std": df["somatic_score"].std(),
+        if "score" in df.columns:
+            summary["score_stats"] = {
+                "mean": df["score"].mean(),
+                "median": df["score"].median(),
+                "min": df["score"].min(),
+                "max": df["score"].max(),
+                "std": df["score"].std(),
             }
 
         # Source count distribution
@@ -429,21 +378,21 @@ class PanelMerger:
             summary["source_count_distribution"] = source_count_dist
 
         # Top scoring genes
-        if "total_score" in df.columns:
-            top_genes = df.nlargest(10, "total_score")[
-                ["approved_symbol", "total_score"]
-            ].to_dict("records")
+        if "score" in df.columns:
+            top_genes = df.nlargest(10, "score")[["approved_symbol", "score"]].to_dict(
+                "records"
+            )
             summary["top_scoring_genes"] = top_genes
 
         return summary
 
     def filter_by_category(self, df: pd.DataFrame, category: str) -> pd.DataFrame:
         """
-        Filter genes by inclusion category.
+        Filter genes by inclusion.
 
         Args:
             df: Master DataFrame
-            category: Category to filter by ("germline", "somatic", or "any")
+            category: Category to filter by (only "include" is supported now)
 
         Returns:
             Filtered DataFrame
@@ -451,13 +400,17 @@ class PanelMerger:
         if df.empty:
             return df
 
-        column_name = f"include_{category}"
+        if category != "include":
+            logger.warning(f"Only 'include' category is supported, got: {category}")
+            return pd.DataFrame()
+
+        column_name = "include"
         if column_name not in df.columns:
             logger.warning(f"Column {column_name} not found in DataFrame")
             return pd.DataFrame()
 
         filtered_df = df[df[column_name]].copy()
-        logger.info(f"Filtered to {len(filtered_df)} genes for {category} category")
+        logger.info(f"Filtered to {len(filtered_df)} included genes")
         return filtered_df
 
     def export_gene_lists(
@@ -478,22 +431,19 @@ class PanelMerger:
 
         exported_files = {}
 
-        # Export different categories
-        categories = ["germline", "somatic", "any"]
+        # Export included genes
+        filtered_df = self.filter_by_category(df, "include")
 
-        for category in categories:
-            filtered_df = self.filter_by_category(df, category)
+        if not filtered_df.empty:
+            # Export gene list (simple text file)
+            gene_list_file = output_dir / "included_genes.txt"
+            with open(gene_list_file, "w") as f:
+                for gene in filtered_df["approved_symbol"]:
+                    f.write(f"{gene}\n")
 
-            if not filtered_df.empty:
-                # Export gene list (simple text file)
-                gene_list_file = output_dir / f"{category}_genes.txt"
-                with open(gene_list_file, "w") as f:
-                    for gene in filtered_df["approved_symbol"]:
-                        f.write(f"{gene}\n")
-
-                exported_files[f"{category}_genes"] = str(gene_list_file)
-                logger.info(
-                    f"Exported {len(filtered_df)} {category} genes to {gene_list_file}"
-                )
+            exported_files["included_genes"] = str(gene_list_file)
+            logger.info(
+                f"Exported {len(filtered_df)} included genes to {gene_list_file}"
+            )
 
         return exported_files

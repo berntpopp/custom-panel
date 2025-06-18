@@ -314,14 +314,14 @@ class OutputManager:
     def _save_data_direct(self, df: pd.DataFrame, path: Path, format: str) -> None:
         """
         Save data directly without validation (for scored data with different schema).
-        
+
         Args:
             df: DataFrame to save
-            path: Output file path  
+            path: Output file path
             format: Output format
         """
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         if format.lower() == "parquet":
             df.to_parquet(path, index=False, engine="pyarrow")
         elif format.lower() == "csv":
@@ -330,7 +330,7 @@ class OutputManager:
             df.to_excel(path, index=False, engine="openpyxl")
         else:
             raise ValueError(f"Unsupported format: {format}")
-        
+
         logger.info(f"Saved {len(df)} records to {path} (direct save)")
 
 

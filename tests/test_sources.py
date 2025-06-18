@@ -26,18 +26,12 @@ from custom_panel.sources.g00_inhouse_panels import (
     validate_inhouse_panel_config,
 )
 from custom_panel.sources.g01_panelapp import PanelAppClient, fetch_panelapp_data
-from custom_panel.sources.s01_cosmic import (
+from custom_panel.sources.g04_cosmic_germline import (
     _calculate_cosmic_score,
     _is_cache_valid,
-    fetch_cosmic_data,
+    fetch_cosmic_germline_data,
     get_cosmic_summary,
     validate_cosmic_config,
-)
-from custom_panel.sources.s02_somatic_commercial import (
-    extract_genes_from_text,
-    fetch_somatic_commercial_data,
-    get_somatic_commercial_summary,
-    validate_somatic_commercial_config,
 )
 
 
@@ -271,38 +265,6 @@ class TestInhousePanels:
                 assert df is not None
                 assert len(df) == 3
                 assert set(df["approved_symbol"]) == {"BRCA1", "TP53", "EGFR"}
-            finally:
-                Path(f.name).unlink()
-
-    def test_process_inhouse_panel_category_explicit(self):
-        """Test processing in-house panel with explicit category setting."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("Gene Symbol,Description\n")
-            f.write("KRAS,Oncogene\n")
-            f.write("PIK3CA,Oncogene\n")
-            f.flush()
-
-            try:
-                config = {
-                    "name": "Test_Somatic_Panel",
-                    "file_path": f.name,
-                    "gene_column": "Gene Symbol",
-                    "evidence_score": 0.8,
-                    "category": "somatic",  # Explicitly set to somatic
-                }
-
-                df = process_inhouse_panel(config)
-
-                assert df is not None
-                assert len(df) == 2
-                assert "KRAS" in df["approved_symbol"].values
-                assert "PIK3CA" in df["approved_symbol"].values
-                # Test explicit category setting
-                assert "category" in df.columns
-                assert all(df["category"] == "somatic")
-                assert all(
-                    "Category:somatic" in detail for detail in df["source_details"]
-                )
             finally:
                 Path(f.name).unlink()
 
@@ -1043,47 +1005,16 @@ class TestManualCuration:
             finally:
                 Path(f.name).unlink()
 
-    def test_process_manual_list_category_explicit(self):
-        """Test processing manual list with explicit category setting."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("Gene Symbol,Description\n")
-            f.write("KRAS,Oncogene\n")
-            f.write("PIK3CA,Oncogene\n")
-            f.flush()
 
-            try:
-                list_config = {
-                    "name": "Test_Somatic_List",
-                    "file_path": f.name,
-                    "gene_column": "Gene Symbol",
-                    "evidence_score": 1.2,
-                    "category": "somatic",  # Explicitly set to somatic
-                }
-
-                df = process_manual_list(list_config)
-
-                assert df is not None
-                assert len(df) == 2
-                assert "KRAS" in df["approved_symbol"].values
-                assert "PIK3CA" in df["approved_symbol"].values
-                # Test explicit category setting
-                assert "category" in df.columns
-                assert all(df["category"] == "somatic")
-                assert "Category:somatic" in df.iloc[0]["source_details"]
-            finally:
-                Path(f.name).unlink()
-
-
-class TestCOSMICData:
-    """Test COSMIC Cancer Gene Census functionality."""
+class TestCOSMICGermlineData:
+    """Test COSMIC Cancer Gene Census germline functionality."""
 
     def test_calculate_cosmic_score(self):
         """Test COSMIC tier score calculation."""
-        tier_weights = {"Tier 1": 1.0, "Tier 2": 0.8, "Tier 3": 0.6, "": 0.4}
+        tier_weights = {"Tier 1": 1.0, "Tier 2": 0.8, "": 0.4}
 
         assert _calculate_cosmic_score("Tier 1", tier_weights) == 1.0
         assert _calculate_cosmic_score("Tier 2", tier_weights) == 0.8
-        assert _calculate_cosmic_score("Tier 3", tier_weights) == 0.6
         assert _calculate_cosmic_score("", tier_weights) == 0.4
         assert _calculate_cosmic_score("Unknown", tier_weights) == 0.4
         assert _calculate_cosmic_score(None, tier_weights) == 0.4
@@ -1106,20 +1037,17 @@ class TestCOSMICData:
                 cache_path.unlink()
 
     def test_validate_cosmic_config_valid(self):
-        """Test validation of valid COSMIC config."""
+        """Test validation of valid COSMIC germline config."""
         config = {
             "data_sources": {
-                "cosmic": {
+                "cosmic_germline": {
                     "enabled": True,
-                    "census_url": "https://example.com/census.csv",
+                    "email": "test@example.com",
+                    "password": "testpass",
                     "cache_expiry_days": 30,
                     "germline_scoring": {
                         "enabled": True,
-                        "tier_weights": {"Tier 1": 1.0, "Tier 2": 0.8},
-                    },
-                    "somatic_scoring": {
-                        "enabled": True,
-                        "tier_weights": {"Tier 1": 1.0, "Tier 2": 0.8},
+                        "tier_weights": {"Tier 1": 1.0, "Tier 2": 0.8, "": 0.4},
                     },
                 }
             }
@@ -1129,10 +1057,10 @@ class TestCOSMICData:
         assert len(errors) == 0
 
     def test_validate_cosmic_config_invalid(self):
-        """Test validation of invalid COSMIC config."""
+        """Test validation of invalid COSMIC germline config."""
         config = {
             "data_sources": {
-                "cosmic": {
+                "cosmic_germline": {
                     "enabled": True,
                     "cache_expiry_days": -1,
                     "germline_scoring": {
@@ -1154,39 +1082,31 @@ class TestCOSMICData:
             for error in errors
         )
 
-    def test_fetch_cosmic_data_disabled(self):
-        """Test when COSMIC is disabled."""
-        config = {"data_sources": {"cosmic": {"enabled": False}}}
+    def test_fetch_cosmic_germline_data_disabled(self):
+        """Test when COSMIC germline is disabled."""
+        config = {"data_sources": {"cosmic_germline": {"enabled": False}}}
 
-        df = fetch_cosmic_data(config)
+        df = fetch_cosmic_germline_data(config)
         assert df.empty
 
-    def test_fetch_cosmic_data_missing_url(self):
-        """Test when COSMIC URL is not configured."""
-        config = {"data_sources": {"cosmic": {"enabled": True}}}
-
-        df = fetch_cosmic_data(config)
-        assert df.empty
-
-    @patch("custom_panel.sources.s01_cosmic._download_cosmic_census")
-    @patch("custom_panel.sources.s01_cosmic._load_cosmic_census")
-    def test_fetch_cosmic_data_success(self, mock_load, mock_download):
-        """Test successful COSMIC data fetching."""
+    @patch("custom_panel.sources.g04_cosmic_germline._download_cosmic_census")
+    @patch("custom_panel.sources.g04_cosmic_germline._load_cosmic_census")
+    def test_fetch_cosmic_germline_data_success(self, mock_load, mock_download):
+        """Test successful COSMIC germline data fetching."""
         # Mock COSMIC census data
         mock_df = pd.DataFrame(
             {
-                "Gene Symbol": ["BRCA1", "TP53", "EGFR", "PIK3CA"],
-                "Tier": ["Tier 1", "Tier 1", "Tier 2", "Tier 3"],
-                "Germline": ["yes", "yes", "", ""],
-                "Somatic": ["", "yes", "yes", "yes"],
+                "Gene Symbol": ["BRCA1", "TP53", "ATM"],
+                "Tier": ["Tier 1", "Tier 1", "Tier 2"],
+                "Germline": ["yes", "yes", "yes"],
             }
         )
-        mock_df.attrs = {"germline_col": "Germline", "somatic_col": "Somatic"}
+        mock_df.attrs = {"germline_col": "Germline"}
         mock_load.return_value = mock_df
 
         config = {
             "data_sources": {
-                "cosmic": {
+                "cosmic_germline": {
                     "enabled": True,
                     "census_url": "https://example.com/census.csv",
                     "cache_dir": ".cache/cosmic",
@@ -1195,44 +1115,24 @@ class TestCOSMICData:
                         "enabled": True,
                         "tier_weights": {"Tier 1": 1.0, "Tier 2": 0.8, "": 0.4},
                     },
-                    "somatic_scoring": {
-                        "enabled": True,
-                        "tier_weights": {
-                            "Tier 1": 1.0,
-                            "Tier 2": 0.8,
-                            "Tier 3": 0.6,
-                            "": 0.4,
-                        },
-                    },
                 }
             }
         }
 
-        df = fetch_cosmic_data(config)
+        df = fetch_cosmic_germline_data(config)
 
-        # Should have both germline and somatic entries
+        # Should have germline entries only
         assert len(df) > 0
-        assert "COSMIC_Germline" in df["source_name"].values
-        assert "COSMIC_Somatic" in df["source_name"].values
-
-        # Check germline genes (BRCA1, TP53)
-        germline_df = df[df["source_name"] == "COSMIC_Germline"]
-        assert len(germline_df) == 2
-        assert "BRCA1" in germline_df["approved_symbol"].values
-        assert "TP53" in germline_df["approved_symbol"].values
-
-        # Check somatic genes (TP53, EGFR, PIK3CA)
-        somatic_df = df[df["source_name"] == "COSMIC_Somatic"]
-        assert len(somatic_df) == 3
-        assert "TP53" in somatic_df["approved_symbol"].values
-        assert "EGFR" in somatic_df["approved_symbol"].values
-        assert "PIK3CA" in somatic_df["approved_symbol"].values
+        assert all(df["category"] == "germline")
+        assert "BRCA1" in df["approved_symbol"].values
+        assert "TP53" in df["approved_symbol"].values
+        assert "ATM" in df["approved_symbol"].values
 
     def test_get_cosmic_summary(self):
-        """Test COSMIC configuration summary."""
+        """Test COSMIC germline configuration summary."""
         config = {
             "data_sources": {
-                "cosmic": {
+                "cosmic_germline": {
                     "enabled": True,
                     "email": "test@example.com",
                     "password": "testpass",
@@ -1240,7 +1140,6 @@ class TestCOSMICData:
                     "cache_dir": ".cache/cosmic_test",
                     "cache_expiry_days": 30,
                     "germline_scoring": {"enabled": True},
-                    "somatic_scoring": {"enabled": False},
                 }
             }
         }
@@ -1253,126 +1152,5 @@ class TestCOSMICData:
         assert summary["cache_dir"] == ".cache/cosmic_test"
         assert summary["cache_expiry_days"] == 30
         assert summary["germline_enabled"] is True
-        assert summary["somatic_enabled"] is False
         assert summary["cache_exists"] is False
         assert summary["cache_valid"] is False
-
-
-class TestSomaticCommercialData:
-    """Test somatic commercial panels functionality."""
-
-    def test_validate_somatic_commercial_config_valid(self):
-        """Test validation of valid somatic commercial config."""
-        config = {
-            "data_sources": {
-                "somatic_commercial": {
-                    "enabled": True,
-                    "panels": [
-                        {
-                            "name": "Test_Panel",
-                            "url": "https://example.com/panel.pdf",
-                            "type": "pdf",
-                            "evidence_score": 0.8,
-                            "category": "somatic",
-                        }
-                    ],
-                }
-            }
-        }
-
-        errors = validate_somatic_commercial_config(config)
-        assert len(errors) == 0
-
-    def test_validate_somatic_commercial_config_invalid(self):
-        """Test validation of invalid somatic commercial config."""
-        config = {
-            "data_sources": {
-                "somatic_commercial": {
-                    "enabled": True,
-                    "panels": [
-                        {
-                            # Missing required fields
-                            "evidence_score": -1,  # Invalid score
-                            "category": "invalid",  # Invalid category
-                        }
-                    ],
-                }
-            }
-        }
-
-        errors = validate_somatic_commercial_config(config)
-        assert len(errors) > 0
-        assert any("name is required" in error for error in errors)
-        assert any("url is required" in error for error in errors)
-        assert any("evidence_score must be" in error for error in errors)
-        assert any("category must be" in error for error in errors)
-
-    def test_extract_genes_from_text(self):
-        """Test gene extraction from text."""
-        test_text = """
-        This is a test document with genes like BRCA1, TP53, and EGFR.
-        Some genes may have numbers like CDKN2A or hyphens like HLA-A.
-        We should ignore common words like DNA, RNA, CANCER, TUMOR.
-        """
-
-        genes = extract_genes_from_text(test_text)
-
-        assert "BRCA1" in genes
-        assert "TP53" in genes
-        assert "EGFR" in genes
-        assert "CDKN2A" in genes
-        # Should exclude common false positives
-        assert "DNA" not in genes
-        assert "RNA" not in genes
-        assert "CANCER" not in genes
-        assert "TUMOR" not in genes
-
-    def test_fetch_somatic_commercial_data_disabled(self):
-        """Test when somatic commercial is disabled."""
-        config = {"data_sources": {"somatic_commercial": {"enabled": False}}}
-
-        df = fetch_somatic_commercial_data(config)
-        assert df.empty
-
-    def test_fetch_somatic_commercial_data_no_panels(self):
-        """Test when no panels are configured."""
-        config = {
-            "data_sources": {"somatic_commercial": {"enabled": True, "panels": []}}
-        }
-
-        df = fetch_somatic_commercial_data(config)
-        assert df.empty
-
-    def test_get_somatic_commercial_summary(self):
-        """Test getting somatic commercial summary."""
-        config = {
-            "data_sources": {
-                "somatic_commercial": {
-                    "enabled": True,
-                    "panels": [
-                        {
-                            "name": "Test_Panel_1",
-                            "url": "https://example.com/panel1.pdf",
-                            "type": "pdf",
-                            "evidence_score": 0.8,
-                            "category": "somatic",
-                        },
-                        {
-                            "name": "Test_Panel_2",
-                            "url": "https://example.com/panel2.xlsx",
-                            "type": "xlsx",
-                            "evidence_score": 0.9,
-                            "category": "somatic",
-                        },
-                    ],
-                }
-            }
-        }
-
-        summary = get_somatic_commercial_summary(config)
-
-        assert summary["enabled"] is True
-        assert summary["total_panels"] == 2
-        assert len(summary["panels"]) == 2
-        assert summary["panels"][0]["name"] == "Test_Panel_1"
-        assert summary["panels"][1]["name"] == "Test_Panel_2"

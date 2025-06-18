@@ -210,16 +210,15 @@ class TestPanelMerger:
         config = {
             "scoring": {
                 "category_weights": {
-                    "germline": {"panelapp": 1.0, "acmg_incidental": 1.5},
-                    "somatic": {"cosmic": 1.2},
+                    "germline": {"panelapp": 1.0, "acmg_incidental": 1.5}
                 },
-                "thresholds": {"germline_threshold": 2.0, "somatic_threshold": 1.5},
+                "thresholds": {"score_threshold": 2.0},
             }
         }
 
         merger = PanelMerger(config)
         assert merger.category_weights["germline"]["panelapp"] == 1.0
-        assert merger.thresholds["germline_threshold"] == 2.0
+        assert merger.thresholds["score_threshold"] == 2.0
 
     def test_merge_dataframes(self):
         """Test merging multiple DataFrames."""
@@ -292,8 +291,7 @@ class TestPanelMerger:
         config = {
             "scoring": {
                 "category_weights": {
-                    "germline": {"panelapp": 1.0, "acmg_incidental": 1.5},
-                    "somatic": {"panelapp": 0.8, "acmg_incidental": 0.5},
+                    "germline": {"panelapp": 1.0, "acmg_incidental": 1.5}
                 }
             }
         }
@@ -305,11 +303,9 @@ class TestPanelMerger:
 
         # Check BRCA1 scores
         brca1_row = scored_df[scored_df["approved_symbol"] == "BRCA1"].iloc[0]
-        expected_germline = (1.0 * 1.0) + (1.5 * 1.5)  # 3.25
-        expected_somatic = (1.0 * 0.8) + (1.5 * 0.5)  # 1.55
+        expected_score = (1.0 * 1.0) + (1.5 * 1.5)  # 3.25
 
-        assert brca1_row["germline_score"] == expected_germline
-        assert brca1_row["somatic_score"] == expected_somatic
+        assert brca1_row["score"] == expected_score
         assert brca1_row["source_count"] == 2
         assert "PanelApp_UK:Test" in brca1_row["source_names"]
         assert "ACMG_Incidental" in brca1_row["source_names"]
@@ -319,8 +315,7 @@ class TestPanelMerger:
         df = pd.DataFrame(
             {
                 "approved_symbol": ["BRCA1", "TP53", "LOWSCORE"],
-                "germline_score": [3.0, 1.5, 0.5],
-                "somatic_score": [2.0, 2.5, 0.3],
+                "score": [3.0, 1.5, 0.5],
                 "source_count": [2, 2, 1],
             }
         )
@@ -328,8 +323,7 @@ class TestPanelMerger:
         config = {
             "scoring": {
                 "thresholds": {
-                    "germline_threshold": 2.0,
-                    "somatic_threshold": 1.5,
+                    "score_threshold": 2.0,
                     "min_sources": 2,
                 }
             }
@@ -338,12 +332,9 @@ class TestPanelMerger:
         merger = PanelMerger(config)
         result_df = merger._apply_decision_logic(df)
 
-        assert result_df.loc[0, "include_germline"]  # BRCA1: 3.0 >= 2.0, 2 sources
-        assert result_df.loc[0, "include_somatic"]  # BRCA1: 2.0 >= 1.5, 2 sources
-        assert not result_df.loc[1, "include_germline"]  # TP53: 1.5 < 2.0
-        assert result_df.loc[1, "include_somatic"]  # TP53: 2.5 >= 1.5, 2 sources
-        assert not result_df.loc[2, "include_germline"]  # LOWSCORE: only 1 source
-        assert not result_df.loc[2, "include_somatic"]  # LOWSCORE: only 1 source
+        assert result_df.loc[0, "include"]  # BRCA1: 3.0 >= 2.0, 2 sources
+        assert not result_df.loc[1, "include"]  # TP53: 1.5 < 2.0
+        assert not result_df.loc[2, "include"]  # LOWSCORE: only 1 source
 
     def test_create_master_list(self):
         """Test complete master list creation."""
@@ -353,12 +344,10 @@ class TestPanelMerger:
         config = {
             "scoring": {
                 "category_weights": {
-                    "germline": {"panelapp": 1.0, "acmg_incidental": 1.0},
-                    "somatic": {"panelapp": 0.8, "acmg_incidental": 0.5},
+                    "germline": {"panelapp": 1.0, "acmg_incidental": 1.0}
                 },
                 "thresholds": {
-                    "germline_threshold": 2.0,
-                    "somatic_threshold": 1.0,
+                    "score_threshold": 2.0,
                     "min_sources": 2,
                 },
             },
@@ -371,41 +360,31 @@ class TestPanelMerger:
         assert len(master_df) == 1  # One unique gene
         assert master_df.iloc[0]["approved_symbol"] == "BRCA1"
         assert master_df.iloc[0]["source_count"] == 2
-        assert "include_germline" in master_df.columns
-        assert "include_somatic" in master_df.columns
+        assert "include" in master_df.columns
 
     def test_filter_by_category(self):
         """Test filtering by inclusion category."""
         df = pd.DataFrame(
             {
                 "approved_symbol": ["BRCA1", "TP53", "EGFR"],
-                "include_germline": [True, False, True],
-                "include_somatic": [True, True, False],
+                "include": [True, False, True],
             }
         )
 
         merger = PanelMerger({})
 
-        germline_df = merger.filter_by_category(df, "germline")
-        assert len(germline_df) == 2
-        assert set(germline_df["approved_symbol"]) == {"BRCA1", "EGFR"}
-
-        somatic_df = merger.filter_by_category(df, "somatic")
-        assert len(somatic_df) == 2
-        assert set(somatic_df["approved_symbol"]) == {"BRCA1", "TP53"}
+        include_df = merger.filter_by_category(df, "include")
+        assert len(include_df) == 2
+        assert set(include_df["approved_symbol"]) == {"BRCA1", "EGFR"}
 
     def test_get_scoring_summary(self):
         """Test scoring summary generation."""
         df = pd.DataFrame(
             {
                 "approved_symbol": ["BRCA1", "TP53", "EGFR"],
-                "germline_score": [3.0, 1.5, 2.5],
-                "somatic_score": [2.0, 2.5, 1.0],
-                "total_score": [5.0, 4.0, 3.5],
+                "score": [3.0, 1.5, 2.5],
                 "source_count": [3, 2, 2],
-                "include_germline": [True, False, True],
-                "include_somatic": [True, True, False],
-                "include_any": [True, True, True],
+                "include": [True, False, True],
             }
         )
 
@@ -413,10 +392,8 @@ class TestPanelMerger:
         summary = merger.get_scoring_summary(df)
 
         assert summary["total_genes"] == 3
-        assert summary["genes_with_germline_inclusion"] == 2
-        assert summary["genes_with_somatic_inclusion"] == 2
-        assert summary["genes_with_any_inclusion"] == 3
-        assert abs(summary["germline_score_stats"]["mean"] - 2.333333333333333) < 1e-10
+        assert summary["genes_with_inclusion"] == 2
+        assert abs(summary["score_stats"]["mean"] - 2.333333333333333) < 1e-10
         assert len(summary["top_scoring_genes"]) == 3
 
     def test_create_master_list_empty_input(self):
@@ -432,8 +409,7 @@ class TestPanelMerger:
         df = pd.DataFrame(
             {
                 "approved_symbol": ["BRCA1", "TP53"],
-                "germline_score": [2.0, 1.5],  # Exactly at and below threshold
-                "somatic_score": [1.5, 1.0],  # Exactly at and below threshold
+                "score": [2.0, 1.5],  # Exactly at and below threshold
                 "source_count": [2, 2],
             }
         )
@@ -441,8 +417,7 @@ class TestPanelMerger:
         config = {
             "scoring": {
                 "thresholds": {
-                    "germline_threshold": 2.0,
-                    "somatic_threshold": 1.5,
+                    "score_threshold": 2.0,
                     "min_sources": 2,
                 }
             }
@@ -452,18 +427,15 @@ class TestPanelMerger:
         result_df = merger._apply_decision_logic(df)
 
         # Should include genes with scores >= threshold
-        assert result_df.loc[0, "include_germline"]  # BRCA1: 2.0 >= 2.0
-        assert result_df.loc[0, "include_somatic"]  # BRCA1: 1.5 >= 1.5
-        assert not result_df.loc[1, "include_germline"]  # TP53: 1.5 < 2.0
-        assert not result_df.loc[1, "include_somatic"]  # TP53: 1.0 < 1.5
+        assert result_df.loc[0, "include"]  # BRCA1: 2.0 >= 2.0
+        assert not result_df.loc[1, "include"]  # TP53: 1.5 < 2.0
 
     def test_apply_decision_logic_min_sources_threshold(self):
         """Test min_sources threshold enforcement."""
         df = pd.DataFrame(
             {
                 "approved_symbol": ["BRCA1", "TP53", "EGFR"],
-                "germline_score": [3.0, 3.0, 3.0],  # All above threshold
-                "somatic_score": [3.0, 3.0, 3.0],  # All above threshold
+                "score": [3.0, 3.0, 3.0],  # All above threshold
                 "source_count": [3, 2, 1],  # Different source counts
             }
         )
@@ -471,8 +443,7 @@ class TestPanelMerger:
         config = {
             "scoring": {
                 "thresholds": {
-                    "germline_threshold": 2.0,
-                    "somatic_threshold": 2.0,
+                    "score_threshold": 2.0,
                     "min_sources": 2,
                 }
             }
@@ -482,12 +453,9 @@ class TestPanelMerger:
         result_df = merger._apply_decision_logic(df)
 
         # Only genes with >=2 sources should be included
-        assert result_df.loc[0, "include_germline"]  # BRCA1: 3 sources >= 2
-        assert result_df.loc[0, "include_somatic"]  # BRCA1: 3 sources >= 2
-        assert result_df.loc[1, "include_germline"]  # TP53: 2 sources >= 2
-        assert result_df.loc[1, "include_somatic"]  # TP53: 2 sources >= 2
-        assert not result_df.loc[2, "include_germline"]  # EGFR: 1 source < 2
-        assert not result_df.loc[2, "include_somatic"]  # EGFR: 1 source < 2
+        assert result_df.loc[0, "include"]  # BRCA1: 3 sources >= 2
+        assert result_df.loc[1, "include"]  # TP53: 2 sources >= 2
+        assert not result_df.loc[2, "include"]  # EGFR: 1 source < 2
 
 
 class TestGeneAnnotatorEdgeCases:

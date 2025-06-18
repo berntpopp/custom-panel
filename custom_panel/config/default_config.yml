@@ -76,9 +76,10 @@ data_sources:
         evidence_score: 0.7
         category: "germline"  # "germline" or "somatic"
 
-  # COSMIC database configuration
-  cosmic:
+  # COSMIC database configuration - germline only
+  cosmic_germline:
     enabled: true
+    source_type: "cosmic_germline"
     # COSMIC Cancer Gene Census URL
     census_url: "https://cancer.sanger.ac.uk/cosmic/file_download/GRCh38/cosmic/v97/cancer_gene_census.csv"
     # Cache settings
@@ -90,14 +91,6 @@ data_sources:
       tier_weights:
         "1": 1.0
         "2": 0.8
-        "": 0.4  # Unknown/unclassified
-    # Somatic scoring configuration  
-    somatic_scoring:
-      enabled: true
-      tier_weights:
-        "1": 1.0
-        "2": 0.8
-        "3": 0.6
         "": 0.4  # Unknown/unclassified
 
   # ACMG incidental findings
@@ -152,21 +145,11 @@ scoring:
       acmg_incidental: 1.5
       manual_curation: 1.1
       hpo_neoplasm: 0.7
-    somatic:
-      panelapp: 0.8
-      inhouse_panels: 1.0
-      commercial_panels: 0.9
-      cosmic: 1.2
-      acmg_incidental: 0.5
-      manual_curation: 1.0
-      hpo_neoplasm: 0.9
 
   # Decision thresholds
   thresholds:
-    # Minimum score to include in germline panel
-    germline_threshold: 2.0
-    # Minimum score to include in somatic panel
-    somatic_threshold: 1.5
+    # Minimum score to include in panel
+    score_threshold: 2.0
     # Minimum number of sources supporting a gene
     min_sources: 1
     # Maximum evidence score (for normalization)
@@ -219,10 +202,8 @@ output:
 
   # BED file generation
   bed_files:
-    # Generate separate BED files for different categories
+    # Generate BED file for included genes
     germline: true
-    somatic: true
-    combined: true
     # Extend gene coordinates by this many base pairs
     padding: 0
 

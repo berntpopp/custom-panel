@@ -1,8 +1,8 @@
 """
-COSMIC Cancer Gene Census data source extractor with authentication.
+COSMIC Cancer Gene Census germline data source extractor with authentication.
 
 This module fetches and processes the COSMIC Cancer Gene Census, providing
-both germline and somatic evidence scoring based on tier classifications.
+germline evidence scoring based on tier classifications.
 Includes authentication support for accessing COSMIC data through login.
 """
 
@@ -473,10 +473,10 @@ def _process_cosmic_genes(
     return result_df
 
 
-def fetch_cosmic_data(config: dict[str, Any]) -> pd.DataFrame:
+def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
     """
-    Fetch COSMIC Cancer Gene Census data with authentication and caching.
-    Now focuses exclusively on germline variants.
+    Fetch COSMIC Cancer Gene Census germline data with authentication and caching.
+    Focuses exclusively on germline variants.
 
     Args:
         config: Configuration dictionary
@@ -484,7 +484,7 @@ def fetch_cosmic_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with COSMIC germline data only
     """
-    cosmic_config = config.get("data_sources", {}).get("cosmic", {})
+    cosmic_config = config.get("data_sources", {}).get("cosmic_germline", {})
 
     if not cosmic_config.get("enabled", False):
         logger.info("COSMIC data source is disabled")
@@ -553,14 +553,18 @@ def fetch_cosmic_data(config: dict[str, Any]) -> pd.DataFrame:
     # Process germline category only
     germline_config = cosmic_config.get("germline_scoring", {})
 
-    # Ensure germline scoring is enabled
-    if not germline_config.get("enabled", False):
+    # Ensure germline scoring is enabled (default to true if section exists)
+    if not germline_config.get("enabled", True):
         logger.warning(
             "COSMIC germline scoring is disabled. Enable it in configuration to include COSMIC data."
         )
         return pd.DataFrame()
 
     germline_df = _process_cosmic_genes(df, "germline", germline_config)
+
+    # Add a category column for the merger
+    if not germline_df.empty:
+        germline_df["category"] = "germline"
 
     if germline_df.empty:
         logger.warning("No COSMIC germline data processed")
@@ -572,7 +576,7 @@ def fetch_cosmic_data(config: dict[str, Any]) -> pd.DataFrame:
 
 def validate_cosmic_config(config: dict[str, Any]) -> list[str]:
     """
-    Validate COSMIC configuration.
+    Validate COSMIC germline configuration.
 
     Args:
         config: Configuration dictionary
@@ -581,7 +585,7 @@ def validate_cosmic_config(config: dict[str, Any]) -> list[str]:
         List of validation errors
     """
     errors: list[str] = []
-    cosmic_config = config.get("data_sources", {}).get("cosmic", {})
+    cosmic_config = config.get("data_sources", {}).get("cosmic_germline", {})
 
     if not cosmic_config.get("enabled", False):
         return errors  # Skip validation if disabled
@@ -610,25 +614,24 @@ def validate_cosmic_config(config: dict[str, Any]) -> list[str]:
         errors.append("COSMIC cache_expiry_days must be a positive integer")
 
     # Validate scoring configurations
-    for category in ["germline_scoring", "somatic_scoring"]:
-        category_config = cosmic_config.get(category, {})
-        if category_config.get("enabled", False):
-            tier_weights = category_config.get("tier_weights", {})
-            if not isinstance(tier_weights, dict):
-                errors.append(f"COSMIC {category} tier_weights must be a dictionary")
-            else:
-                for tier, weight in tier_weights.items():
-                    if not isinstance(weight, int | float) or weight < 0 or weight > 1:
-                        errors.append(
-                            f"COSMIC {category} tier weight for '{tier}' must be between 0 and 1"
-                        )
+    category_config = cosmic_config.get("germline_scoring", {})
+    if category_config.get("enabled", True):
+        tier_weights = category_config.get("tier_weights", {})
+        if not isinstance(tier_weights, dict):
+            errors.append("COSMIC germline_scoring tier_weights must be a dictionary")
+        else:
+            for tier, weight in tier_weights.items():
+                if not isinstance(weight, int | float) or weight < 0 or weight > 1:
+                    errors.append(
+                        f"COSMIC germline_scoring tier weight for '{tier}' must be between 0 and 1"
+                    )
 
     return errors
 
 
 def get_cosmic_summary(config: dict[str, Any]) -> dict[str, Any]:
     """
-    Get summary of COSMIC configuration and cached data.
+    Get summary of COSMIC germline configuration and cached data.
 
     Args:
         config: Configuration dictionary
@@ -636,7 +639,7 @@ def get_cosmic_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    cosmic_config = config.get("data_sources", {}).get("cosmic", {})
+    cosmic_config = config.get("data_sources", {}).get("cosmic_germline", {})
 
     summary = {
         "enabled": cosmic_config.get("enabled", False),
@@ -647,10 +650,7 @@ def get_cosmic_summary(config: dict[str, Any]) -> dict[str, Any]:
         "cache_dir": cosmic_config.get("cache_dir", ".cache/cosmic"),
         "cache_expiry_days": cosmic_config.get("cache_expiry_days", 30),
         "germline_enabled": cosmic_config.get("germline_scoring", {}).get(
-            "enabled", False
-        ),
-        "somatic_enabled": cosmic_config.get("somatic_scoring", {}).get(
-            "enabled", False
+            "enabled", True
         ),
         "validation_errors": validate_cosmic_config(config),
     }

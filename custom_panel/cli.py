@@ -27,7 +27,7 @@ from .sources.g00_inhouse_panels import fetch_inhouse_panels_data
 from .sources.g01_panelapp import fetch_panelapp_data
 from .sources.g02_hpo import fetch_hpo_neoplasm_data
 from .sources.g03_commercial_panels import fetch_commercial_panels_data
-from .sources.s01_cosmic import fetch_cosmic_data
+from .sources.g04_cosmic_germline import fetch_cosmic_germline_data
 
 # Suppress ALL deprecation warnings at module level
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -132,11 +132,10 @@ def run(
     output_dir: Optional[str] = typer.Option(  # noqa: UP007
         None, "--output-dir", "-o", help="Output directory"
     ),
-    germline_threshold: Optional[float] = typer.Option(  # noqa: UP007
-        None, "--germline-threshold", help="Override germline score threshold"
-    ),
-    somatic_threshold: Optional[float] = typer.Option(  # noqa: UP007
-        None, "--somatic-threshold", help="Override somatic score threshold"
+    score_threshold: Optional[float] = typer.Option(  # noqa: UP007
+        None,
+        "--score-threshold",
+        help="Override the evidence score threshold for gene inclusion",
     ),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Log level (DEBUG, INFO, WARNING, ERROR)"
@@ -170,14 +169,10 @@ def run(
     # Override configuration with command line arguments
     if output_dir:
         config.setdefault("general", {})["output_dir"] = output_dir
-    if germline_threshold is not None:
+    if score_threshold is not None:
         config.setdefault("scoring", {}).setdefault("thresholds", {})[
-            "germline_threshold"
-        ] = germline_threshold
-    if somatic_threshold is not None:
-        config.setdefault("scoring", {}).setdefault("thresholds", {})[
-            "somatic_threshold"
-        ] = somatic_threshold
+            "score_threshold"
+        ] = score_threshold
 
     # Override intermediate file and logging settings
     if save_intermediate:
@@ -400,7 +395,7 @@ def fetch(
     elif source.lower() == "commercial":
         df = fetch_commercial_panels_data(config)
     elif source.lower() == "cosmic":
-        df = fetch_cosmic_data(config)
+        df = fetch_cosmic_germline_data(config)
     else:
         console.print(f"[red]Unknown source: {source}[/red]")
         console.print(
@@ -495,10 +490,7 @@ def config_check(
         console.print("\n[bold blue]Scoring Configuration[/bold blue]")
         thresholds = scoring.get("thresholds", {})
         console.print(
-            f"Germline threshold: {thresholds.get('germline_threshold', 'Not set')}"
-        )
-        console.print(
-            f"Somatic threshold: {thresholds.get('somatic_threshold', 'Not set')}"
+            f"Score threshold: {thresholds.get('score_threshold', 'Not set')}"
         )
         console.print(f"Minimum sources: {thresholds.get('min_sources', 'Not set')}")
 
@@ -558,7 +550,7 @@ def fetch_all_sources(
         "manual_curation": fetch_manual_curation_data,
         "hpo_neoplasm": fetch_hpo_neoplasm_data,
         "commercial_panels": fetch_commercial_panels_data,
-        "cosmic": fetch_cosmic_data,
+        "cosmic_germline": fetch_cosmic_germline_data,
     }
 
     data_sources = config.get("data_sources", {})
@@ -614,17 +606,9 @@ def generate_outputs(
 
     # Generate BED files if enabled
     bed_config = output_config.get("bed_files", {})
-    if bed_config.get("germline", False) and "include_germline" in df.columns:
+    if bed_config.get("germline", False) and "include" in df.columns:
         bed_path = output_dir / "germline_panel.bed"
-        create_bed_file(df, bed_path, "include_germline")
-
-    if bed_config.get("somatic", False) and "include_somatic" in df.columns:
-        bed_path = output_dir / "somatic_panel.bed"
-        create_bed_file(df, bed_path, "include_somatic")
-
-    if bed_config.get("combined", False) and "include_any" in df.columns:
-        bed_path = output_dir / "combined_panel.bed"
-        create_bed_file(df, bed_path, "include_any")
+        create_bed_file(df, bed_path, "include")
 
 
 def display_summary(df: pd.DataFrame, config: dict[str, Any]) -> None:
@@ -639,17 +623,9 @@ def display_summary(df: pd.DataFrame, config: dict[str, Any]) -> None:
     total_genes = len(df)
     table.add_row("Total genes", str(total_genes))
 
-    if "include_germline" in df.columns:
-        germline_count = df["include_germline"].sum()
-        table.add_row("Germline panel genes", str(germline_count))
-
-    if "include_somatic" in df.columns:
-        somatic_count = df["include_somatic"].sum()
-        table.add_row("Somatic panel genes", str(somatic_count))
-
-    if "include_any" in df.columns:
-        any_count = df["include_any"].sum()
-        table.add_row("Total included genes", str(any_count))
+    if "include" in df.columns:
+        included_count = df["include"].sum()
+        table.add_row("Panel genes", str(included_count))
 
     # Annotation statistics
     if "chromosome" in df.columns:
@@ -663,22 +639,18 @@ def display_summary(df: pd.DataFrame, config: dict[str, Any]) -> None:
     console.print(table)
 
     # Top scoring genes
-    if "total_score" in df.columns and total_genes > 0:
+    if "score" in df.columns and total_genes > 0:
         console.print("\n[bold blue]Top 10 Scoring Genes[/bold blue]")
-        top_genes = df.nlargest(10, "total_score")
+        top_genes = df.nlargest(10, "score")
 
         top_table = Table()
         top_table.add_column("Gene", style="cyan")
-        top_table.add_column("Total Score", style="green")
-        top_table.add_column("Germline", style="yellow")
-        top_table.add_column("Somatic", style="yellow")
+        top_table.add_column("Score", style="green")
 
         for _, row in top_genes.iterrows():
             top_table.add_row(
                 row["approved_symbol"],
-                f"{row['total_score']:.2f}",
-                f"{row.get('germline_score', 0):.2f}",
-                f"{row.get('somatic_score', 0):.2f}",
+                f"{row['score']:.2f}",
             )
 
         console.print(top_table)

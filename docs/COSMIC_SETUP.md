@@ -4,7 +4,7 @@ This guide explains how to configure COSMIC Cancer Gene Census authentication fo
 
 ## Overview
 
-COSMIC (Catalogue of Somatic Mutations in Cancer) requires authentication to access their Cancer Gene Census data. The custom-panel tool supports automatic login and authenticated downloads.
+COSMIC (Catalogue of Somatic Mutations in Cancer) requires authentication to access their Cancer Gene Census data. The custom-panel tool supports automatic login and authenticated downloads for germline cancer gene data.
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ Create a `config.local.yml` file in your project root (this file should NOT be c
 
 ```yaml
 data_sources:
-  cosmic:
+  cosmic_germline:
     enabled: true
     email: your-cosmic-email@example.com
     password: your-cosmic-password
@@ -30,13 +30,6 @@ data_sources:
       tier_weights:
         "Tier 1": 1.0
         "Tier 2": 0.8
-        "": 0.4
-    somatic_scoring:
-      enabled: true
-      tier_weights:
-        "Tier 1": 1.0
-        "Tier 2": 0.8
-        "Tier 3": 0.6
         "": 0.4
 ```
 
@@ -73,16 +66,12 @@ echo "config.local.yml" >> .gitignore
 - **`germline_scoring.enabled`**: Enable germline gene scoring
 - **`germline_scoring.tier_weights`**: Evidence weights by COSMIC tier
 
-#### Somatic Scoring  
-- **`somatic_scoring.enabled`**: Enable somatic gene scoring
-- **`somatic_scoring.tier_weights`**: Evidence weights by COSMIC tier
 
 ### Tier Weights
 
 COSMIC genes are classified into tiers based on evidence strength:
 - **Tier 1**: Highest confidence cancer genes (weight: 1.0)
 - **Tier 2**: Moderate confidence cancer genes (weight: 0.8)  
-- **Tier 3**: Lower confidence cancer genes (weight: 0.6)
 - **""** (empty): Unknown or unclassified genes (weight: 0.4)
 
 ## Usage
@@ -165,12 +154,7 @@ python -c "from custom_panel.cli import app; app()" run --log-level DEBUG
 
 ## Data Processing
 
-The tool processes COSMIC data into two categories:
-
-1. **Germline**: Genes associated with inherited cancer predisposition
-2. **Somatic**: Genes associated with acquired cancer mutations
-
-Each gene receives an evidence score based on its COSMIC tier classification and your configured weights.
+The tool processes COSMIC data focusing on germline genes associated with inherited cancer predisposition. Each gene receives an evidence score based on its COSMIC tier classification and your configured weights.
 
 ## Security Notes
 
@@ -185,7 +169,7 @@ For backward compatibility, you can still use direct URLs:
 
 ```yaml
 data_sources:
-  cosmic:
+  cosmic_germline:
     enabled: true
     census_url: https://direct-url-to-cosmic-file.csv
 ```
@@ -197,7 +181,7 @@ However, authenticated access is recommended for reliability and compliance with
 ```yaml
 # config.local.yml
 data_sources:
-  cosmic:
+  cosmic_germline:
     enabled: true
     email: researcher@university.edu
     password: MySecurePassword123!
@@ -208,13 +192,6 @@ data_sources:
       tier_weights:
         "Tier 1": 1.0
         "Tier 2": 0.8
-        "": 0.4
-    somatic_scoring:
-      enabled: true
-      tier_weights:
-        "Tier 1": 1.0
-        "Tier 2": 0.8
-        "Tier 3": 0.6
         "": 0.4
 
   # Other data sources...

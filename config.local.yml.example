@@ -3,8 +3,8 @@
 # DO NOT commit config.local.yml to version control!
 
 data_sources:
-  # COSMIC Cancer Gene Census (requires authentication)
-  cosmic:
+  # COSMIC Cancer Gene Census - germline only (requires authentication)
+  cosmic_germline:
     # Your COSMIC account credentials
     email: your-cosmic-email@example.com
     password: your-cosmic-password
@@ -32,5 +32,3 @@ data_sources:
     enabled: false
   acmg_incidental:
     enabled: true
-  somatic_commercial:
-    enabled: false
