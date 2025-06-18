@@ -35,7 +35,7 @@ class PanelMerger:
         self.qc_config = config.get("quality_control", {})
 
     def create_master_list(
-        self, dataframes: list[pd.DataFrame], output_manager=None
+        self, dataframes: list[pd.DataFrame], output_manager: Any = None
     ) -> pd.DataFrame:
         """
         Create master gene list from multiple source DataFrames.
@@ -131,7 +131,7 @@ class PanelMerger:
             else:
                 # Raw data - use source_name
                 subset_cols = ["approved_symbol", "source_name"]
-            
+
             filtered_df = filtered_df.drop_duplicates(subset=subset_cols, keep="first")
 
         removed_count = original_count - len(filtered_df)
@@ -243,7 +243,7 @@ class PanelMerger:
                 source_identifier = row["source_group"]
             else:
                 source_identifier = row["source_name"]
-            
+
             base_score = row.get("source_evidence_score", 1.0)
             internal_confidence = row.get("internal_confidence_score", 1.0)
 

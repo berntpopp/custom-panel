@@ -9,7 +9,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -99,7 +99,7 @@ class OutputManager:
 
         # Set format
         if log_format == "json":
-            formatter = JsonFormatter()
+            formatter: logging.Formatter = JsonFormatter()
         else:
             formatter = logging.Formatter(
                 "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -117,8 +117,8 @@ class OutputManager:
         data: pd.DataFrame,
         step: str,
         description: str = "",
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> Optional[Path]:
+        metadata: dict[str, Any] | None = None,
+    ) -> Path | None:
         """
         Save intermediate data to file.
 
@@ -198,7 +198,7 @@ class OutputManager:
             logger.error(f"Failed to save intermediate data to {file_path}: {e}")
             return None
 
-    def save_source_data(self, data: pd.DataFrame, source_name: str) -> Optional[Path]:
+    def save_source_data(self, data: pd.DataFrame, source_name: str) -> Path | None:
         """Save raw source data."""
         if not self.intermediate_config.get("include_raw_data", True):
             return None
@@ -212,7 +212,7 @@ class OutputManager:
         data: pd.DataFrame,
         source_name: str,
         symbol_changes: dict[str, dict[str, str | None]],
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Save standardized source data."""
         if not self.intermediate_config.get("include_standardized_data", True):
             return None
@@ -236,7 +236,7 @@ class OutputManager:
 
     def save_merged_data(
         self, data: pd.DataFrame, source_stats: dict[str, int]
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Save merged data before scoring."""
         if not self.intermediate_config.get("include_merged_data", True):
             return None
@@ -255,7 +255,7 @@ class OutputManager:
 
     def save_scored_data(
         self, data: pd.DataFrame, scoring_summary: dict[str, Any]
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Save scored data before decision logic."""
         if not self.intermediate_config.get("include_scored_data", True):
             return None
@@ -266,7 +266,7 @@ class OutputManager:
 
     def save_annotated_data(
         self, data: pd.DataFrame, annotation_summary: dict[str, Any]
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Save final annotated data."""
         if not self.intermediate_config.get("include_annotated_data", True):
             return None
@@ -347,7 +347,7 @@ class OutputManager:
 class JsonFormatter(logging.Formatter):
     """JSON formatter for structured logging."""
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         log_obj = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
             "level": record.levelname,

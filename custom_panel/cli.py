@@ -147,7 +147,7 @@ def run(
     save_intermediate: bool = typer.Option(
         False, "--save-intermediate", help="Save intermediate files for debugging"
     ),
-    intermediate_format: Optional[str] = typer.Option(
+    intermediate_format: str | None = typer.Option(
         None,
         "--intermediate-format",
         help="Format for intermediate files (csv, excel, parquet)",
@@ -303,7 +303,7 @@ def run(
                         source_to_group[group_name] = group_name
 
             # Apply source group mapping with prefix matching
-            def map_source_to_group(source_name):
+            def map_source_to_group(source_name: str) -> str:
                 # Try exact match first
                 if source_name in source_to_group:
                     return source_to_group[source_name]
@@ -316,7 +316,7 @@ def run(
 
                 # Try partial matches for sources with different naming
                 for key, group in source_to_group.items():
-                    if source_name.startswith(key) or key in source_name:
+                    if key and (source_name.startswith(key) or key in source_name):
                         return group
 
                 # If no match found, return the source name itself as a standalone group
@@ -362,12 +362,14 @@ def run(
                         "source_evidence_score": group_config.get(
                             "evidence_score", 1.0
                         ),
-                        "source_details": f"{internal_source_count} sources in {group_name}",
+                        "source_details": f"{internal_source_count} sources in {str(group_name)}",
                         "source_group": group_name,
                         "internal_source_count": internal_source_count,
                         "internal_confidence_score": internal_confidence,
                         "category": group_config.get("category", "germline"),
-                        "original_sources": list(gene_df["source_name"].unique()),
+                        "original_sources": [
+                            str(s) for s in gene_df["source_name"].unique()
+                        ],
                     }
 
                     gene_groups.append(aggregated_record)
@@ -378,7 +380,7 @@ def run(
                 # Save intermediate aggregated data
                 output_manager.save_standardized_data(
                     group_aggregated_df,
-                    f"aggregated_{group_name}",
+                    f"aggregated_{str(group_name)}",
                     {
                         g: {"approved_symbol": g, "hgnc_id": hgnc_id_map.get(g)}
                         for g in group_aggregated_df["approved_symbol"].unique()
@@ -387,7 +389,7 @@ def run(
 
                 aggregated_sources.append(group_aggregated_df)
                 logger.info(
-                    f"Source group '{group_name}': {len(group_aggregated_df)} unique genes "
+                    f"Source group '{str(group_name)}': {len(group_aggregated_df)} unique genes "
                     f"from {group_df['source_name'].nunique()} sources"
                 )
 
@@ -650,7 +652,7 @@ def search_panels(
 
 
 def fetch_all_sources(
-    config: dict[str, Any], output_manager: Optional[OutputManager] = None
+    config: dict[str, Any], output_manager: OutputManager | None = None
 ) -> list[pd.DataFrame]:
     """Fetch data from all enabled sources."""
     dataframes = []
