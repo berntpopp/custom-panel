@@ -198,7 +198,9 @@ class HGNCClient:
         return symbol
 
     @functools.lru_cache(maxsize=1000)  # noqa: B019
-    def standardize_symbols_batch(self, symbols: tuple[str, ...]) -> dict[str, str]:
+    def standardize_symbols_batch(
+        self, symbols: tuple[str, ...]
+    ) -> dict[str, dict[str, str | None]]:
         """
         Standardize multiple gene symbols using HGNC batch API.
 
@@ -208,22 +210,26 @@ class HGNCClient:
             symbols: Tuple of gene symbols (tuple for caching compatibility)
 
         Returns:
-            Dictionary mapping original symbols to standardized symbols
+            Dictionary mapping original symbols to dict containing approved_symbol and hgnc_id
         """
         if not symbols:
             return {}
 
         original_symbols = list(symbols)
-        # The result dictionary will map original input symbols to their standardized counterparts.
-        result = {symbol: symbol for symbol in original_symbols}
+        # The result dictionary will map original input symbols to their standardized info.
+        result = {
+            symbol: {"approved_symbol": symbol, "hgnc_id": None}
+            for symbol in original_symbols
+        }
 
         try:
             # Construct the query for the correct endpoint: "GENE1+OR+GENE2+OR+..."
             query_str = "+OR+".join([s.upper() for s in original_symbols])
             endpoint = f"search/symbol/{query_str}"
 
-            # Use the correct search/symbol endpoint
-            response = self._make_request(endpoint, method="GET")
+            # Use the correct search/symbol endpoint with fields parameter
+            params = {"fields": "symbol,hgnc_id"}
+            response = self._make_request(endpoint, params=params, method="GET")
 
             docs = response.get("response", {}).get("docs", [])
 
@@ -231,13 +237,17 @@ class HGNCClient:
             found_symbols = set()
             for doc in docs:
                 approved_symbol = doc.get("symbol")
+                hgnc_id = doc.get("hgnc_id")
                 if not approved_symbol:
                     continue
 
                 # Check if this approved symbol matches any input symbol (case-insensitive)
                 for original_symbol in original_symbols:
                     if original_symbol.upper() == approved_symbol.upper():
-                        result[original_symbol] = approved_symbol
+                        result[original_symbol] = {
+                            "approved_symbol": approved_symbol,
+                            "hgnc_id": hgnc_id,
+                        }
                         found_symbols.add(original_symbol)
                         break
 
@@ -260,9 +270,21 @@ class HGNCClient:
                 if original_symbol not in found_symbols:
                     # Try individual standardization (includes alias and prev symbol lookups)
                     standardized = self.standardize_symbol(original_symbol)
-                    result[original_symbol] = standardized
                     if standardized.upper() != original_symbol.upper():
+                        # Symbol was standardized, try to get its HGNC ID
+                        gene_info = self.get_gene_info(standardized)
+                        hgnc_id = gene_info.get("hgnc_id") if gene_info else None
+                        result[original_symbol] = {
+                            "approved_symbol": standardized,
+                            "hgnc_id": hgnc_id,
+                        }
                         postprocess_fixed += 1
+                    else:
+                        # Symbol not changed, keep the default
+                        result[original_symbol] = {
+                            "approved_symbol": standardized,
+                            "hgnc_id": None,
+                        }
 
             if need_postprocess > 0:
                 logger.debug(
@@ -275,24 +297,38 @@ class HGNCClient:
             )
             # Fallback to individual, slower lookups if batch fails
             for original_symbol in original_symbols:
-                result[original_symbol] = self.standardize_symbol(original_symbol)
+                standardized = self.standardize_symbol(original_symbol)
+                gene_info = self.get_gene_info(standardized)
+                hgnc_id = gene_info.get("hgnc_id") if gene_info else None
+                result[original_symbol] = {
+                    "approved_symbol": standardized,
+                    "hgnc_id": hgnc_id,
+                }
 
-        changed_count = sum(1 for k, v in result.items() if k.upper() != v.upper())
+        changed_count = sum(
+            1
+            for k, v in result.items()
+            if v["approved_symbol"] is not None
+            and k.upper() != v["approved_symbol"].upper()
+        )
         logger.debug(
             f"HGNC batch complete: {len(symbols)} symbols processed, {changed_count} standardized to different symbols"
         )
 
         if changed_count > 0 and logger.isEnabledFor(logging.DEBUG):
             changes = [
-                (orig, std)
-                for orig, std in result.items()
-                if orig.upper() != std.upper()
+                (orig, info["approved_symbol"])
+                for orig, info in result.items()
+                if info["approved_symbol"] is not None
+                and orig.upper() != info["approved_symbol"].upper()
             ][:5]
             logger.debug(f"Example standardizations: {changes}")
 
         return result
 
-    def standardize_symbols(self, symbols: list[str]) -> dict[str, str]:
+    def standardize_symbols(
+        self, symbols: list[str]
+    ) -> dict[str, dict[str, str | None]]:
         """
         Standardize multiple gene symbols.
 
@@ -300,7 +336,7 @@ class HGNCClient:
             symbols: List of gene symbols
 
         Returns:
-            Dictionary mapping original symbols to standardized symbols
+            Dictionary mapping original symbols to dict containing approved_symbol and hgnc_id
         """
         # For large lists, split into smaller batches to avoid URL length limits
         batch_size = 100  # Batch size for URL length limits

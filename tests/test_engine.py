@@ -34,13 +34,14 @@ class TestGeneAnnotator:
         """Test gene symbol standardization using batch method."""
         # Mock HGNC client
         mock_hgnc = Mock()
-        mock_hgnc.standardize_symbols_batch.return_value = {
-            "brca1": "BRCA1",
-            "tp53": "TP53",
-            "egfr": "EGFR",
+        mock_hgnc.standardize_symbols.return_value = {
+            "brca1": {"approved_symbol": "BRCA1", "hgnc_id": "HGNC:1100"},
+            "tp53": {"approved_symbol": "TP53", "hgnc_id": "HGNC:11998"},
+            "egfr": {"approved_symbol": "EGFR", "hgnc_id": "HGNC:3236"},
         }
         # Fallback for individual symbols
         mock_hgnc.standardize_symbol.side_effect = lambda x: x.upper()
+        mock_hgnc.get_gene_info.return_value = None
         mock_hgnc_client.return_value = mock_hgnc
 
         # Mock Ensembl client
@@ -49,13 +50,15 @@ class TestGeneAnnotator:
         annotator = GeneAnnotator()
         annotator.batch_size = 100  # Ensure all symbols fit in one batch
 
-        result = annotator._standardize_gene_symbols(["brca1", "tp53", "egfr"])
+        result = annotator.standardize_gene_symbols(["brca1", "tp53", "egfr"])
 
-        assert result == {"brca1": "BRCA1", "tp53": "TP53", "egfr": "EGFR"}
+        assert result == {
+            "brca1": {"approved_symbol": "BRCA1", "hgnc_id": "HGNC:1100"},
+            "tp53": {"approved_symbol": "TP53", "hgnc_id": "HGNC:11998"},
+            "egfr": {"approved_symbol": "EGFR", "hgnc_id": "HGNC:3236"},
+        }
         # Verify batch method was called
-        mock_hgnc.standardize_symbols_batch.assert_called_once_with(
-            ("brca1", "tp53", "egfr")
-        )
+        mock_hgnc.standardize_symbols.assert_called_once_with(["brca1", "tp53", "egfr"])
 
     @patch("custom_panel.engine.annotator.HGNCClient")
     @patch("custom_panel.engine.annotator.EnsemblClient")
@@ -65,8 +68,9 @@ class TestGeneAnnotator:
         """Test fallback when batch standardization fails."""
         # Mock HGNC client
         mock_hgnc = Mock()
-        mock_hgnc.standardize_symbols_batch.side_effect = Exception("Batch API error")
+        mock_hgnc.standardize_symbols.side_effect = Exception("Batch API error")
         mock_hgnc.standardize_symbol.side_effect = lambda x: x.upper()
+        mock_hgnc.get_gene_info.side_effect = lambda x: {"hgnc_id": f"HGNC:{x}"}
         mock_hgnc_client.return_value = mock_hgnc
 
         # Mock Ensembl client
@@ -75,12 +79,16 @@ class TestGeneAnnotator:
         annotator = GeneAnnotator()
         annotator.batch_size = 100
 
-        result = annotator._standardize_gene_symbols(["brca1", "tp53"])
+        result = annotator.standardize_gene_symbols(["brca1", "tp53"])
 
-        assert result == {"brca1": "BRCA1", "tp53": "TP53"}
+        assert result == {
+            "brca1": {"approved_symbol": "BRCA1", "hgnc_id": "HGNC:BRCA1"},
+            "tp53": {"approved_symbol": "TP53", "hgnc_id": "HGNC:TP53"},
+        }
         # Verify batch method was tried and individual fallbacks were called
-        mock_hgnc.standardize_symbols_batch.assert_called_once()
+        mock_hgnc.standardize_symbols.assert_called_once()
         assert mock_hgnc.standardize_symbol.call_count == 2
+        assert mock_hgnc.get_gene_info.call_count == 2
 
     @patch("custom_panel.engine.annotator.HGNCClient")
     @patch("custom_panel.engine.annotator.EnsemblClient")
@@ -121,8 +129,10 @@ class TestGeneAnnotator:
     @patch("custom_panel.engine.annotator.EnsemblClient")
     def test_annotate_genes(self, mock_ensembl_client, mock_hgnc_client):
         """Test complete gene annotation process."""
-        # Create test DataFrame
-        df = create_standard_dataframe(genes=["brca1", "tp53"], source_name="Test")
+        # Create test DataFrame with already standardized symbols
+        df = create_standard_dataframe(genes=["BRCA1", "TP53"], source_name="Test")
+        # Add HGNC IDs as they would be added during standardization
+        df["hgnc_id"] = ["HGNC:1100", "HGNC:11998"]
 
         # Mock HGNC client
         mock_hgnc = Mock()
@@ -160,7 +170,7 @@ class TestGeneAnnotator:
 
         assert len(annotated_df) == 2
         assert list(annotated_df["approved_symbol"]) == ["BRCA1", "TP53"]
-        assert list(annotated_df["hgnc_id"]) == ["HGNC:BRCA1", "HGNC:TP53"]
+        assert list(annotated_df["hgnc_id"]) == ["HGNC:1100", "HGNC:11998"]
         assert "gene_id" in annotated_df.columns
         assert "chromosome" in annotated_df.columns
 
@@ -525,9 +535,9 @@ class TestGeneAnnotatorEdgeCases:
         )
 
         # Check if any gene has the expected HGNC ID
-        hgnc_ids = result["hgnc_id"].dropna().unique()
+        hgnc_ids = result["hgnc_id"].replace("", None).dropna().unique()
         if len(hgnc_ids) > 0:
-            assert "HGNC:123" in hgnc_ids or any(hgnc_ids)
+            assert "HGNC:123" in hgnc_ids
 
         # Check if any gene has coordinates
         chromosomes = result["chromosome"].dropna().unique()

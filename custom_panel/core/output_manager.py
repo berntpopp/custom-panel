@@ -208,16 +208,26 @@ class OutputManager:
         )
 
     def save_standardized_data(
-        self, data: pd.DataFrame, source_name: str, symbol_changes: dict[str, str]
+        self,
+        data: pd.DataFrame,
+        source_name: str,
+        symbol_changes: dict[str, dict[str, str | None]],
     ) -> Optional[Path]:
         """Save standardized source data."""
         if not self.intermediate_config.get("include_standardized_data", True):
             return None
 
+        # Count actual changes
+        changes_count = sum(
+            1
+            for k, v in symbol_changes.items()
+            if v["approved_symbol"] is not None and k != v["approved_symbol"]
+        )
+
         metadata = {
             "source": source_name,
             "symbol_changes": symbol_changes,
-            "changes_count": len([k for k, v in symbol_changes.items() if k != v]),
+            "changes_count": changes_count,
         }
 
         return self.save_intermediate_data(

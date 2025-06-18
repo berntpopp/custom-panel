@@ -30,50 +30,82 @@ class TestHGNCClient:
         assert client.timeout == 10
         assert client.max_retries == 2
 
-    @patch("custom_panel.core.hgnc_client.requests.Session.post")
-    def test_standardize_symbols_batch(self, mock_post):
+    @patch("custom_panel.core.hgnc_client.requests.Session.get")
+    def test_standardize_symbols_batch(self, mock_get):
         """Test batch symbol standardization."""
         # Mock successful batch response
         mock_response = Mock()
         mock_response.json.return_value = {
             "response": {
                 "docs": [
-                    {"symbol": "BRCA1", "alias_symbol": ["brca1"], "prev_symbol": []},
-                    {"symbol": "TP53", "alias_symbol": ["tp53"], "prev_symbol": []},
+                    {
+                        "symbol": "BRCA1",
+                        "hgnc_id": "HGNC:1100",
+                        "alias_symbol": ["brca1"],
+                        "prev_symbol": [],
+                    },
+                    {
+                        "symbol": "TP53",
+                        "hgnc_id": "HGNC:11998",
+                        "alias_symbol": ["tp53"],
+                        "prev_symbol": [],
+                    },
                 ]
             }
         }
         mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
+        mock_get.return_value = mock_response
 
-        client = HGNCClient()
-        result = client.standardize_symbols_batch(("brca1", "tp53", "notfound"))
+        # Need to also mock individual symbol lookups for "notfound"
+        with patch.object(HGNCClient, "standardize_symbol") as mock_standardize:
+            mock_standardize.return_value = "notfound"
 
-        expected = {
-            "brca1": "BRCA1",  # Maps to standardized symbol
-            "tp53": "TP53",  # Maps to standardized symbol
-            "notfound": "notfound",  # Not found, returns original (lowercase preserved)
-        }
-        assert result == expected
-        mock_post.assert_called_once()
+            client = HGNCClient()
+            result = client.standardize_symbols_batch(("brca1", "tp53", "notfound"))
 
-    @patch("custom_panel.core.hgnc_client.requests.Session.post")
-    def test_standardize_symbols_batch_fallback(self, mock_post):
+            expected = {
+                "brca1": {
+                    "approved_symbol": "BRCA1",
+                    "hgnc_id": "HGNC:1100",
+                },  # Maps to standardized symbol with ID
+                "tp53": {
+                    "approved_symbol": "TP53",
+                    "hgnc_id": "HGNC:11998",
+                },  # Maps to standardized symbol with ID
+                "notfound": {
+                    "approved_symbol": "notfound",
+                    "hgnc_id": None,
+                },  # Not found, returns original (lowercase preserved)
+            }
+            assert result == expected
+            mock_get.assert_called_once()
+            mock_standardize.assert_called_once_with("notfound")
+
+    @patch("custom_panel.core.hgnc_client.requests.Session.get")
+    def test_standardize_symbols_batch_fallback(self, mock_get):
         """Test batch standardization with fallback to individual requests."""
         import requests
 
         # Mock failed batch response
-        mock_post.side_effect = requests.RequestException("API error")
+        mock_get.side_effect = requests.RequestException("API error")
 
         with patch.object(HGNCClient, "standardize_symbol") as mock_individual:
             mock_individual.side_effect = lambda x: x.upper()
 
-            client = HGNCClient()
-            result = client.standardize_symbols_batch(("brca1", "tp53"))
+            with patch.object(HGNCClient, "get_gene_info") as mock_gene_info:
+                # Mock gene info to return HGNC IDs
+                mock_gene_info.side_effect = lambda x: {"hgnc_id": f"HGNC:{x}"}
 
-            expected = {"brca1": "BRCA1", "tp53": "TP53"}
-            assert result == expected
-            assert mock_individual.call_count == 2
+                client = HGNCClient()
+                result = client.standardize_symbols_batch(("brca1", "tp53"))
+
+                expected = {
+                    "brca1": {"approved_symbol": "BRCA1", "hgnc_id": "HGNC:BRCA1"},
+                    "tp53": {"approved_symbol": "TP53", "hgnc_id": "HGNC:TP53"},
+                }
+                assert result == expected
+                assert mock_individual.call_count == 2
+                assert mock_gene_info.call_count == 2
 
     @patch("custom_panel.core.hgnc_client.requests.Session.get")
     def test_symbol_to_hgnc_id(self, mock_get):

@@ -252,7 +252,9 @@ def run(
 
                 # Count changes
                 changed_count = sum(
-                    1 for orig, std in symbol_map.items() if orig != std
+                    1
+                    for orig, info in symbol_map.items()
+                    if orig != info["approved_symbol"]
                 )
                 logger.info(
                     f"Source '{source_name}': {changed_count}/{len(raw_symbols)} symbols changed during standardization"
@@ -261,17 +263,39 @@ def run(
                 if changed_count > 0:
                     # Log some examples of changes
                     examples = [
-                        (orig, std) for orig, std in symbol_map.items() if orig != std
+                        (orig, info["approved_symbol"])
+                        for orig, info in symbol_map.items()
+                        if orig != info["approved_symbol"]
                     ][:5]
                     for orig, std in examples:
                         logger.debug(f"  {orig} -> {std}")
                     if changed_count > 5:
                         logger.debug(f"  ... and {changed_count - 5} more changes")
 
-                # Apply the mapping
+                # Create separate mapping dictionaries
+                approved_symbol_map = {
+                    k: v["approved_symbol"] for k, v in symbol_map.items()
+                }
+                hgnc_id_map = {
+                    k: v["hgnc_id"] for k, v in symbol_map.items() if v["hgnc_id"]
+                }
+
+                # Apply the mappings
                 df["approved_symbol"] = (
-                    df["approved_symbol"].map(symbol_map).fillna(df["approved_symbol"])
+                    df["approved_symbol"]
+                    .map(approved_symbol_map)
+                    .fillna(df["approved_symbol"])
                 )
+
+                # Add HGNC ID column if not exists
+                if "hgnc_id" not in df.columns:
+                    df["hgnc_id"] = None
+
+                # Map HGNC IDs based on the approved symbol
+                for idx, row in df.iterrows():
+                    symbol = row["approved_symbol"]
+                    if symbol in hgnc_id_map:
+                        df.at[idx, "hgnc_id"] = hgnc_id_map[symbol]
 
                 # Save standardized data
                 output_manager.save_standardized_data(df, source_name, symbol_map)

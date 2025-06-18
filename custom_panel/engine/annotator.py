@@ -92,7 +92,9 @@ class GeneAnnotator:
         logger.info(f"Successfully annotated {len(annotated_df)} gene records")
         return annotated_df
 
-    def standardize_gene_symbols(self, gene_symbols: list[str]) -> dict[str, str]:
+    def standardize_gene_symbols(
+        self, gene_symbols: list[str]
+    ) -> dict[str, dict[str, str | None]]:
         """
         Standardize gene symbols using HGNC batch API.
 
@@ -102,7 +104,7 @@ class GeneAnnotator:
             gene_symbols: List of gene symbols to standardize
 
         Returns:
-            Dictionary mapping original symbols to standardized symbols
+            Dictionary mapping original symbols to dict containing approved_symbol and hgnc_id
         """
         logger.info("Standardizing gene symbols with HGNC batch API")
 
@@ -130,17 +132,30 @@ class GeneAnnotator:
                         standardized_symbol = self.hgnc_client.standardize_symbol(
                             symbol
                         )
-                        standardized[symbol] = standardized_symbol
+                        # For individual lookups, get the gene info to have HGNC ID
+                        gene_info = self.hgnc_client.get_gene_info(standardized_symbol)
+                        hgnc_id = gene_info.get("hgnc_id") if gene_info else None
+                        standardized[symbol] = {
+                            "approved_symbol": standardized_symbol,
+                            "hgnc_id": hgnc_id,
+                        }
                     except Exception as e2:
                         logger.warning(f"Failed to standardize {symbol}: {e2}")
-                        standardized[symbol] = symbol
+                        standardized[symbol] = {
+                            "approved_symbol": symbol,
+                            "hgnc_id": None,
+                        }
 
         # Log standardization results
-        changed_symbols = {k: v for k, v in standardized.items() if k != v}
+        changed_symbols = {
+            k: v for k, v in standardized.items() if k != v["approved_symbol"]
+        }
         if changed_symbols:
             logger.info(f"Standardized {len(changed_symbols)} gene symbols")
-            for original, standardized_sym in changed_symbols.items():
-                logger.debug(f"  {original} -> {standardized_sym}")
+            for original, info in changed_symbols.items():
+                logger.debug(
+                    f"  {original} -> {info['approved_symbol']} (HGNC ID: {info['hgnc_id']})"
+                )
 
         return standardized
 
@@ -296,12 +311,16 @@ class GeneAnnotator:
             lambda x: standardized_symbols.get(x, x)
         )
 
-        # Add HGNC IDs
-        hgnc_ids = []
-        for symbol in annotated_df["approved_symbol"]:
-            hgnc_id = self.hgnc_client.symbol_to_hgnc_id(symbol)
-            hgnc_ids.append(hgnc_id or "")
-        annotated_df["hgnc_id"] = hgnc_ids
+        # Add HGNC IDs if not already present
+        if (
+            "hgnc_id" not in annotated_df.columns
+            or annotated_df["hgnc_id"].isna().all()
+        ):
+            hgnc_ids = []
+            for symbol in annotated_df["approved_symbol"]:
+                hgnc_id = self.hgnc_client.symbol_to_hgnc_id(symbol)
+                hgnc_ids.append(hgnc_id or "")
+            annotated_df["hgnc_id"] = hgnc_ids
 
         # Add genomic annotations
         annotation_columns = [
