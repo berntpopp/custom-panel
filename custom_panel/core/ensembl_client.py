@@ -12,6 +12,8 @@ from typing import Any
 
 import requests
 
+from .cache_manager import CacheManager
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +24,7 @@ class EnsemblClient:
 
     def __init__(
         self, timeout: int = 30, max_retries: int = 3, retry_delay: float = 1.0,
-        transcript_batch_size: int = 50
+        transcript_batch_size: int = 50, cache_manager: CacheManager | None = None
     ):
         """
         Initialize the Ensembl client.
@@ -32,11 +34,13 @@ class EnsemblClient:
             max_retries: Maximum number of retry attempts
             retry_delay: Delay between retries in seconds
             transcript_batch_size: Batch size for transcript queries
+            cache_manager: Optional cache manager instance
         """
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
         self.transcript_batch_size = transcript_batch_size
+        self.cache_manager = cache_manager
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -64,6 +68,12 @@ class EnsemblClient:
         Raises:
             requests.RequestException: If request fails after retries
         """
+        # Check cache first
+        if self.cache_manager:
+            cached_response = self.cache_manager.get("ensembl", endpoint, method, data)
+            if cached_response is not None:
+                return cached_response
+
         url = f"{self.BASE_URL}/{endpoint}"
 
         # Log request details for debugging
@@ -95,6 +105,10 @@ class EnsemblClient:
                     logger.debug(f"Received response with {len(json_response)} items")
                 elif isinstance(json_response, list):
                     logger.debug(f"Received response with {len(json_response)} list items")
+
+                # Cache successful response
+                if self.cache_manager:
+                    self.cache_manager.set("ensembl", endpoint, method, data, json_response)
 
                 return json_response
             except (requests.RequestException, ValueError) as e:

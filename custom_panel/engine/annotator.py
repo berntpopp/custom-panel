@@ -10,6 +10,7 @@ from typing import Any
 
 import pandas as pd
 
+from ..core.cache_manager import CacheManager
 from ..core.ensembl_client import EnsemblClient
 from ..core.hgnc_client import HGNCClient
 
@@ -28,6 +29,21 @@ class GeneAnnotator:
         """
         self.config = config or {}
 
+        # Initialize cache manager if caching is enabled
+        perf_config = self.config.get("performance", {})
+        cache_enabled = perf_config.get("enable_caching", True)
+        cache_dir = perf_config.get("cache_dir", ".cache")
+        cache_ttl = perf_config.get("cache_ttl", 2592000)  # 30 days default
+
+        self.cache_manager = None
+        if cache_enabled:
+            self.cache_manager = CacheManager(
+                cache_dir=cache_dir,
+                cache_ttl=cache_ttl,
+                enabled=True
+            )
+            logger.info(f"Cache enabled at {cache_dir} with TTL {cache_ttl/86400:.1f} days")
+
         # Initialize API clients
         api_config = self.config.get("apis", {})
 
@@ -36,6 +52,7 @@ class GeneAnnotator:
             timeout=hgnc_config.get("timeout", 30),
             max_retries=hgnc_config.get("max_retries", 3),
             retry_delay=hgnc_config.get("retry_delay", 1.0),
+            cache_manager=self.cache_manager,
         )
 
         ensembl_config = api_config.get("ensembl", {})
@@ -44,6 +61,7 @@ class GeneAnnotator:
             max_retries=ensembl_config.get("max_retries", 3),
             retry_delay=ensembl_config.get("retry_delay", 1.0),
             transcript_batch_size=ensembl_config.get("transcript_batch_size", 50),
+            cache_manager=self.cache_manager,
         )
 
         # Performance settings
@@ -431,11 +449,22 @@ class GeneAnnotator:
         """Clear API client caches."""
         self.hgnc_client.clear_cache()
         self.ensembl_client.clear_cache()
+
+        # Also clear disk cache
+        if self.cache_manager:
+            count = self.cache_manager.clear()
+            logger.info(f"Cleared {count} disk cache entries")
+
         logger.info("Cleared annotation caches")
 
     def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics from API clients."""
-        return {
+        stats = {
             "hgnc_cache": self.hgnc_client.get_cache_info(),
             "ensembl_cache": self.ensembl_client.get_cache_info(),
         }
+
+        if self.cache_manager:
+            stats["disk_cache"] = self.cache_manager.get_stats()
+
+        return stats

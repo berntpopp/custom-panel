@@ -12,6 +12,8 @@ from typing import Any
 
 import requests
 
+from .cache_manager import CacheManager
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +23,8 @@ class HGNCClient:
     BASE_URL = "https://rest.genenames.org"
 
     def __init__(
-        self, timeout: int = 30, max_retries: int = 3, retry_delay: float = 1.0
+        self, timeout: int = 30, max_retries: int = 3, retry_delay: float = 1.0,
+        cache_manager: CacheManager | None = None
     ):
         """
         Initialize the HGNC client.
@@ -30,10 +33,12 @@ class HGNCClient:
             timeout: Request timeout in seconds
             max_retries: Maximum number of retry attempts
             retry_delay: Delay between retries in seconds
+            cache_manager: Optional cache manager instance
         """
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.cache_manager = cache_manager
         self.session = requests.Session()
         self.session.headers.update(
             {"Accept": "application/json", "User-Agent": "custom-panel/0.1.0"}
@@ -61,6 +66,14 @@ class HGNCClient:
         Raises:
             requests.RequestException: If request fails after retries
         """
+        # Check cache first
+        if self.cache_manager:
+            # Create a cache key that includes params
+            cache_data = {"params": params} if params else data
+            cached_response = self.cache_manager.get("hgnc", endpoint, method, cache_data)
+            if cached_response is not None:
+                return cached_response
+
         url = f"{self.BASE_URL}/{endpoint}"
 
         for attempt in range(self.max_retries + 1):
@@ -74,7 +87,14 @@ class HGNCClient:
                         url, params=params, timeout=self.timeout
                     )
                 response.raise_for_status()
-                return response.json()
+                json_response = response.json()
+
+                # Cache successful response
+                if self.cache_manager:
+                    cache_data = {"params": params} if params else data
+                    self.cache_manager.set("hgnc", endpoint, method, cache_data, json_response)
+
+                return json_response
             except (requests.RequestException, ValueError) as e:
                 if attempt == self.max_retries:
                     logger.error(

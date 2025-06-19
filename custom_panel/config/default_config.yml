@@ -349,6 +349,8 @@ performance:
   enable_caching: true
   # Cache directory
   cache_dir: ".cache"
+  # Cache time-to-live in seconds (default: 30 days)
+  cache_ttl: 2592000
 
 # Directory structure for outputs
 directory_structure:
