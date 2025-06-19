@@ -766,19 +766,23 @@ def generate_outputs(
         _generate_html_report(df, config, html_path)
 
 
-def _generate_exon_bed_files(df: pd.DataFrame, config: dict[str, Any], output_dir: Path) -> None:
+def _generate_exon_bed_files(
+    df: pd.DataFrame, config: dict[str, Any], output_dir: Path
+) -> None:
     """Generate exon BED files using stored transcript data from annotation (no additional API calls)."""
-    
+
     # Get only included genes
     included_df = df[df["include"]].copy()
     if included_df.empty:
-        console.print("[yellow]No included genes found for exon BED file generation[/yellow]")
+        console.print(
+            "[yellow]No included genes found for exon BED file generation[/yellow]"
+        )
         return
-    
+
     # Get exon configuration
     exon_config = config.get("output", {}).get("bed_files", {}).get("exons", {})
     exon_padding = exon_config.get("exon_padding", 10)
-    
+
     # Track transcript types to generate
     transcript_types = []
     if exon_config.get("canonical_transcript", True):
@@ -787,61 +791,73 @@ def _generate_exon_bed_files(df: pd.DataFrame, config: dict[str, Any], output_di
         transcript_types.append(("mane_select", "mane_select_transcript"))
     if exon_config.get("mane_clinical_transcript", False):
         transcript_types.append(("mane_clinical", "mane_clinical_transcript"))
-    
-    console.print(f"[blue]Generating exon BED files from stored annotation data for {len(included_df)} genes (no API calls)...[/blue]")
-    
+
+    console.print(
+        f"[blue]Generating exon BED files from stored annotation data for {len(included_df)} genes (no API calls)...[/blue]"
+    )
+
     # We need to access the stored transcript data from the annotator
     # Create a temporary annotator to get the transcript data storage
     annotator = GeneAnnotator(config)
-    
+
     # Check if we have stored transcript data (this should exist from the annotation step)
-    if not hasattr(annotator, 'transcript_data'):
+    if not hasattr(annotator, "transcript_data"):
         # If no stored data, we need to extract from cache
-        console.print("[yellow]No stored transcript data found - extracting from cache...[/yellow]")
+        console.print(
+            "[yellow]No stored transcript data found - extracting from cache...[/yellow]"
+        )
         _extract_transcript_data_from_cache(annotator, included_df)
-    
+
     for transcript_type, column_name in transcript_types:
         all_exons = []
         genes_with_transcripts = 0
         genes_processed = 0
-        
+
         # Check if this transcript type column exists
         if column_name not in included_df.columns:
-            console.print(f"[yellow]No {column_name} column found - skipping {transcript_type} exon BED[/yellow]")
+            console.print(
+                f"[yellow]No {column_name} column found - skipping {transcript_type} exon BED[/yellow]"
+            )
             continue
-        
+
         for _, row in included_df.iterrows():
             gene_symbol = row["approved_symbol"]
             transcript_id = row.get(column_name)
-            
+
             if pd.isna(transcript_id) or not transcript_id:
                 continue
-                
+
             genes_processed += 1
-            
+
             # Extract exons from stored transcript data
             exons = _extract_exons_from_stored_data(
                 annotator, gene_symbol, transcript_id, transcript_type, row
             )
-            
+
             if exons:
                 genes_with_transcripts += 1
                 all_exons.extend(exons)
-        
+
         if all_exons:
             # Generate BED file for this transcript type
             bed_filename = f"exons_{transcript_type}_transcript.bed"
             bed_path = output_dir / bed_filename
             create_exon_bed_file(all_exons, bed_path, transcript_type, exon_padding)
-            console.print(f"[green]Generated {bed_filename} with {len(all_exons)} exons from {genes_with_transcripts}/{genes_processed} genes[/green]")
+            console.print(
+                f"[green]Generated {bed_filename} with {len(all_exons)} exons from {genes_with_transcripts}/{genes_processed} genes[/green]"
+            )
         else:
-            console.print(f"[yellow]No {transcript_type} exon data available for BED generation[/yellow]")
+            console.print(
+                f"[yellow]No {transcript_type} exon data available for BED generation[/yellow]"
+            )
 
 
-def _extract_transcript_data_from_cache(annotator: GeneAnnotator, df: pd.DataFrame) -> None:
+def _extract_transcript_data_from_cache(
+    annotator: GeneAnnotator, df: pd.DataFrame
+) -> None:
     """Extract transcript data from cache for genes that need exon BED files."""
     annotator.transcript_data = {}
-    
+
     unique_genes = df["approved_symbol"].unique()
     for gene_symbol in unique_genes:
         # Try to get from cache
@@ -850,11 +866,13 @@ def _extract_transcript_data_from_cache(annotator: GeneAnnotator, df: pd.DataFra
             # This is a simplified extraction - in a real scenario we'd need the gene ID
             gene_data = df[df["approved_symbol"] == gene_symbol].iloc[0]
             gene_id = gene_data.get("gene_id")
-            
+
             if gene_id:
                 endpoint = f"lookup/id/{gene_id}?expand=1&mane=1"
-                cached_response = annotator.ensembl_client.cache_manager.get("ensembl", endpoint, "POST", None)
-                
+                cached_response = annotator.ensembl_client.cache_manager.get(
+                    "ensembl", endpoint, "POST", None
+                )
+
                 if cached_response and isinstance(cached_response, dict):
                     gene_response = cached_response.get(gene_id)
                     if gene_response and "Transcript" in gene_response:
@@ -866,25 +884,29 @@ def _extract_transcript_data_from_cache(annotator: GeneAnnotator, df: pd.DataFra
 
 
 def _extract_exons_from_stored_data(
-    annotator: GeneAnnotator, gene_symbol: str, transcript_id: str, transcript_type: str, row: pd.Series
+    annotator: GeneAnnotator,
+    gene_symbol: str,
+    transcript_id: str,
+    transcript_type: str,
+    row: pd.Series,
 ) -> list[dict]:
     """Extract exon data from stored transcript information."""
-    
+
     # Get stored transcript data for this gene
     gene_data = annotator.transcript_data.get(gene_symbol)
     if not gene_data or "all_transcripts" not in gene_data:
         return []
-    
+
     # Find the specific transcript in the stored data
     target_transcript = None
     for transcript in gene_data["all_transcripts"]:
         if transcript.get("id") == transcript_id:
             target_transcript = transcript
             break
-    
+
     if not target_transcript or "Exon" not in target_transcript:
         return []
-    
+
     # Extract exon information
     exons = []
     for exon in target_transcript["Exon"]:
@@ -901,26 +923,38 @@ def _extract_exons_from_stored_data(
             "transcript_type": transcript_type,
         }
         exons.append(exon_info)
-    
+
     # Sort by rank to maintain exon order
     exons.sort(key=lambda x: x["rank"])
     return exons
 
 
-def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path: Path) -> None:
+def _generate_html_report(
+    df: pd.DataFrame, config: dict[str, Any], output_path: Path
+) -> None:
     """Generate an interactive HTML report with gene datatable and summary statistics."""
     import json
     from datetime import datetime
-    
+
     # Calculate summary statistics
     total_genes = len(df)
     included_count = df["include"].sum() if "include" in df.columns else 0
-    annotated_count = (~df["chromosome"].isna()).sum() if "chromosome" in df.columns else 0
-    
+    annotated_count = (
+        (~df["chromosome"].isna()).sum() if "chromosome" in df.columns else 0
+    )
+
     # MANE transcript counts
-    mane_select_count = (~df["mane_select_transcript"].isna()).sum() if "mane_select_transcript" in df.columns else 0
-    mane_clinical_count = (~df["mane_clinical_transcript"].isna()).sum() if "mane_clinical_transcript" in df.columns else 0
-    
+    mane_select_count = (
+        (~df["mane_select_transcript"].isna()).sum()
+        if "mane_select_transcript" in df.columns
+        else 0
+    )
+    mane_clinical_count = (
+        (~df["mane_clinical_transcript"].isna()).sum()
+        if "mane_clinical_transcript" in df.columns
+        else 0
+    )
+
     # Score statistics
     score_stats = {}
     if "score" in df.columns:
@@ -928,39 +962,59 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
             "mean": float(df["score"].mean()),
             "median": float(df["score"].median()),
             "min": float(df["score"].min()),
-            "max": float(df["score"].max())
+            "max": float(df["score"].max()),
         }
-    
+
     # Top scoring genes
     top_genes = []
     if "score" in df.columns and total_genes > 0:
         top_10 = df.nlargest(10, "score")
         for _, row in top_10.iterrows():
-            top_genes.append({
-                "gene": row["approved_symbol"],
-                "score": float(row["score"])
-            })
-    
+            top_genes.append(
+                {"gene": row["approved_symbol"], "score": float(row["score"])}
+            )
+
     # Source distribution
     source_distribution = {}
     if "source_name" in df.columns:
         source_counts = df.groupby("source_name").size().to_dict()
         source_distribution = {str(k): int(v) for k, v in source_counts.items()}
-    
+
     # Prepare data for DataTable - include all relevant columns for toggle functionality
     all_potential_columns = [
-        "approved_symbol", "hgnc_id", "gene_size", "chromosome", "gene_start", "gene_end", 
-        "biotype", "gene_description", "canonical_transcript_coverage", "mane_select_coverage", 
-        "mane_clinical_coverage", "score", "include", "source_count", "veto_reasons", "inclusion_reason"
+        "approved_symbol",
+        "hgnc_id",
+        "gene_size",
+        "chromosome",
+        "gene_start",
+        "gene_end",
+        "biotype",
+        "gene_description",
+        "canonical_transcript_coverage",
+        "mane_select_coverage",
+        "mane_clinical_coverage",
+        "score",
+        "include",
+        "source_count",
+        "veto_reasons",
+        "inclusion_reason",
     ]
-    
+
     # Default visible columns (optimized for display)
-    default_visible_columns = ["approved_symbol", "gene_size", "mane_select_coverage", "score", "include", "source_count", "inclusion_reason"]
-    
+    default_visible_columns = [
+        "approved_symbol",
+        "gene_size",
+        "mane_select_coverage",
+        "score",
+        "include",
+        "source_count",
+        "inclusion_reason",
+    ]
+
     # Filter to only existing columns
     available_columns = [col for col in all_potential_columns if col in df.columns]
     default_visible = [col for col in default_visible_columns if col in df.columns]
-    
+
     # Convert DataFrame to records for JSON serialization
     table_data = []
     for _, row in df.iterrows():
@@ -974,11 +1028,17 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                 record[col] = value
             else:
                 record[col] = str(value)
-        
+
         # Add metadata for tooltips
-        record["hgnc_id_tooltip"] = str(row.get("hgnc_id", "")) if not pd.isna(row.get("hgnc_id", "")) else ""
-        record["source_names_tooltip"] = str(row.get("source_details", "")) if not pd.isna(row.get("source_details", "")) else ""
-        
+        record["hgnc_id_tooltip"] = (
+            str(row.get("hgnc_id", "")) if not pd.isna(row.get("hgnc_id", "")) else ""
+        )
+        record["source_names_tooltip"] = (
+            str(row.get("source_details", ""))
+            if not pd.isna(row.get("source_details", ""))
+            else ""
+        )
+
         # Calculate source count if not already present
         if "source_count" not in record or record["source_count"] is None:
             # Try to extract from source_details or use 1 as fallback
@@ -990,26 +1050,40 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     record["source_count"] = 1
             else:
                 record["source_count"] = 1
-        
+
         table_data.append(record)
-    
+
     # Prepare data for charts
     chart_data = {
-        "scores": [float(row["score"]) for _, row in df.iterrows() if not pd.isna(row.get("score"))],
-        "gene_sizes": [int(row["gene_size"]) for _, row in df.iterrows() if not pd.isna(row.get("gene_size"))],
-        "source_counts": [record["source_count"] for record in table_data if record["source_count"] is not None],
-        "transcript_sizes": []
+        "scores": [
+            float(row["score"])
+            for _, row in df.iterrows()
+            if not pd.isna(row.get("score"))
+        ],
+        "gene_sizes": [
+            int(row["gene_size"])
+            for _, row in df.iterrows()
+            if not pd.isna(row.get("gene_size"))
+        ],
+        "source_counts": [
+            record["source_count"]
+            for record in table_data
+            if record["source_count"] is not None
+        ],
+        "transcript_sizes": [],
     }
-    
+
     # Collect transcript sizes for distribution
     for _, row in df.iterrows():
         if not pd.isna(row.get("canonical_transcript_coverage")):
-            chart_data["transcript_sizes"].append(int(row["canonical_transcript_coverage"]))
+            chart_data["transcript_sizes"].append(
+                int(row["canonical_transcript_coverage"])
+            )
         if not pd.isna(row.get("mane_select_coverage")):
             chart_data["transcript_sizes"].append(int(row["mane_select_coverage"]))
-    
+
     # Generate HTML content
-    html_content = f'''<!DOCTYPE html>
+    html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1237,7 +1311,7 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
             <h1>Gene Panel Report</h1>
             <p>Generated on {datetime.now().strftime("%B %d, %Y at %I:%M %p")}</p>
         </div>
-        
+
         <div class="content">
             <!-- Summary Statistics -->
             <div class="section">
@@ -1265,7 +1339,7 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     </div>
                 </div>
             </div>
-            
+
             <!-- Interactive Charts -->
             <div class="section">
                 <h2>Data Visualizations</h2>
@@ -1296,18 +1370,18 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     </div>
                 </div>
             </div>
-            
+
             <!-- Gene Data Table -->
             <div class="section">
                 <h2>Gene Data Table</h2>
                 <p>Interactive table showing all genes with sorting, filtering, and search capabilities. Use the search box to find genes by name, score values, source information, inclusion reasons, or any other field data.</p>
-                
+
                 <!-- Column Toggle Controls -->
                 <div class="column-toggles" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
                     <h4 style="margin: 0 0 10px 0; color: #495057;">Toggle Columns:</h4>
                     <div id="columnToggles" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
                 </div>
-                
+
                 <table id="geneTable" class="display" style="width:100%">
                     <thead>
                         <tr id="tableHeader"></tr>
@@ -1324,14 +1398,14 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
             var chartData = {json.dumps(chart_data)};
             var availableColumns = {json.dumps(available_columns)};
             var defaultVisible = {json.dumps(default_visible)};
-            
+
             // Create interactive charts
             createCharts(chartData);
-            
+
             // Initialize table with column toggles
             initializeTable(geneData, availableColumns, defaultVisible);
         }});
-        
+
         function initializeTable(geneData, availableColumns, defaultVisible) {{
             // Column configuration
             var columnConfig = {{
@@ -1341,7 +1415,7 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                         if (type === 'display') {{
                             var hgncId = row.hgnc_id_tooltip || '';
                             var tooltipText = hgncId ? 'HGNC ID: ' + hgncId : 'No HGNC ID';
-                            
+
                             // Use direct HGNC ID URL if available, otherwise fallback to search
                             var hgncUrl;
                             if (hgncId && hgncId.startsWith('HGNC:')) {{
@@ -1351,7 +1425,7 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                                 hgncUrl = 'https://www.genenames.org/tools/search/#!/?query=' + encodeURIComponent(data);
                                 tooltipText += ' (Click to search in HGNC)';
                             }}
-                            
+
                             return '<a href="' + hgncUrl + '" target="_blank" class="tooltip-cell gene-link" title="' + tooltipText + '">' + data + '</a>';
                         }}
                         return data;
@@ -1477,23 +1551,23 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     }}
                 }}
             }};
-            
+
             // Create column toggles
             var togglesContainer = $('#columnToggles');
             availableColumns.forEach(function(col) {{
                 var isVisible = defaultVisible.includes(col);
                 var displayName = columnConfig[col] ? columnConfig[col].title : col.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
-                
+
                 var toggleHtml = '<div class="column-toggle">' +
                     '<input type="checkbox" id="toggle_' + col + '" ' + (isVisible ? 'checked' : '') + '>' +
                     '<label for="toggle_' + col + '">' + displayName + '</label>' +
                     '</div>';
                 togglesContainer.append(toggleHtml);
             }});
-            
+
             // Build initial columns
             var columns = buildColumns(availableColumns, defaultVisible, columnConfig);
-            
+
             // Initialize DataTable
             var table = $('#geneTable').DataTable({{
                 data: geneData,
@@ -1521,13 +1595,13 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     }}
                 }}
             }});
-            
+
             // Enhanced search functionality - add placeholder text to search input
             setTimeout(function() {{
                 $('div.dataTables_filter input').attr('placeholder', 'Gene names, scores, sources, reasons, etc.');
                 $('div.dataTables_filter input').addClass('form-control');
             }}, 100);
-            
+
             // Add toggle event listeners
             availableColumns.forEach(function(col) {{
                 $('#toggle_' + col).on('change', function() {{
@@ -1536,10 +1610,10 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                 }});
             }});
         }}
-        
+
         function buildColumns(availableColumns, visibleColumns, columnConfig) {{
             var columns = [];
-            
+
             availableColumns.forEach(function(col) {{
                 var config = columnConfig[col] || {{ title: col.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()) }};
                 columns.push({{
@@ -1550,10 +1624,10 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     visible: visibleColumns.includes(col)
                 }});
             }});
-            
+
             return columns;
         }}
-        
+
         function createCharts(data) {{
             // Score Distribution with natural boundaries
             if (data.scores && data.scores.length > 0) {{
@@ -1585,7 +1659,7 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     }}
                 }});
             }}
-            
+
             // Gene Size Distribution with natural boundaries
             if (data.gene_sizes && data.gene_sizes.length > 0) {{
                 var ctx2 = document.getElementById('geneSizeChart').getContext('2d');
@@ -1616,7 +1690,7 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     }}
                 }});
             }}
-            
+
             // Source Count Distribution
             if (data.source_counts && data.source_counts.length > 0) {{
                 var ctx3 = document.getElementById('sourceCountChart').getContext('2d');
@@ -1650,7 +1724,7 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     }}
                 }});
             }}
-            
+
             // Transcript Size Distribution
             if (data.transcript_sizes && data.transcript_sizes.length > 0) {{
                 var ctx4 = document.getElementById('transcriptSizeChart').getContext('2d');
@@ -1682,13 +1756,13 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                 }});
             }}
         }}
-        
+
         function createScoreHistogram(scores) {{
             // Natural boundaries for scores: 0-1, 1-2, 2-3, 3-4, 4-5, 5+
             var boundaries = [0, 1, 2, 3, 4, 5, 999];
             var labels = ['0-1', '1-2', '2-3', '3-4', '4-5', '5+'];
             var histogram = new Array(labels.length).fill(0);
-            
+
             scores.forEach(score => {{
                 for (var i = 0; i < boundaries.length - 1; i++) {{
                     if (score >= boundaries[i] && score < boundaries[i + 1]) {{
@@ -1697,16 +1771,16 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     }}
                 }}
             }});
-            
+
             return {{ labels: labels, data: histogram }};
         }}
-        
+
         function createSizeHistogram(sizes) {{
             // Natural boundaries for sizes: 0-10k, 10k-50k, 50k-100k, 100k-200k, 200k+
             var boundaries = [0, 10000, 50000, 100000, 200000, 500000, 999999999];
             var labels = ['0-10k', '10k-50k', '50k-100k', '100k-200k', '200k-500k', '500k+'];
             var histogram = new Array(labels.length).fill(0);
-            
+
             sizes.forEach(size => {{
                 for (var i = 0; i < boundaries.length - 1; i++) {{
                     if (size >= boundaries[i] && size < boundaries[i + 1]) {{
@@ -1715,16 +1789,16 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     }}
                 }}
             }});
-            
+
             return {{ labels: labels, data: histogram }};
         }}
-        
+
         function createTranscriptSizeHistogram(sizes) {{
             // More granular boundaries for transcript sizes in 2kb steps
             var boundaries = [0, 2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000, 25000, 30000, 999999999];
             var labels = ['0-2k', '2k-4k', '4k-6k', '6k-8k', '8k-10k', '10k-12k', '12k-14k', '14k-16k', '16k-18k', '18k-20k', '20k-25k', '25k-30k', '30k+'];
             var histogram = new Array(labels.length).fill(0);
-            
+
             sizes.forEach(size => {{
                 for (var i = 0; i < boundaries.length - 1; i++) {{
                     if (size >= boundaries[i] && size < boundaries[i + 1]) {{
@@ -1733,18 +1807,18 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     }}
                 }}
             }});
-            
+
             return {{ labels: labels, data: histogram }};
         }}
     </script>
 </body>
-</html>'''
-    
+</html>"""
+
     # Write HTML file
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     console.print(f"[green]Generated interactive HTML report: {output_path}[/green]")
 
 

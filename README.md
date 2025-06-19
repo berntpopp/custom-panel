@@ -26,28 +26,23 @@ Custom Panel is a comprehensive tool for creating, managing, and curating gene p
 
 ## Installation
 
+First, clone the repository:
+```bash
+git clone https://github.com/berntpopp/custom-panel.git
+cd custom-panel
+```
+
 ### Using Poetry (Recommended)
 
 ```bash
-# Clone the repository
-git clone https://github.com/berntpopp/custom-panel.git
-cd custom-panel
-
-# Install with Poetry
 poetry install
-
-# Activate the virtual environment
 poetry shell
 ```
 
 ### Using pip
 
 ```bash
-# Clone the repository
-git clone https://github.com/berntpopp/custom-panel.git
-cd custom-panel
-
-# Install in development mode
+# Install in development mode (after cloning)
 pip install -e .
 ```
 
@@ -128,28 +123,103 @@ data_sources:
         evidence_score: 1.0
 ```
 
-#### Scoring Configuration
+#### Gene Scoring System
+
+The tool implements a comprehensive gene scoring system that balances clinical utility with evidence quality:
+
+**Core Scoring Formula:**
+```
+Final Score = Σ(source_evidence_score × internal_confidence_score × source_group_weight)
+```
+
+##### 1. Source Evidence Scores (0.0-1.5)
+
+Evidence scores reflect the clinical reliability of each data source:
+
+- **ACMG Incidental Findings**: 1.5 (highest - evidence-based clinical guidelines)
+- **ClinGen/TheGenCC**: 1.2 base + classification multipliers
+- **In-house Panels**: 1.2 (high trust for clinical laboratory use)
+- **Manual Curation**: 1.2 (expert reviewed)
+- **PanelApp**: 1.0 (community consensus standard)
+- **COSMIC Germline**: 0.9 + tier weighting
+- **Commercial Panels**: 0.8 (variable quality control)
+- **HPO Neoplasm**: 0.7 (automated associations)
+
+##### 2. Classification Multipliers
+
+High-quality sources include evidence classification systems:
+
+**ClinGen/TheGenCC Classification Scores:**
+- **Definitive**: ×1.5
+- **Strong**: ×1.2
+- **Moderate**: ×1.0
+- **Limited**: ×0.3
+- **Disputed**: ×0.3
+- **Refuted**: ×0.0 (excluded)
+
+**PanelApp Evidence Levels:**
+- **Green (Level 3)**: 1.0 (high confidence)
+- **Amber (Level 2)**: 0.5 (moderate confidence)
+- **Red (Level 1)**: 0.0 (explicitly not recommended)
+
+**COSMIC Tier Weights:**
+- **Tier 1**: ×1.0 (established cancer genes)
+- **Tier 2**: ×0.8 (emerging evidence)
+- **Unknown**: ×0.4 (limited classification)
+
+##### 3. Source Group Weights (Final Multipliers)
+
+Final weighting reflects source priority in clinical decision-making:
 
 ```yaml
 scoring:
-  category_weights:
-    germline:
-      panelapp: 1.0
-      acmg_incidental: 1.5
-      inhouse_panels: 1.2
-      manual_curation: 1.1
-      hpo_neoplasm: 0.7
-    somatic:
-      cosmic: 1.2
-      commercial_panels: 0.9
-      manual_curation: 1.0
-      hpo_neoplasm: 0.9
-  
-  thresholds:
-    germline_threshold: 2.0
-    somatic_threshold: 1.5
-    min_sources: 1
+  source_group_weights:
+    ACMG_Incidental_Findings: 1.5  # Highest priority
+    ClinGen: 1.2
+    TheGenCC: 1.2
+    Inhouse_Panels: 1.2
+    Manual_Curation: 1.1
+    PanelApp: 1.0                   # Reference standard
+    COSMIC_Germline: 0.9
+    Commercial_Panels: 0.8
+    HPO_Neoplasm: 0.7              # Lowest priority
 ```
+
+##### 4. Internal Confidence Scoring
+
+Confidence increases with the number of supporting sources using logistic normalization:
+
+**Formula:** `1/(1 + e^(-k×(count-x0)))`
+
+- **Commercial Panels**: k=0.25, x0=5 (50% confidence at 5 panels)
+- **PanelApp**: k=0.35, x0=5 (steeper confidence curve)
+- **In-house Panels**: Linear normalization with max_count=3
+
+##### 5. Decision Thresholds
+
+```yaml
+thresholds:
+  score_threshold: 1.5        # Minimum score for inclusion (adjusted from 2.0)
+  watch_list_threshold: 1.0   # Threshold for emerging evidence tracking
+  min_sources: 1              # Minimum supporting sources
+  max_evidence_score: 5.0     # Score normalization cap
+```
+
+##### 6. Veto System (Override)
+
+Critical sources can override scoring thresholds:
+- **ACMG Incidental Findings**: Always included (clinical guidelines)
+- **Manual Curation**: Always included (expert reviewed)
+
+**Rationale for Recent Adjustments:**
+
+1. **Lowered main threshold** from 2.0 to 1.5 for improved sensitivity to emerging evidence
+2. **Reduced classification multipliers** to prevent score inflation and maintain the 5.0 cap
+3. **Set Red PanelApp classifications to 0.0** - these are explicitly not recommended
+4. **Added watch list threshold** at 1.0 for tracking genes with emerging evidence
+5. **Improved commercial panel confidence** by reducing x0 from 7 to 5 panels
+
+This scoring system prioritizes clinical utility while maintaining sensitivity to new evidence, ensuring comprehensive gene panel curation for diagnostic use.
 
 ## Command Line Interface
 
@@ -213,8 +283,10 @@ Options:
 3. **ACMG Incidental Findings**: ACMG SF v3.2 recommendations
 4. **Manual Curation**: Custom gene lists from literature review and expert curation
 5. **HPO/OMIM Neoplasm**: Automatic identification of cancer-associated genes using HPO ontology
-6. **COSMIC**: Cancer Gene Census (planned)
-7. **Commercial Panels**: Web scraping of 14 commercial diagnostic panel websites
+6. **COSMIC**: Cancer Gene Census
+7. **ClinGen**: Gene validity classifications
+8. **TheGenCC**: Gene-disease associations
+9. **Commercial Panels**: Web scraping of 14 commercial diagnostic panel websites
 
 ### Commercial Panel Web Scrapers
 
@@ -413,6 +485,14 @@ poetry run pytest tests/test_cli_integration.py -v
 - Output file validation and formatting checks
 - Performance metrics and execution timing
 
+### Supported File Formats
+
+The tool supports multiple file formats for gene lists:
+- **Excel** (.xlsx, .xls) - specify sheet_name if needed
+- **CSV** (.csv) - comma-separated values
+- **TSV** (.tsv) - tab-separated values  
+- **Plain text** (.txt) - one gene per line
+
 ### Adding Custom Data Sources
 
 To add your own in-house panels, update the configuration:
@@ -428,12 +508,6 @@ data_sources:
         sheet_name: "Sheet1"  # Optional for Excel files
         evidence_score: 1.0
 ```
-
-Supported file formats:
-- Excel (.xlsx, .xls)
-- CSV (.csv)
-- TSV (.tsv)
-- Plain text (.txt) - one gene per line
 
 ### Manual Curation Lists
 
@@ -459,7 +533,6 @@ data_sources:
 ```
 
 Features:
-- Support for multiple file formats (Excel, CSV, TXT)
 - Configurable gene column names
 - Individual evidence scoring per list
 - Automatic gene extraction and standardization
@@ -534,16 +607,8 @@ The standardized output includes:
 ### Setting up Development Environment
 
 ```bash
-# Clone and install in development mode
-git clone https://github.com/berntpopp/custom-panel.git
-cd custom-panel
-poetry install
-
 # Install pre-commit hooks
 poetry run pre-commit install
-
-# Run tests
-poetry run pytest
 
 # Run all linting and formatting
 ./scripts/lint.sh
@@ -563,23 +628,15 @@ poetry run mypy custom_panel/     # Type checking
 ### Running Tests
 
 ```bash
-# Run all tests
-poetry run pytest
+# Basic test commands
+poetry run pytest                 # Run all tests
+poetry run pytest -v             # Verbose output
+poetry run pytest tests/test_core.py  # Specific test file
 
-# Run with coverage
-poetry run pytest --cov=custom_panel --cov-report=term-missing
-
-# Generate HTML coverage report
-poetry run pytest --cov=custom_panel --cov-report=html
-
-# Generate XML coverage report (for CI)
-poetry run pytest --cov=custom_panel --cov-report=xml
-
-# Run specific test file
-poetry run pytest tests/test_core.py
-
-# Run with verbose output
-poetry run pytest -v
+# Coverage reports
+poetry run pytest --cov=custom_panel --cov-report=term-missing  # Terminal
+poetry run pytest --cov=custom_panel --cov-report=html         # HTML
+poetry run pytest --cov=custom_panel --cov-report=xml          # XML (CI)
 ```
 
 ### Code Style

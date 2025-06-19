@@ -228,7 +228,12 @@ def save_master_panel(
     saved_files = {}
 
     # Save in multiple formats
-    formats = [("parquet", "parquet"), ("csv", "csv"), ("excel", "xlsx"), ("json", "json")]
+    formats = [
+        ("parquet", "parquet"),
+        ("csv", "csv"),
+        ("excel", "xlsx"),
+        ("json", "json"),
+    ]
 
     for format_name, extension in formats:
         filepath = output_dir / f"{base_name}.{extension}"
@@ -315,7 +320,10 @@ def create_bed_file(
 
 
 def create_exon_bed_file(
-    exons_data: list[dict], output_path: str | Path, transcript_type: str = "canonical", padding: int = 0
+    exons_data: list[dict],
+    output_path: str | Path,
+    transcript_type: str = "canonical",
+    padding: int = 0,
 ) -> None:
     """
     Create a BED file from exon data.
@@ -339,7 +347,9 @@ def create_exon_bed_file(
         if all(key in exon for key in ["chromosome", "start", "end", "gene_symbol"]):
             record = {
                 "chromosome": str(exon["chromosome"]),
-                "start": int(exon["start"]) - 1 - padding,  # BED is 0-based, add padding
+                "start": int(exon["start"])
+                - 1
+                - padding,  # BED is 0-based, add padding
                 "end": int(exon["end"]) + padding,
                 "gene_symbol": exon["gene_symbol"],
                 "exon_id": exon.get("exon_id", ""),
@@ -363,7 +373,11 @@ def create_exon_bed_file(
             "chrom": exon_df["chromosome"],
             "chromStart": exon_df["start"],
             "chromEnd": exon_df["end"],
-            "name": exon_df["gene_symbol"] + "_" + exon_df["transcript_id"] + "_exon" + exon_df["rank"].astype(str),
+            "name": exon_df["gene_symbol"]
+            + "_"
+            + exon_df["transcript_id"]
+            + "_exon"
+            + exon_df["rank"].astype(str),
             "score": 1000,  # Default score
             "strand": exon_df["strand"].fillna("+"),
         }
@@ -397,7 +411,9 @@ def create_exon_bed_file(
 
     # Save BED file
     bed_df.to_csv(output_path, sep="\t", header=False, index=False)
-    logger.info(f"Created {transcript_type} exon BED file with {len(bed_df)} exons: {output_path}")
+    logger.info(
+        f"Created {transcript_type} exon BED file with {len(bed_df)} exons: {output_path}"
+    )
 
 
 def merge_panel_dataframes(dataframes: list[pd.DataFrame]) -> pd.DataFrame:

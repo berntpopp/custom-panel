@@ -144,14 +144,16 @@ def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
     # Use robust parsing method due to malformed HTML in the NCBI table
     # The table has issues with nested <tr> tags that break standard parsers
     logger.info("Using robust parsing method to handle malformed table HTML")
-    
+
     cleaned_genes = []
     seen_genes = set()
-    
+
     # Find all gene links directly in the table HTML (both GTR and regular gene links)
     # This bypasses the malformed table structure
-    gene_links = table_element.find_all("a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x))
-    
+    gene_links = table_element.find_all(
+        "a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x)
+    )
+
     for link in gene_links:
         gene_text = link.get_text(strip=True)
         if gene_text:
@@ -160,15 +162,19 @@ def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
                 gene_symbol = gene_text.split("(")[0].strip()
             else:
                 gene_symbol = gene_text.strip()
-            
+
             # Only add valid gene symbols (allow alphanumeric)
-            if gene_symbol and gene_symbol.replace("_", "").replace("-", "").isalnum() and gene_symbol not in seen_genes:
+            if (
+                gene_symbol
+                and gene_symbol.replace("_", "").replace("-", "").isalnum()
+                and gene_symbol not in seen_genes
+            ):
                 cleaned_genes.append(gene_symbol)
                 seen_genes.add(gene_symbol)
                 logger.debug(f"Extracted gene: {gene_symbol}")
 
     if not cleaned_genes:
-        # Fallback: try pandas parsing method 
+        # Fallback: try pandas parsing method
         logger.warning("No genes found with robust method, trying pandas fallback")
         try:
             table_html = StringIO(str(table_element))
@@ -180,7 +186,10 @@ def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
                     gene_series = df[expected_column].dropna()
                     for cell_content in gene_series:
                         cell_soup = BeautifulSoup(str(cell_content), "html.parser")
-                        gene_link = cell_soup.find("a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x))
+                        gene_link = cell_soup.find(
+                            "a",
+                            href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x),
+                        )
                         if gene_link:
                             gene_symbol = gene_link.get_text(strip=True)
                             if "(" in gene_symbol:

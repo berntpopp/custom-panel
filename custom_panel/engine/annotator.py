@@ -112,7 +112,8 @@ class GeneAnnotator:
 
         # Store transcript data for potential exon BED file generation
         self.transcript_data = {
-            symbol: annot for symbol, annot in annotations.items() 
+            symbol: annot
+            for symbol, annot in annotations.items()
             if annot and "all_transcripts" in annot
         }
 

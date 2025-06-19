@@ -39,7 +39,7 @@ data_sources:
     evidence_scores:
       "3": 1.0  # Green - high confidence
       "2": 0.5  # Amber - moderate confidence
-      "1": 0.1  # Red - low confidence
+      "1": 0.0  # Red - explicitly not recommended
 
   # In-house panels configuration - Source Group
   Inhouse_Panels:
@@ -73,7 +73,7 @@ data_sources:
     normalization:
       method: "logistic"
       k: 0.25  # Steepness of curve
-      x0: 7    # Midpoint (50% confidence at 7 panels)
+      x0: 5    # Midpoint (50% confidence at 5 panels)
     panels:
       - name: "Myriad_myRisk"
         file_path: "data/scraped/myriad_myrisk.json"
@@ -188,10 +188,10 @@ data_sources:
     file_path: "data/clingen/gene_validity.tsv"
     # Classification scoring
     classification_scores:
-      "Definitive": 2.0
-      "Strong": 1.5
+      "Definitive": 1.5
+      "Strong": 1.2
       "Moderate": 1.0
-      "Limited": 0.5
+      "Limited": 0.3
       "Disputed": 0.3
       "Refuted": 0.0  # Will be filtered out
 
@@ -209,11 +209,11 @@ data_sources:
     filter_keywords: ["cancer", "tumor", "tumour"]
     # Classification scoring
     classification_scores:
-      "Definitive": 2.0
-      "Strong": 1.5
+      "Definitive": 1.5
+      "Strong": 1.2
       "Moderate": 1.0
       "Supportive": 0.7
-      "Limited": 0.5
+      "Limited": 0.3
       "Disputed Evidence": 0.3
       "No Known Disease Relationship": 0.0  # Will be filtered out
       "Refuted Evidence": 0.0  # Will be filtered out
@@ -235,11 +235,13 @@ scoring:
   # Decision thresholds
   thresholds:
     # Minimum score to include in panel
-    score_threshold: 2.0
+    score_threshold: 1.5
     # Minimum number of sources supporting a gene
     min_sources: 1
     # Maximum evidence score (for normalization)
     max_evidence_score: 5.0
+    # Watch list threshold for emerging evidence
+    watch_list_threshold: 1.0
 
 # Annotation settings
 annotation:

@@ -183,7 +183,7 @@ class PanelMerger:
 
             # Check for veto reasons from any supporting source
             veto_reasons = self._check_veto_sources(group)
-            
+
             # Get HGNC ID (should be the same for all rows of the same gene)
             hgnc_id = (
                 group["hgnc_id"].dropna().iloc[0]
@@ -288,18 +288,18 @@ class PanelMerger:
 
         # Apply decision logic
         df = df.copy()
-        
+
         # Standard inclusion based on score and source thresholds
         meets_thresholds = (df["score"] >= score_threshold) & (
             df["source_count"] >= min_sources
         )
-        
+
         # Veto inclusion - genes with veto reasons are always included
         has_veto = df["veto_reasons"].notna() & (df["veto_reasons"] != "")
-        
+
         # Final inclusion decision: meets thresholds OR has veto
         df["include"] = meets_thresholds | has_veto
-        
+
         # Track inclusion reason for transparency
         df["inclusion_reason"] = "threshold"
         df.loc[has_veto & ~meets_thresholds, "inclusion_reason"] = "veto"
@@ -313,7 +313,9 @@ class PanelMerger:
 
         logger.info(f"Decision results: {included_genes}/{total_genes} genes included")
         if veto_genes > 0:
-            logger.info(f"Veto override: {veto_only_genes} genes included only due to veto (total with veto: {veto_genes})")
+            logger.info(
+                f"Veto override: {veto_only_genes} genes included only due to veto (total with veto: {veto_genes})"
+            )
 
         # Log examples of included/excluded genes for debugging
         if logger.isEnabledFor(logging.DEBUG):
@@ -344,32 +346,34 @@ class PanelMerger:
     def _check_veto_sources(self, group: pd.DataFrame) -> str:
         """
         Check if any source supporting this gene has veto enabled.
-        
+
         Args:
             group: DataFrame group for one gene
-            
+
         Returns:
             Semicolon-separated veto reasons, or empty string if no veto
         """
         veto_reasons = []
         data_sources = self.config.get("data_sources", {})
-        
+
         for _, row in group.iterrows():
             # Handle both raw data (source_name) and pre-aggregated data (source_group)
             if "source_group" in row:
                 source_identifier = row["source_group"]
             else:
                 source_identifier = row["source_name"]
-            
+
             # Check if this source has veto enabled
             source_config = data_sources.get(source_identifier, {})
             veto_config = source_config.get("veto", {})
-            
+
             if veto_config.get("enabled", False):
                 reason = veto_config.get("reason", f"Veto from {source_identifier}")
                 veto_reasons.append(reason)
-                logger.debug(f"Veto applied for {row.get('approved_symbol', 'unknown')}: {reason}")
-        
+                logger.debug(
+                    f"Veto applied for {row.get('approved_symbol', 'unknown')}: {reason}"
+                )
+
         return "; ".join(veto_reasons) if veto_reasons else ""
 
     def get_scoring_summary(self, df: pd.DataFrame) -> dict[str, Any]:
