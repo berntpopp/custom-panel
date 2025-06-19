@@ -190,7 +190,7 @@ class TestGeneAnnotator:
         df = pd.DataFrame(
             {
                 "approved_symbol": ["BRCA1", "TP53", "UNKNOWN"],
-                "hgnc_id": ["HGNC:1100", "HGNC:11998", ""],
+                "hgnc_id": ["HGNC:1100", "HGNC:11998", None],
                 "chromosome": ["17", "17", None],
                 "gene_id": ["ENSG00000012048", "ENSG00000141510", None],
                 "canonical_transcript": ["ENST00000357654", None, None],

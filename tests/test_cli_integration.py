@@ -9,14 +9,14 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from custom_panel.cli import fetch_all_sources
+from custom_panel.engine.pipeline import Pipeline
 
 
 class TestCLIIntegration:
     """Test CLI integration with commercial panels."""
 
-    def test_fetch_all_sources_includes_commercial_panels(self):
-        """Test that fetch_all_sources includes commercial panels when enabled."""
+    def test_pipeline_includes_commercial_panels(self):
+        """Test that pipeline includes commercial panels when enabled."""
 
         # Create a temporary JSON file for testing
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -34,6 +34,7 @@ class TestCLIIntegration:
 
             # Create config with commercial panels enabled
             config = {
+                "general": {"output_dir": str(temp_dir)},
                 "data_sources": {
                     "PanelApp": {"enabled": False},
                     "Inhouse_Panels": {"enabled": False},
@@ -41,6 +42,8 @@ class TestCLIIntegration:
                     "Manual_Curation": {"enabled": False},
                     "HPO_Neoplasm": {"enabled": False},
                     "COSMIC_Germline": {"enabled": False},
+                    "ClinGen": {"enabled": False},
+                    "TheGenCC": {"enabled": False},
                     "Commercial_Panels": {
                         "enabled": True,
                         "source_group": True,
@@ -52,12 +55,15 @@ class TestCLIIntegration:
                             }
                         ],
                     },
-                }
+                },
             }
 
+            # Create pipeline and test source fetching
+            pipeline = Pipeline(config)
+
             # Mock the console to avoid output during testing
-            with patch("custom_panel.cli.console"):
-                dataframes = fetch_all_sources(config)
+            with patch("custom_panel.engine.pipeline.console"):
+                dataframes = pipeline._fetch_all_sources()
 
             # Should have one DataFrame from commercial panels
             assert len(dataframes) == 1
@@ -70,39 +76,50 @@ class TestCLIIntegration:
 
     def test_commercial_panels_disabled(self):
         """Test that commercial panels are skipped when disabled."""
-        config = {
-            "data_sources": {
-                "PanelApp": {"enabled": False},
-                "Inhouse_Panels": {"enabled": False},
-                "ACMG_Incidental_Findings": {"enabled": False},
-                "Manual_Curation": {"enabled": False},
-                "HPO_Neoplasm": {"enabled": False},
-                "COSMIC_Germline": {"enabled": False},
-                "Commercial_Panels": {"enabled": False},
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = {
+                "general": {"output_dir": str(temp_dir)},
+                "data_sources": {
+                    "PanelApp": {"enabled": False},
+                    "Inhouse_Panels": {"enabled": False},
+                    "ACMG_Incidental_Findings": {"enabled": False},
+                    "Manual_Curation": {"enabled": False},
+                    "HPO_Neoplasm": {"enabled": False},
+                    "COSMIC_Germline": {"enabled": False},
+                    "ClinGen": {"enabled": False},
+                    "TheGenCC": {"enabled": False},
+                    "Commercial_Panels": {"enabled": False},
+                },
             }
-        }
 
-        # Mock the console to avoid output during testing
-        with patch("custom_panel.cli.console"):
-            dataframes = fetch_all_sources(config)
+            # Create pipeline and test source fetching
+            pipeline = Pipeline(config)
 
-        # Should have no DataFrames since all sources are disabled
-        assert len(dataframes) == 0
+            # Mock the console to avoid output during testing
+            with patch("custom_panel.engine.pipeline.console"):
+                dataframes = pipeline._fetch_all_sources()
 
-    def test_fetch_command_includes_commercial(self):
-        """Test that the fetch command handles commercial source."""
-        from custom_panel.cli import fetch_all_sources
+            # Should have no DataFrames since all sources are disabled
+            assert len(dataframes) == 0
 
-        # Test that the fetch_all_sources function has commercial_panels in source_functions
-        # This verifies the integration was done correctly
-        config = {
-            "data_sources": {"Commercial_Panels": {"enabled": True, "panels": []}}
-        }
+    def test_pipeline_includes_commercial_source(self):
+        """Test that the pipeline handles commercial source correctly."""
 
-        # This should not error out - if commercial_panels wasn't integrated,
-        # it would raise a KeyError
-        with patch("custom_panel.cli.console"):
-            dataframes = fetch_all_sources(config)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Test that the pipeline has commercial_panels in source_functions
+            # This verifies the integration was done correctly
+            config = {
+                "general": {"output_dir": str(temp_dir)},
+                "data_sources": {"Commercial_Panels": {"enabled": True, "panels": []}},
+            }
 
-        # Should work without error (empty result since no panels configured)
-        assert isinstance(dataframes, list)
+            # Create pipeline and test source fetching
+            pipeline = Pipeline(config)
+
+            # This should not error out - if commercial_panels wasn't integrated,
+            # it would raise a KeyError
+            with patch("custom_panel.engine.pipeline.console"):
+                dataframes = pipeline._fetch_all_sources()
+
+            # Should work without error (empty result since no panels configured)
+            assert isinstance(dataframes, list)
