@@ -775,9 +775,22 @@ def display_summary(df: pd.DataFrame, config: dict[str, Any]) -> None:
         annotated_count = (~df["chromosome"].isna()).sum()
         table.add_row("Genes with coordinates", str(annotated_count))
 
-    if "mane_transcript" in df.columns:
-        mane_count = (~df["mane_transcript"].isna()).sum()
-        table.add_row("Genes with MANE transcripts", str(mane_count))
+    if (
+        "mane_select_transcript" in df.columns
+        or "mane_clinical_transcript" in df.columns
+    ):
+        mane_select_count = (
+            (~df["mane_select_transcript"].isna()).sum()
+            if "mane_select_transcript" in df.columns
+            else 0
+        )
+        mane_clinical_count = (
+            (~df["mane_clinical_transcript"].isna()).sum()
+            if "mane_clinical_transcript" in df.columns
+            else 0
+        )
+        table.add_row("Genes with MANE Select", str(mane_select_count))
+        table.add_row("Genes with MANE Clinical", str(mane_clinical_count))
 
     console.print(table)
 

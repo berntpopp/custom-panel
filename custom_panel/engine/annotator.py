@@ -79,6 +79,10 @@ class GeneAnnotator:
         self.include_mane = annotation_config.get("mane_transcripts", True)
         self.include_descriptions = annotation_config.get("gene_descriptions", True)
 
+        # Coverage calculation settings
+        self.transcript_padding = annotation_config.get("transcript_padding", 25)
+        self.gene_padding = annotation_config.get("gene_padding", 5000)
+
         self.species = self.config.get("general", {}).get("species", "human")
 
     def annotate_genes(self, gene_df: pd.DataFrame) -> pd.DataFrame:
@@ -461,14 +465,25 @@ class GeneAnnotator:
             "biotype": gene_data.get("biotype"),
             "gene_description": gene_data.get("description"),
             "gene_size": None,
+            "gene_coverage_with_padding": None,
             "canonical_transcript": None,
-            "mane_transcript": None,
-            "mane_type": None,
+            "mane_select_transcript": None,
+            "mane_select_refseq": None,
+            "mane_clinical_transcript": None,
+            "mane_clinical_refseq": None,
+            "canonical_transcript_coverage": None,
+            "mane_select_coverage": None,
+            "mane_clinical_coverage": None,
         }
 
-        # Calculate gene size
+        # Calculate gene size and coverage
         if gene_data.get("start") and gene_data.get("end"):
             annotation["gene_size"] = gene_data["end"] - gene_data["start"] + 1
+            annotation[
+                "gene_coverage_with_padding"
+            ] = self.ensembl_client.calculate_gene_coverage(
+                gene_data["start"], gene_data["end"], self.gene_padding
+            )
 
         # Extract transcript information from expanded data
         if self.include_transcripts:
@@ -476,11 +491,47 @@ class GeneAnnotator:
             if canonical_info:
                 annotation["canonical_transcript"] = canonical_info.get("transcript_id")
 
+            # Calculate canonical transcript coverage if we have the full transcript data
+            canonical_full = gene_data.get("canonical_transcript_full")
+            if canonical_full:
+                annotation[
+                    "canonical_transcript_coverage"
+                ] = self.ensembl_client.calculate_transcript_coverage(
+                    canonical_full, self.transcript_padding
+                )
+
         if self.include_mane:
-            mane_info = gene_data.get("mane_transcript")
-            if mane_info:
-                annotation["mane_transcript"] = mane_info.get("transcript_id")
-                annotation["mane_type"] = mane_info.get("mane_type")
+            # MANE Select transcript
+            mane_select = gene_data.get("mane_select")
+            if mane_select:
+                annotation["mane_select_transcript"] = mane_select.get("transcript_id")
+                annotation["mane_select_refseq"] = mane_select.get("refseq_match")
+
+            # Calculate MANE Select coverage
+            mane_select_full = gene_data.get("mane_select_full")
+            if mane_select_full:
+                annotation[
+                    "mane_select_coverage"
+                ] = self.ensembl_client.calculate_transcript_coverage(
+                    mane_select_full, self.transcript_padding
+                )
+
+            # MANE Plus Clinical transcript
+            mane_clinical = gene_data.get("mane_clinical")
+            if mane_clinical:
+                annotation["mane_clinical_transcript"] = mane_clinical.get(
+                    "transcript_id"
+                )
+                annotation["mane_clinical_refseq"] = mane_clinical.get("refseq_match")
+
+            # Calculate MANE Clinical coverage
+            mane_clinical_full = gene_data.get("mane_clinical_full")
+            if mane_clinical_full:
+                annotation[
+                    "mane_clinical_coverage"
+                ] = self.ensembl_client.calculate_transcript_coverage(
+                    mane_clinical_full, self.transcript_padding
+                )
 
         return annotation
 
@@ -497,14 +548,25 @@ class GeneAnnotator:
             "biotype": coords.get("biotype"),
             "gene_description": coords.get("description"),
             "gene_size": None,
+            "gene_coverage_with_padding": None,
             "canonical_transcript": None,
-            "mane_transcript": None,
-            "mane_type": None,
+            "mane_select_transcript": None,
+            "mane_select_refseq": None,
+            "mane_clinical_transcript": None,
+            "mane_clinical_refseq": None,
+            "canonical_transcript_coverage": None,
+            "mane_select_coverage": None,
+            "mane_clinical_coverage": None,
         }
 
-        # Calculate gene size
+        # Calculate gene size and coverage
         if coords.get("start") and coords.get("end"):
             annotation["gene_size"] = coords["end"] - coords["start"] + 1
+            annotation[
+                "gene_coverage_with_padding"
+            ] = self.ensembl_client.calculate_gene_coverage(
+                coords["start"], coords["end"], self.gene_padding
+            )
 
         # For fallback, we can't get transcript info without additional API calls
         # This method is only used when batch API fails
@@ -525,9 +587,15 @@ class GeneAnnotator:
             "biotype": None,
             "gene_description": None,
             "gene_size": None,
+            "gene_coverage_with_padding": None,
             "canonical_transcript": None,
-            "mane_transcript": None,
-            "mane_type": None,
+            "mane_select_transcript": None,
+            "mane_select_refseq": None,
+            "mane_clinical_transcript": None,
+            "mane_clinical_refseq": None,
+            "canonical_transcript_coverage": None,
+            "mane_select_coverage": None,
+            "mane_clinical_coverage": None,
         }
 
     def _add_annotations_to_dataframe(
@@ -576,9 +644,15 @@ class GeneAnnotator:
             "biotype",
             "gene_description",
             "gene_size",
+            "gene_coverage_with_padding",
             "canonical_transcript",
-            "mane_transcript",
-            "mane_type",
+            "mane_select_transcript",
+            "mane_select_refseq",
+            "mane_clinical_transcript",
+            "mane_clinical_refseq",
+            "canonical_transcript_coverage",
+            "mane_select_coverage",
+            "mane_clinical_coverage",
         ]
 
         for col in annotation_columns:
@@ -615,7 +689,10 @@ class GeneAnnotator:
             "with_canonical_transcript": (
                 ~annotated_df["canonical_transcript"].isna()
             ).sum(),
-            "with_mane_transcript": (~annotated_df["mane_transcript"].isna()).sum(),
+            "with_mane_select": (~annotated_df["mane_select_transcript"].isna()).sum(),
+            "with_mane_clinical": (
+                ~annotated_df["mane_clinical_transcript"].isna()
+            ).sum(),
             "with_description": (~annotated_df["gene_description"].isna()).sum(),
         }
 
@@ -625,7 +702,8 @@ class GeneAnnotator:
             "with_coordinates",
             "with_gene_id",
             "with_canonical_transcript",
-            "with_mane_transcript",
+            "with_mane_select",
+            "with_mane_clinical",
             "with_description",
         ]:
             percentage = (summary[key] / total_genes * 100) if total_genes > 0 else 0.0

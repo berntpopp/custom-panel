@@ -237,6 +237,10 @@ annotation:
   mane_transcripts: true
   gene_descriptions: true
   
+  # Coverage calculation settings (in base pairs)
+  transcript_padding: 25  # Padding added to transcript coverage calculation
+  gene_padding: 5000      # Padding added to gene coverage calculation
+  
   # Genome assemblies to include
   assemblies:
     - "GRCh38"

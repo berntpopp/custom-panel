@@ -33,8 +33,14 @@ ANNOTATION_COLUMNS = [
     "biotype",  # str: Gene biotype
     "gene_description",  # str: Gene description
     "canonical_transcript",  # str: Canonical transcript ID
-    "mane_transcript",  # str: MANE transcript ID
-    "mane_type",  # str: MANE type (Select or Plus Clinical)
+    "gene_coverage_with_padding",  # int: Gene coverage with padding
+    "mane_select_transcript",  # str: MANE Select transcript ID
+    "mane_select_refseq",  # str: MANE Select RefSeq match
+    "mane_clinical_transcript",  # str: MANE Plus Clinical transcript ID
+    "mane_clinical_refseq",  # str: MANE Plus Clinical RefSeq match
+    "canonical_transcript_coverage",  # int: Canonical transcript coverage with padding
+    "mane_select_coverage",  # int: MANE Select coverage with padding
+    "mane_clinical_coverage",  # int: MANE Plus Clinical coverage with padding
 ]
 
 

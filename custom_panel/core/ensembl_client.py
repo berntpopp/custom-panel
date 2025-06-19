@@ -334,14 +334,14 @@ class EnsemblClient:
         batch_gene_ids = [item[1] for item in batch_items]
 
         try:
-            # Use batch lookup for gene IDs with expand
+            # Use batch lookup for gene IDs with expand and MANE transcript data
             data = {"ids": batch_gene_ids}
             logger.debug(
                 f"Fetching transcript data for batch of {len(batch_gene_ids)} gene IDs"
             )
             # Use longer timeout for transcript queries as they return more data
             response = self._make_request(
-                f"lookup/id/{species}?expand=1",
+                f"lookup/id/{species}?expand=1&mane=1",
                 method="POST",
                 data=data,
                 timeout_override=120,  # 120 second timeout for transcript queries
@@ -377,33 +377,58 @@ class EnsemblClient:
                                 "length": transcript.get("length"),
                             }
 
-                        # Find MANE transcript
-                        mane_transcript = None
+                        # Find MANE transcripts (both Select and Plus Clinical)
+                        mane_select = None
+                        mane_clinical = None
+                        canonical_transcript_full = None
+                        mane_select_full = None
+                        mane_clinical_full = None
+
                         for transcript in transcripts:
-                            transcript_tags = transcript.get("transcript_tags", [])
-                            for tag in transcript_tags:
-                                if tag.get("value") in [
-                                    "MANE Select",
-                                    "MANE Plus Clinical",
-                                ]:
-                                    mane_transcript = {
-                                        "transcript_id": transcript.get("id"),
-                                        "mane_type": tag.get("value"),
+                            transcript_id = transcript.get("id")
+
+                            # Check if this is the canonical transcript
+                            if transcript.get("is_canonical") == 1:
+                                canonical_transcript_full = transcript
+
+                            # Check for MANE transcripts
+                            mane_list = transcript.get("MANE", [])
+                            for mane_entry in mane_list:
+                                mane_type = mane_entry.get("type")
+                                if mane_type == "MANE_Select":
+                                    mane_select = {
+                                        "transcript_id": transcript_id,
+                                        "refseq_match": mane_entry.get("refseq_match"),
                                         "transcript_start": transcript.get("start"),
                                         "transcript_end": transcript.get("end"),
                                         "biotype": transcript.get("biotype"),
                                         "length": transcript.get("length"),
                                     }
-                                    break
-                            if mane_transcript:
-                                break
+                                    mane_select_full = transcript
+                                elif mane_type == "MANE_Plus_Clinical":
+                                    mane_clinical = {
+                                        "transcript_id": transcript_id,
+                                        "refseq_match": mane_entry.get("refseq_match"),
+                                        "transcript_start": transcript.get("start"),
+                                        "transcript_end": transcript.get("end"),
+                                        "biotype": transcript.get("biotype"),
+                                        "length": transcript.get("length"),
+                                    }
+                                    mane_clinical_full = transcript
 
                         # Update the result with transcript data
                         if result[symbol]:
                             result[symbol][
                                 "canonical_transcript"
                             ] = canonical_transcript
-                            result[symbol]["mane_transcript"] = mane_transcript
+                            result[symbol]["mane_select"] = mane_select
+                            result[symbol]["mane_clinical"] = mane_clinical
+                            # Store full transcript data for coverage calculation
+                            result[symbol][
+                                "canonical_transcript_full"
+                            ] = canonical_transcript_full
+                            result[symbol]["mane_select_full"] = mane_select_full
+                            result[symbol]["mane_clinical_full"] = mane_clinical_full
 
         except requests.RequestException as e:
             logger.warning(f"Batch transcript request failed: {e}, using fallback")
@@ -411,7 +436,8 @@ class EnsemblClient:
             for symbol, _gene_id in batch_items:
                 if result[symbol]:
                     result[symbol]["canonical_transcript"] = None
-                    result[symbol]["mane_transcript"] = None
+                    result[symbol]["mane_select"] = None
+                    result[symbol]["mane_clinical"] = None
 
     @functools.lru_cache(maxsize=1000)  # noqa: B019
     def rsid_to_coordinates(
@@ -486,7 +512,8 @@ class EnsemblClient:
                 "coordinates": None,
                 "gene_size": None,
                 "canonical_transcript": None,
-                "mane_transcript": None,
+                "mane_select": None,
+                "mane_clinical": None,
             }
 
         # Calculate gene size
@@ -507,7 +534,8 @@ class EnsemblClient:
             },
             "gene_size": gene_size,
             "canonical_transcript": gene_data.get("canonical_transcript"),
-            "mane_transcript": gene_data.get("mane_transcript"),
+            "mane_select": gene_data.get("mane_select"),
+            "mane_clinical": gene_data.get("mane_clinical"),
         }
 
     def get_cache_info(self) -> dict[str, Any]:
@@ -521,6 +549,68 @@ class EnsemblClient:
             "get_gene_coordinates": self.get_gene_coordinates.cache_info()._asdict(),
             "rsid_to_coordinates": self.rsid_to_coordinates.cache_info()._asdict(),
         }
+
+    def calculate_transcript_coverage(
+        self, transcript_data: dict[str, Any], padding: int = 0
+    ) -> int | None:
+        """
+        Calculate transcript coverage including exons and padding.
+
+        Args:
+            transcript_data: Transcript data with exon information
+            padding: Padding to add on both sides (in base pairs)
+
+        Returns:
+            Total coverage in base pairs or None if calculation fails
+        """
+        if not transcript_data or "Exon" not in transcript_data:
+            return None
+
+        try:
+            exons = transcript_data["Exon"]
+            total_exon_length = 0
+
+            for exon in exons:
+                start = exon.get("start")
+                end = exon.get("end")
+                if start is not None and end is not None:
+                    total_exon_length += abs(end - start) + 1
+
+            # Add padding on both sides
+            total_coverage = total_exon_length + (2 * padding)
+            return total_coverage
+
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Failed to calculate transcript coverage for transcript")
+            return None
+
+    def calculate_gene_coverage(
+        self, gene_start: int, gene_end: int, padding: int = 0
+    ) -> int | None:
+        """
+        Calculate gene coverage including padding.
+
+        Args:
+            gene_start: Gene start position
+            gene_end: Gene end position
+            padding: Padding to add on both sides (in base pairs)
+
+        Returns:
+            Total gene coverage in base pairs or None if calculation fails
+        """
+        if gene_start is None or gene_end is None:
+            return None
+
+        try:
+            gene_length = abs(gene_end - gene_start) + 1
+            total_coverage = gene_length + (2 * padding)
+            return total_coverage
+
+        except (TypeError, ValueError):
+            logger.warning(
+                f"Failed to calculate gene coverage for positions {gene_start}-{gene_end}"
+            )
+            return None
 
     def clear_cache(self) -> None:
         """Clear all cached results."""
