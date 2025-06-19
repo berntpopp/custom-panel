@@ -71,7 +71,10 @@ nav:
     - 'Installation': 'user_guide/installation.md'
     - 'Running the Pipeline': 'user_guide/running_pipeline.md'
     - 'Configuration': 'user_guide/configuration.md'
+    - 'Scoring System': 'user_guide/scoring_system.md'
     - 'Data Sources':
+      - 'Overview': 'user_guide/data_sources.md'
+      - 'Web Scraping': 'user_guide/web_scraping.md'
       - 'COSMIC Setup': 'user_guide/cosmic_setup.md'
       - 'OMIM / HPO Setup': 'user_guide/omim_setup.md'
   - 'API Reference':
