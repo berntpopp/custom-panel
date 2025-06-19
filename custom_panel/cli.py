@@ -955,7 +955,47 @@ def _generate_html_report(
         else 0
     )
 
-    # Score statistics (removed unused variable)
+    # Calculate source statistics
+    source_stats = {}
+    unique_sources = set()
+    source_gene_counts: dict[str, int] = {}
+
+    if "source_names" in df.columns:
+        # Parse source information from each gene
+        for _, row in df.iterrows():
+            if pd.notna(row.get("source_names")):
+                sources = str(row["source_names"]).split(";")
+                for source in sources:
+                    source = source.strip()
+                    if source:
+                        unique_sources.add(source)
+                        if source not in source_gene_counts:
+                            source_gene_counts[source] = set()
+                        source_gene_counts[source].add(row["approved_symbol"])
+
+        # Calculate statistics per source
+        for source in sorted(unique_sources):
+            gene_count = len(source_gene_counts[source])
+            source_stats[source] = {
+                "gene_count": gene_count,
+                "percentage": round((gene_count / total_genes) * 100, 1)
+                if total_genes > 0
+                else 0,
+            }
+
+    # Sort sources by gene count
+    sorted_sources = sorted(
+        source_stats.items(), key=lambda x: x[1]["gene_count"], reverse=True
+    )
+
+    # Calculate overall source diversity metrics
+    total_unique_sources = len(unique_sources)
+    avg_sources_per_gene = (
+        df["source_count"].mean() if "source_count" in df.columns else 0
+    )
+    max_sources_per_gene = (
+        df["source_count"].max() if "source_count" in df.columns else 0
+    )
 
     # Top scoring genes
     top_genes = []
@@ -965,8 +1005,6 @@ def _generate_html_report(
             top_genes.append(
                 {"gene": row["approved_symbol"], "score": float(row["score"])}
             )
-
-    # Source distribution (removed unused variable)
 
     # Prepare data for DataTable - include all relevant columns for toggle functionality
     all_potential_columns = [
@@ -1072,6 +1110,15 @@ def _generate_html_report(
             transcript_sizes.append(int(mane_cov))
 
     chart_data["transcript_sizes"] = transcript_sizes
+
+    # Add source distribution data for charts
+    chart_data["source_labels"] = [source for source, _ in sorted_sources[:10]]
+    chart_data["source_gene_counts"] = [
+        stats["gene_count"] for _, stats in sorted_sources[:10]
+    ]
+    chart_data["source_percentages"] = [
+        stats["percentage"] for _, stats in sorted_sources[:10]
+    ]
 
     # Generate HTML content
     html_content = f"""<!DOCTYPE html>
@@ -1331,6 +1378,49 @@ def _generate_html_report(
                 </div>
             </div>
 
+            <!-- Source Statistics -->
+            <div class="section">
+                <h2>Data Source Analysis</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">{total_unique_sources}</div>
+                        <div class="stat-label">Unique Sources</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{avg_sources_per_gene:.1f}</div>
+                        <div class="stat-label">Avg Sources/Gene</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{max_sources_per_gene}</div>
+                        <div class="stat-label">Max Sources/Gene</div>
+                    </div>
+                </div>
+
+                <!-- Source Details Table -->
+                <div style="margin-top: 20px;">
+                    <h3 style="color: #495057; margin-bottom: 15px;">Source Contributions</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                        {"".join([f'''
+                        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 600; color: #495057;">{source}</span>
+                                <span style="color: #6c757d; font-size: 0.9em;">{stats["percentage"]:.1f}%</span>
+                            </div>
+                            <div style="margin-top: 8px;">
+                                <div style="background: #e9ecef; border-radius: 3px; height: 8px; overflow: hidden;">
+                                    <div style="background: #667eea; width: {stats["percentage"]}%; height: 100%;"></div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 8px; color: #6c757d; font-size: 0.85em;">
+                                {stats["gene_count"]} genes
+                            </div>
+                        </div>
+                        ''' for source, stats in sorted_sources[:12]])}
+                    </div>
+                    {f'<p style="margin-top: 10px; color: #6c757d; font-size: 0.9em;">Showing top 12 of {len(sorted_sources)} sources</p>' if len(sorted_sources) > 12 else ''}
+                </div>
+            </div>
+
             <!-- Interactive Charts -->
             <div class="section">
                 <h2>Data Visualizations</h2>
@@ -1351,6 +1441,12 @@ def _generate_html_report(
                         <div class="chart-title">Source Count Distribution</div>
                         <div class="chart-container">
                             <canvas id="sourceCountChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Top Data Sources</div>
+                        <div class="chart-container">
+                            <canvas id="sourceContributionChart"></canvas>
                         </div>
                     </div>
                     <div class="chart-card">
@@ -1742,6 +1838,58 @@ def _generate_html_report(
                         scales: {{
                             y: {{ beginAtZero: true, title: {{ display: true, text: 'Number of Transcripts' }} }},
                             x: {{ title: {{ display: true, text: 'Transcript Size (bp)' }} }}
+                        }}
+                    }}
+                }});
+            }}
+
+            // Source Contribution Chart
+            if (data.source_labels && data.source_labels.length > 0) {{
+                var ctx5 = document.getElementById('sourceContributionChart').getContext('2d');
+                new Chart(ctx5, {{
+                    type: 'bar',
+                    data: {{
+                        labels: data.source_labels,
+                        datasets: [{{
+                            label: 'Gene Count',
+                            data: data.source_gene_counts,
+                            backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            borderWidth: 1
+                        }}]
+                    }},
+                    options: {{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {{
+                            legend: {{ display: false }},
+                            title: {{ display: true, text: 'Genes per Data Source' }},
+                            tooltip: {{
+                                callbacks: {{
+                                    afterLabel: function(context) {{
+                                        var percentage = data.source_percentages[context.dataIndex];
+                                        return percentage + '% of all genes';
+                                    }}
+                                }}
+                            }}
+                        }},
+                        scales: {{
+                            x: {{
+                                beginAtZero: true,
+                                title: {{ display: true, text: 'Number of Genes' }},
+                                ticks: {{
+                                    callback: function(value) {{
+                                        return value.toLocaleString();
+                                    }}
+                                }}
+                            }},
+                            y: {{
+                                title: {{ display: false }},
+                                ticks: {{
+                                    autoSkip: false
+                                }}
+                            }}
                         }}
                     }}
                 }});
