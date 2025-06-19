@@ -1,8 +1,13 @@
 # Custom Panel
 
-[![CI](https://github.com/berntpopp/custom-panel/actions/workflows/docs.yml/badge.svg)](https://github.com/berntpopp/custom-panel/actions)
-[![Documentation](https://img.shields.io/badge/docs-view%20site-blue.svg)](https://berntpopp.github.io/custom-panel/)
+[![CI](https://github.com/berntpopp/custom-panel/actions/workflows/ci.yml/badge.svg)](https://github.com/berntpopp/custom-panel/actions/workflows/ci.yml)
+[![Documentation](https://github.com/berntpopp/custom-panel/actions/workflows/docs.yml/badge.svg)](https://github.com/berntpopp/custom-panel/actions/workflows/docs.yml)
+[![codecov](https://codecov.io/gh/berntpopp/custom-panel/branch/main/graph/badge.svg)](https://codecov.io/gh/berntpopp/custom-panel)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/berntpopp/custom-panel)
+[![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://github.com/python/mypy)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Docs](https://img.shields.io/badge/docs-view%20site-blue.svg)](https://berntpopp.github.io/custom-panel/)
 
 A modern Python tool for gene panel curation and aggregation from multiple genomic databases.
 
