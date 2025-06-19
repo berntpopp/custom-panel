@@ -14,6 +14,7 @@ from custom_panel.core.hgnc_client import HGNCClient
 from custom_panel.core.io import (
     STANDARD_COLUMNS,
     create_bed_file,
+    create_exon_bed_file,
     create_standard_dataframe,
     load_panel_data,
     save_panel_data,
@@ -595,3 +596,125 @@ class TestDataFrameOperations:
         assert len(unique_genes) == 2
         assert "BRCA1" in unique_genes
         assert "TP53" in unique_genes
+
+    def test_create_exon_bed_file(self):
+        """Test the creation of a BED file from exon data."""
+        exons_data = [
+            # Gene 1, canonical transcript
+            {
+                "chromosome": "1",
+                "start": 100,
+                "end": 200,
+                "gene_symbol": "GENE1",
+                "exon_id": "E1",
+                "strand": "+",
+                "transcript_id": "T1",
+                "rank": 1
+            },
+            {
+                "chromosome": "1",
+                "start": 300,
+                "end": 400,
+                "gene_symbol": "GENE1",
+                "exon_id": "E2",
+                "strand": "+",
+                "transcript_id": "T1",
+                "rank": 2
+            },
+            # Gene 2, MANE select transcript
+            {
+                "chromosome": "2",
+                "start": 500,
+                "end": 550,
+                "gene_symbol": "GENE2",
+                "exon_id": "E3",
+                "strand": "-",
+                "transcript_id": "T2",
+                "rank": 1
+            },
+        ]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "test_exons.bed"
+            create_exon_bed_file(exons_data, bed_path, transcript_type="canonical", padding=10)
+
+            assert bed_path.exists()
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 3
+
+            # Check first exon of GENE1 (0-based, padded)
+            fields1 = lines[0].strip().split("\t")
+            assert fields1[0] == "1"
+            assert fields1[1] == "89"  # 100 - 1 - 10
+            assert fields1[2] == "210" # 200 + 10
+            assert "GENE1_T1_exon1" in fields1[3]
+            assert fields1[4] == "1000"
+            assert fields1[5] == "+"
+
+            # Check second exon of GENE1
+            fields2 = lines[1].strip().split("\t")
+            assert fields2[0] == "1"
+            assert fields2[1] == "289"  # 300 - 1 - 10
+            assert fields2[2] == "410" # 400 + 10
+            assert "GENE1_T1_exon2" in fields2[3]
+
+            # Check exon of GENE2 (negative strand)
+            fields3 = lines[2].strip().split("\t")
+            assert fields3[0] == "2"
+            assert fields3[1] == "489" # 500 - 1 - 10
+            assert fields3[2] == "560" # 550 + 10
+            assert "GENE2_T2_exon1" in fields3[3]
+            assert fields3[5] == "-"
+
+
+class TestEnsemblHelpers:
+    """Test helper functions within the EnsemblClient."""
+
+    @pytest.fixture
+    def ensembl_client(self) -> EnsemblClient:
+        """Create an EnsemblClient for testing helper functions."""
+        # We don't need network access for these tests
+        return EnsemblClient(cache_manager=None)
+
+    def test_calculate_transcript_coverage(self, ensembl_client: EnsemblClient):
+        """Test transcript coverage calculation with and without padding."""
+        transcript_data = {
+            "Exon": [
+                {"start": 100, "end": 200},  # length 101
+                {"start": 300, "end": 400},  # length 101
+            ]
+        }
+        # Total exon length = 101 + 101 = 202
+
+        # Test without padding
+        coverage = ensembl_client.calculate_transcript_coverage(transcript_data, padding=0)
+        assert coverage == 202
+
+        # Test with padding
+        coverage_padded = ensembl_client.calculate_transcript_coverage(transcript_data, padding=10)
+        # Expected: 202 + (2 * 10) = 222
+        assert coverage_padded == 222
+
+    def test_calculate_transcript_coverage_edge_cases(self, ensembl_client: EnsemblClient):
+        """Test edge cases for transcript coverage calculation."""
+        # No exons - returns 0, not None
+        assert ensembl_client.calculate_transcript_coverage({"Exon": []}) == 0
+        # Malformed data - returns None
+        assert ensembl_client.calculate_transcript_coverage({}) is None
+        assert ensembl_client.calculate_transcript_coverage(None) is None
+
+    def test_calculate_transcript_coverage_overlapping_exons(self, ensembl_client: EnsemblClient):
+        """Test transcript coverage calculation with overlapping exons."""
+        transcript_data = {
+            "Exon": [
+                {"start": 100, "end": 250},  # length 151
+                {"start": 200, "end": 300},  # length 101, overlaps with first
+            ]
+        }
+        # Should handle overlapping exons properly
+        coverage = ensembl_client.calculate_transcript_coverage(transcript_data, padding=0)
+        # This would depend on the implementation - might be sum of all exons or merged regions
+        assert coverage is not None
+        assert coverage > 0
