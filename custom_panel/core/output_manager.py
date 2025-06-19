@@ -177,9 +177,9 @@ class OutputManager:
         file_path = step_dir / f"{filename}.{file_extension}"
 
         try:
-            # Save the data - skip validation for scored data which has different schema
-            if step == "scored_data":
-                # Scored data has different schema, save directly
+            # Save the data - skip validation for data with different schema
+            if step in ["scored_data", "annotated_data"]:
+                # Scored and annotated data have different schema, save directly
                 self._save_data_direct(data, file_path, file_format)
             else:
                 # Use standard validation for other data types

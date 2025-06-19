@@ -706,6 +706,27 @@ def fetch_all_sources(
     return dataframes
 
 
+def _save_annotated_data_direct(df: pd.DataFrame, path: Path, format: str) -> None:
+    """
+    Save annotated data directly without schema validation.
+
+    Args:
+        df: DataFrame to save
+        path: Output file path
+        format: Output format
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if format.lower() == "parquet":
+        df.to_parquet(path, index=False, engine="pyarrow")
+    elif format.lower() == "csv":
+        df.to_csv(path, index=False)
+    elif format.lower() == "excel":
+        df.to_excel(path, index=False, engine="openpyxl")
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+
+
 def generate_outputs(
     df: pd.DataFrame, config: dict[str, Any], output_dir: Path
 ) -> None:
@@ -722,9 +743,8 @@ def generate_outputs(
             filepath = (
                 output_dir / f"master_panel.{format_name.replace('excel', 'xlsx')}"
             )
-            from .core.io import save_panel_data
-
-            save_panel_data(df, filepath, format_name)
+            # Save annotated data directly without validation (has different schema)
+            _save_annotated_data_direct(df, filepath, format_name)
             saved_files[format_name] = filepath
 
     # Generate BED files if enabled
