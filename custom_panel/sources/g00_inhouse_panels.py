@@ -11,6 +11,7 @@ from typing import Any
 
 import pandas as pd
 
+from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,8 @@ def fetch_inhouse_panels_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with in-house panel data
     """
-    inhouse_config = config.get("data_sources", {}).get("Inhouse_Panels", {})
+    config_manager = ConfigManager(config)
+    inhouse_config = config_manager.get_source_config("Inhouse_Panels")
 
     if not inhouse_config.get("enabled", True):
         logger.info("In-house panels data source is disabled")
@@ -357,7 +359,8 @@ def get_inhouse_panel_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    inhouse_config = config.get("data_sources", {}).get("Inhouse_Panels", {})
+    config_manager = ConfigManager(config)
+    inhouse_config = config_manager.get_source_config("Inhouse_Panels")
     panels_config = inhouse_config.get("panels", [])
 
     summary = {

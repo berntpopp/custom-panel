@@ -295,7 +295,10 @@ class PanelMerger:
         )
 
         # Veto inclusion - genes with veto reasons are always included
-        has_veto = df["veto_reasons"].notna() & (df["veto_reasons"] != "")
+        if "veto_reasons" in df.columns:
+            has_veto = df["veto_reasons"].notna() & (df["veto_reasons"] != "")
+        else:
+            has_veto = pd.Series([False] * len(df), index=df.index)
 
         # Final inclusion decision: meets thresholds OR has veto
         df["include"] = meets_thresholds | has_veto
