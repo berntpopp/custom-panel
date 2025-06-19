@@ -194,7 +194,8 @@ class TestGeneAnnotator:
                 "chromosome": ["17", "17", None],
                 "gene_id": ["ENSG00000012048", "ENSG00000141510", None],
                 "canonical_transcript": ["ENST00000357654", None, None],
-                "mane_transcript": ["ENST00000357654", "ENST00000269305", None],
+                "mane_select_transcript": ["ENST00000357654", "ENST00000269305", None],
+                "mane_clinical_transcript": ["ENST00000357654", None, None],
                 "gene_description": ["BRCA1", "TP53", None],
             }
         )
@@ -209,7 +210,8 @@ class TestGeneAnnotator:
         assert summary["with_hgnc_id"] == 2
         assert summary["with_coordinates"] == 2
         assert summary["with_canonical_transcript"] == 1
-        assert summary["with_mane_transcript"] == 2
+        assert summary["with_mane_select"] == 2
+        assert summary["with_mane_clinical"] == 1
 
 
 class TestPanelMerger:

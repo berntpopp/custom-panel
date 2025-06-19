@@ -149,7 +149,7 @@ def run(
     save_intermediate: bool = typer.Option(
         False, "--save-intermediate", help="Save intermediate files for debugging"
     ),
-    intermediate_format: str | None = typer.Option(
+    intermediate_format: Optional[str] = typer.Option(  # noqa: UP007
         None,
         "--intermediate-format",
         help="Format for intermediate files (csv, excel, parquet, json)",
@@ -888,7 +888,7 @@ def _extract_exons_from_stored_data(
     gene_symbol: str,
     transcript_id: str,
     transcript_type: str,
-    row: pd.Series[Any],
+    row: "pd.Series[Any]",
 ) -> list[dict[str, Any]]:
     """Extract exon data from stored transcript information."""
 
