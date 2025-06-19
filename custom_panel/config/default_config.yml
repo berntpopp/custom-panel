@@ -286,6 +286,17 @@ output:
     # Extend gene coordinates by this many base pairs
     padding: 0
 
+  # HTML report generation
+  html_report:
+    # Enable interactive HTML report generation
+    enabled: true
+    # Include summary statistics
+    include_summary: true
+    # Include top scoring genes section
+    include_top_genes: true
+    # Include interactive datatable
+    include_datatable: true
+
   # Intermediate file output for debugging
   intermediate_files:
     # Enable intermediate file output

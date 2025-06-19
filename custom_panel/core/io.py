@@ -146,7 +146,7 @@ def save_panel_data(
     Args:
         df: DataFrame to save
         path: Output file path
-        format: Output format ("parquet", "csv", "excel")
+        format: Output format ("parquet", "csv", "excel", "json")
 
     Raises:
         ValueError: If format is not supported
@@ -162,6 +162,8 @@ def save_panel_data(
         df.to_csv(path, index=False)
     elif format.lower() == "excel":
         df.to_excel(path, index=False, engine="openpyxl")
+    elif format.lower() == "json":
+        df.to_json(path, orient="records", indent=2)
     else:
         raise ValueError(f"Unsupported format: {format}")
 
@@ -197,6 +199,8 @@ def load_panel_data(path: str | Path, format: str | None = None) -> pd.DataFrame
         df = pd.read_csv(path)
     elif format in ["xlsx", "xls", "excel"]:
         df = pd.read_excel(path, engine="openpyxl")
+    elif format == "json":
+        df = pd.read_json(path, orient="records")
     else:
         raise ValueError(f"Unsupported format: {format}")
 
@@ -224,7 +228,7 @@ def save_master_panel(
     saved_files = {}
 
     # Save in multiple formats
-    formats = [("parquet", "parquet"), ("csv", "csv"), ("excel", "xlsx")]
+    formats = [("parquet", "parquet"), ("csv", "csv"), ("excel", "xlsx"), ("json", "json")]
 
     for format_name, extension in formats:
         filepath = output_dir / f"{base_name}.{extension}"
