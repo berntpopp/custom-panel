@@ -149,7 +149,7 @@ def run(
     save_intermediate: bool = typer.Option(
         False, "--save-intermediate", help="Save intermediate files for debugging"
     ),
-    intermediate_format: Optional[str] = typer.Option(
+    intermediate_format: str | None = typer.Option(
         None,
         "--intermediate-format",
         help="Format for intermediate files (csv, excel, parquet, json)",
@@ -659,7 +659,7 @@ def search_panels(
 
 
 def fetch_all_sources(
-    config: dict[str, Any], output_manager: Optional[OutputManager] = None
+    config: dict[str, Any], output_manager: OutputManager | None = None
 ) -> list[pd.DataFrame]:
     """Fetch data from all enabled sources."""
     dataframes = []
@@ -888,8 +888,8 @@ def _extract_exons_from_stored_data(
     gene_symbol: str,
     transcript_id: str,
     transcript_type: str,
-    row: pd.Series,
-) -> list[dict]:
+    row: pd.Series[Any],
+) -> list[dict[str, Any]]:
     """Extract exon data from stored transcript information."""
 
     # Get stored transcript data for this gene
@@ -955,15 +955,7 @@ def _generate_html_report(
         else 0
     )
 
-    # Score statistics
-    score_stats = {}
-    if "score" in df.columns:
-        score_stats = {
-            "mean": float(df["score"].mean()),
-            "median": float(df["score"].median()),
-            "min": float(df["score"].min()),
-            "max": float(df["score"].max()),
-        }
+    # Score statistics (removed unused variable)
 
     # Top scoring genes
     top_genes = []
@@ -974,11 +966,7 @@ def _generate_html_report(
                 {"gene": row["approved_symbol"], "score": float(row["score"])}
             )
 
-    # Source distribution
-    source_distribution = {}
-    if "source_name" in df.columns:
-        source_counts = df.groupby("source_name").size().to_dict()
-        source_distribution = {str(k): int(v) for k, v in source_counts.items()}
+    # Source distribution (removed unused variable)
 
     # Prepare data for DataTable - include all relevant columns for toggle functionality
     all_potential_columns = [
@@ -1018,35 +1006,35 @@ def _generate_html_report(
     # Convert DataFrame to records for JSON serialization
     table_data = []
     for _, row in df.iterrows():
-        record = {}
+        record: dict[str, Any] = {}
         for col in available_columns:
             value = row[col]
             # Handle NaN values and convert to JSON-serializable types
             if pd.isna(value):
                 record[col] = None
-            elif isinstance(value, (int, float, bool)):
-                record[col] = value
+            elif isinstance(value, int | float | bool):
+                record[col] = float(value) if isinstance(value, int | float) else value
             else:
                 record[col] = str(value)
 
         # Add metadata for tooltips
-        record["hgnc_id_tooltip"] = (
-            str(row.get("hgnc_id", "")) if not pd.isna(row.get("hgnc_id", "")) else ""
-        )
+        hgnc_val = row.get("hgnc_id", "")
+        record["hgnc_id_tooltip"] = str(hgnc_val) if not pd.isna(hgnc_val) else ""
+
+        source_val = row.get("source_details", "")
         record["source_names_tooltip"] = (
-            str(row.get("source_details", ""))
-            if not pd.isna(row.get("source_details", ""))
-            else ""
+            str(source_val) if not pd.isna(source_val) else ""
         )
 
         # Calculate source count if not already present
         if "source_count" not in record or record["source_count"] is None:
             # Try to extract from source_details or use 1 as fallback
             source_details = record.get("source_names_tooltip", "")
-            if "sources in" in source_details:
+            if isinstance(source_details, str) and "sources in" in source_details:
                 try:
-                    record["source_count"] = int(source_details.split(" sources in")[0])
-                except:
+                    count_str = source_details.split(" sources in")[0]
+                    record["source_count"] = int(count_str)
+                except Exception:
                     record["source_count"] = 1
             else:
                 record["source_count"] = 1
@@ -1074,13 +1062,16 @@ def _generate_html_report(
     }
 
     # Collect transcript sizes for distribution
+    transcript_sizes: list[int] = []
     for _, row in df.iterrows():
-        if not pd.isna(row.get("canonical_transcript_coverage")):
-            chart_data["transcript_sizes"].append(
-                int(row["canonical_transcript_coverage"])
-            )
-        if not pd.isna(row.get("mane_select_coverage")):
-            chart_data["transcript_sizes"].append(int(row["mane_select_coverage"]))
+        canonical_cov = row.get("canonical_transcript_coverage")
+        if not pd.isna(canonical_cov):
+            transcript_sizes.append(int(canonical_cov))
+        mane_cov = row.get("mane_select_coverage")
+        if not pd.isna(mane_cov):
+            transcript_sizes.append(int(mane_cov))
+
+    chart_data["transcript_sizes"] = transcript_sizes
 
     # Generate HTML content
     html_content = f"""<!DOCTYPE html>

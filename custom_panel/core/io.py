@@ -7,6 +7,7 @@ primarily using Parquet for efficient storage and retrieval.
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -320,7 +321,7 @@ def create_bed_file(
 
 
 def create_exon_bed_file(
-    exons_data: list[dict],
+    exons_data: list[dict[str, Any]],
     output_path: str | Path,
     transcript_type: str = "canonical",
     padding: int = 0,

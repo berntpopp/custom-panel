@@ -355,7 +355,7 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
         return pd.DataFrame()
 
     # Remove duplicates while preserving highest evidence score for each gene
-    gene_dict = {}
+    gene_dict: dict[str, tuple[float, str]] = {}
 
     for gene, score, detail in zip(
         genes, evidence_scores, source_details, strict=False

@@ -417,29 +417,29 @@ class EnsemblClient:
                                     mane_clinical_full = transcript
 
                         # Update the result with transcript data
-                        if result[symbol]:
-                            result[symbol][
-                                "canonical_transcript"
-                            ] = canonical_transcript
-                            result[symbol]["mane_select"] = mane_select
-                            result[symbol]["mane_clinical"] = mane_clinical
+                        gene_data = result[symbol]
+                        if gene_data is not None:
+                            gene_data["canonical_transcript"] = canonical_transcript
+                            gene_data["mane_select"] = mane_select
+                            gene_data["mane_clinical"] = mane_clinical
                             # Store full transcript data for coverage calculation
-                            result[symbol][
+                            gene_data[
                                 "canonical_transcript_full"
                             ] = canonical_transcript_full
-                            result[symbol]["mane_select_full"] = mane_select_full
-                            result[symbol]["mane_clinical_full"] = mane_clinical_full
+                            gene_data["mane_select_full"] = mane_select_full
+                            gene_data["mane_clinical_full"] = mane_clinical_full
                             # Store ALL transcripts with exon data for BED file generation
-                            result[symbol]["all_transcripts"] = transcripts
+                            gene_data["all_transcripts"] = transcripts
 
         except requests.RequestException as e:
             logger.warning(f"Batch transcript request failed: {e}, using fallback")
             # Fallback to individual transcript requests for this batch
             for symbol, _gene_id in batch_items:
-                if result[symbol]:
-                    result[symbol]["canonical_transcript"] = None
-                    result[symbol]["mane_select"] = None
-                    result[symbol]["mane_clinical"] = None
+                gene_data = result[symbol]
+                if gene_data is not None:
+                    gene_data["canonical_transcript"] = None
+                    gene_data["mane_select"] = None
+                    gene_data["mane_clinical"] = None
 
     @functools.lru_cache(maxsize=1000)  # noqa: B019
     def rsid_to_coordinates(

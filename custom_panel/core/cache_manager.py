@@ -242,7 +242,7 @@ class CacheManager:
         Returns:
             Dictionary with cache statistics
         """
-        stats = {
+        stats: dict[str, Any] = {
             "enabled": self.enabled,
             "cache_dir": str(self.cache_dir),
             "cache_ttl_days": self.cache_ttl / 86400,

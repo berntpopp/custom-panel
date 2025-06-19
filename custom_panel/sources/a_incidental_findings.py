@@ -150,9 +150,12 @@ def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
 
     # Find all gene links directly in the table HTML (both GTR and regular gene links)
     # This bypasses the malformed table structure
-    gene_links = table_element.find_all(
-        "a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x)
-    )
+    gene_links: list[Tag] = []
+    if isinstance(table_element, Tag):
+        found_links = table_element.find_all(
+            "a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x)
+        )
+        gene_links = [link for link in found_links if isinstance(link, Tag)]
 
     for link in gene_links:
         gene_text = link.get_text(strip=True)
