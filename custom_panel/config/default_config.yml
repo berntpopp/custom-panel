@@ -257,6 +257,7 @@ apis:
     max_retries: 3
     retry_delay: 1.0
     cache_size: 5000
+    transcript_batch_size: 50  # Number of genes per batch for transcript queries
 
   # HPO API settings
   hpo:
@@ -342,8 +343,8 @@ reporting:
 performance:
   # Number of parallel requests for batch operations
   max_workers: 4
-  # Chunk size for batch processing
-  batch_size: 100
+  # Chunk size for batch processing (coordinate lookup)
+  batch_size: 200
   # Enable caching of API responses
   enable_caching: true
   # Cache directory

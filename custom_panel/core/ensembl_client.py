@@ -8,7 +8,7 @@ retrieve gene coordinates, transcript information, and other genomic data.
 import functools
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -21,7 +21,8 @@ class EnsemblClient:
     BASE_URL = "https://rest.ensembl.org"
 
     def __init__(
-        self, timeout: int = 30, max_retries: int = 3, retry_delay: float = 1.0
+        self, timeout: int = 30, max_retries: int = 3, retry_delay: float = 1.0,
+        transcript_batch_size: int = 50
     ):
         """
         Initialize the Ensembl client.
@@ -30,10 +31,12 @@ class EnsemblClient:
             timeout: Request timeout in seconds
             max_retries: Maximum number of retry attempts
             retry_delay: Delay between retries in seconds
+            transcript_batch_size: Batch size for transcript queries
         """
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.transcript_batch_size = transcript_batch_size
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -44,7 +47,7 @@ class EnsemblClient:
         )
 
     def _make_request(
-        self, endpoint: str, method: str = "GET", data: dict[str, Any] | None = None
+        self, endpoint: str, method: str = "GET", data: dict[str, Any] | None = None, timeout_override: int | None = None
     ) -> dict[str, Any] | list[dict[str, Any]]:
         """
         Make a request to the Ensembl API with retry logic.
@@ -53,6 +56,7 @@ class EnsemblClient:
             endpoint: API endpoint
             method: HTTP method (GET or POST)
             data: Request data for POST requests
+            timeout_override: Override timeout for this request
 
         Returns:
             JSON response
@@ -62,15 +66,37 @@ class EnsemblClient:
         """
         url = f"{self.BASE_URL}/{endpoint}"
 
+        # Log request details for debugging
+        if data:
+            if "symbols" in data:
+                logger.debug(f"Making {method} request to {url} with {len(data['symbols'])} symbols")
+            elif "ids" in data:
+                logger.debug(f"Making {method} request to {url} with {len(data['ids'])} gene IDs")
+            else:
+                logger.debug(f"Making {method} request to {url} with data keys: {list(data.keys())}")
+        else:
+            logger.debug(f"Making {method} request to {url}")
+
+        # Use override timeout if provided, otherwise use default
+        request_timeout = timeout_override if timeout_override is not None else self.timeout
+
         for attempt in range(self.max_retries + 1):
             try:
                 if method.upper() == "POST":
-                    response = self.session.post(url, json=data, timeout=self.timeout)
+                    response = self.session.post(url, json=data, timeout=request_timeout)
                 else:
-                    response = self.session.get(url, timeout=self.timeout)
+                    response = self.session.get(url, timeout=request_timeout)
 
                 response.raise_for_status()
-                return response.json()
+                json_response = response.json()
+
+                # Log response details for debugging
+                if isinstance(json_response, dict):
+                    logger.debug(f"Received response with {len(json_response)} items")
+                elif isinstance(json_response, list):
+                    logger.debug(f"Received response with {len(json_response)} list items")
+
+                return json_response
             except (requests.RequestException, ValueError) as e:
                 if attempt == self.max_retries:
                     logger.error(
@@ -88,7 +114,7 @@ class EnsemblClient:
     @functools.lru_cache(maxsize=5000)  # noqa: B019
     def get_gene_coordinates(
         self, gene_symbol: str, species: str = "human"
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get genomic coordinates for a gene symbol.
 
@@ -121,6 +147,9 @@ class EnsemblClient:
         """
         Get genomic coordinates for multiple gene symbols using batch request.
 
+        This method is maintained for backward compatibility.
+        For new code, use get_symbols_data_batch() instead.
+
         Args:
             gene_symbols: List of gene symbols
             species: Species name (default: "human")
@@ -128,19 +157,37 @@ class EnsemblClient:
         Returns:
             Dictionary mapping gene symbols to coordinate information
         """
-        # Ensembl batch lookup
+        return self.get_symbols_data_batch(gene_symbols, species, expand=False)
+
+    def get_symbols_data_batch(
+        self, gene_symbols: list[str], species: str = "human", expand: bool = False
+    ) -> dict[str, dict[str, Any] | None]:
+        """
+        Get genomic data for multiple gene symbols using optimized batch requests.
+
+        Args:
+            gene_symbols: List of gene symbols
+            species: Species name (default: "human")
+            expand: Whether to fetch transcript data (default: False)
+
+        Returns:
+            Dictionary mapping gene symbols to complete gene data including transcripts if expanded
+        """
+        logger.debug(f"Fetching data for {len(gene_symbols)} genes, expand={expand}")
+
+        # Step 1: Get coordinates for all genes in one batch call
         try:
             data = {"symbols": gene_symbols}
-            response = self._make_request(
-                f"lookup/symbol/{species}", method="POST", data=data
-            )
+            response = self._make_request(f"lookup/symbol/{species}", method="POST", data=data)
 
             result: dict[str, dict[str, Any] | None] = {}
+            gene_ids = {}  # Map symbol to gene_id for transcript lookup
+
             if isinstance(response, dict):
                 for symbol in gene_symbols:
                     gene_data = response.get(symbol)
                     if gene_data:
-                        result[symbol] = {
+                        gene_info = {
                             "gene_id": gene_data.get("id"),
                             "chromosome": gene_data.get("seq_region_name"),
                             "start": gene_data.get("start"),
@@ -149,112 +196,130 @@ class EnsemblClient:
                             "biotype": gene_data.get("biotype"),
                             "description": gene_data.get("description"),
                         }
+                        result[symbol] = gene_info
+
+                        # Store gene_id for transcript lookup
+                        if expand and gene_data.get("id"):
+                            gene_ids[symbol] = gene_data.get("id")
                     else:
                         result[symbol] = None
+
+            # Step 2: If expand is requested, fetch transcript data efficiently
+            if expand and gene_ids:
+                logger.debug(f"Fetching transcript data for {len(gene_ids)} genes")
+                self._add_transcript_data_batch(result, gene_ids, species)
+
             return result
-        except requests.RequestException:
+
+        except requests.RequestException as e:
+            logger.warning(f"Batch coordinate request failed: {e}")
             # Fallback to individual requests
             return {
                 symbol: self.get_gene_coordinates(symbol, species)
                 for symbol in gene_symbols
             }
 
-    @functools.lru_cache(maxsize=2000)  # noqa: B019
-    def get_canonical_transcript(
-        self, gene_id: str, species: str = "human"
-    ) -> Optional[dict[str, Any]]:
+    def _add_transcript_data_batch(
+        self,
+        result: dict[str, dict[str, Any] | None],
+        gene_ids: dict[str, str],
+        species: str
+    ) -> None:
         """
-        Get the canonical transcript for a gene.
+        Add transcript data to gene results using batch requests where possible.
 
         Args:
-            gene_id: Ensembl gene ID
-            species: Species name (default: "human")
-
-        Returns:
-            Dictionary with canonical transcript information or None if not found
+            result: Gene data dictionary to update
+            gene_ids: Mapping of gene symbols to gene IDs
+            species: Species name
         """
-        try:
-            response = self._make_request(f"lookup/id/{gene_id}?expand=1")
-            if isinstance(response, dict):
-                transcripts = response.get("Transcript", [])
-                # Find canonical transcript
-                for transcript in transcripts:
-                    if transcript.get("is_canonical") == 1:
-                        return {
-                            "transcript_id": transcript.get("id"),
-                            "transcript_start": transcript.get("start"),
-                            "transcript_end": transcript.get("end"),
-                            "biotype": transcript.get("biotype"),
-                            "length": transcript.get("length"),
-                        }
-                # If no canonical transcript found, return the first one
-                if transcripts:
-                    transcript = transcripts[0]
-                    return {
-                        "transcript_id": transcript.get("id"),
-                        "transcript_start": transcript.get("start"),
-                        "transcript_end": transcript.get("end"),
-                        "biotype": transcript.get("biotype"),
-                        "length": transcript.get("length"),
-                    }
-        except (requests.RequestException, ValueError):
-            pass
-        return None
+        # Process gene IDs in smaller batches to avoid timeouts
+        batch_size = self.transcript_batch_size
+        gene_id_list = list(gene_ids.items())
 
-    @functools.lru_cache(maxsize=1000)  # noqa: B019
-    def get_mane_transcript(
-        self, gene_symbol: str, species: str = "human"
-    ) -> Optional[dict[str, Any]]:
-        """
-        Get MANE (Matched Annotation from NCBI and EBI) transcript information.
+        for i in range(0, len(gene_id_list), batch_size):
+            batch_items = gene_id_list[i:i + batch_size]
+            batch_gene_ids = [item[1] for item in batch_items]
 
-        Args:
-            gene_symbol: Gene symbol
-            species: Species name (default: "human")
+            logger.info(f"Processing transcript batch {i//batch_size + 1}/{(len(gene_id_list) + batch_size - 1)//batch_size}")
 
-        Returns:
-            Dictionary with MANE transcript information or None if not found
-        """
-        # First get gene coordinates
-        gene_info = self.get_gene_coordinates(gene_symbol, species)
-        if not gene_info or not gene_info.get("gene_id"):
-            return None
+            try:
+                # Use batch lookup for gene IDs with expand
+                data = {"ids": batch_gene_ids}
+                logger.debug(f"Fetching transcript data for batch of {len(batch_gene_ids)} gene IDs")
+                # Use longer timeout for transcript queries as they return more data
+                response = self._make_request(
+                    f"lookup/id/{species}?expand=1",
+                    method="POST",
+                    data=data,
+                    timeout_override=120  # 120 second timeout for transcript queries
+                )
 
-        # Get transcript information
-        try:
-            response = self._make_request(f"lookup/id/{gene_info['gene_id']}?expand=1")
-            if isinstance(response, dict):
-                transcripts = response.get("Transcript", [])
-                for transcript in transcripts:
-                    # Look for MANE select or MANE plus clinical transcripts
-                    if any(
-                        tag.get("value") in ["MANE Select", "MANE Plus Clinical"]
-                        for tag in transcript.get("transcript_tags", [])
-                    ):
-                        return {
-                            "transcript_id": transcript.get("id"),
-                            "mane_type": next(
-                                (
-                                    tag.get("value")
-                                    for tag in transcript.get("transcript_tags", [])
-                                    if tag.get("value")
-                                    in ["MANE Select", "MANE Plus Clinical"]
-                                ),
-                                None,
-                            ),
-                            "transcript_start": transcript.get("start"),
-                            "transcript_end": transcript.get("end"),
-                            "biotype": transcript.get("biotype"),
-                            "length": transcript.get("length"),
-                        }
-        except (requests.RequestException, ValueError):
-            pass
-        return None
+                if isinstance(response, dict):
+                    for symbol, gene_id in batch_items:
+                        gene_data = response.get(gene_id)
+                        if gene_data and "Transcript" in gene_data:
+                            transcripts = gene_data["Transcript"]
+
+                            # Find canonical transcript
+                            canonical_transcript = None
+                            for transcript in transcripts:
+                                if transcript.get("is_canonical") == 1:
+                                    canonical_transcript = {
+                                        "transcript_id": transcript.get("id"),
+                                        "transcript_start": transcript.get("start"),
+                                        "transcript_end": transcript.get("end"),
+                                        "biotype": transcript.get("biotype"),
+                                        "length": transcript.get("length"),
+                                    }
+                                    break
+
+                            # If no canonical found, use first transcript
+                            if not canonical_transcript and transcripts:
+                                transcript = transcripts[0]
+                                canonical_transcript = {
+                                    "transcript_id": transcript.get("id"),
+                                    "transcript_start": transcript.get("start"),
+                                    "transcript_end": transcript.get("end"),
+                                    "biotype": transcript.get("biotype"),
+                                    "length": transcript.get("length"),
+                                }
+
+                            # Find MANE transcript
+                            mane_transcript = None
+                            for transcript in transcripts:
+                                transcript_tags = transcript.get("transcript_tags", [])
+                                for tag in transcript_tags:
+                                    if tag.get("value") in ["MANE Select", "MANE Plus Clinical"]:
+                                        mane_transcript = {
+                                            "transcript_id": transcript.get("id"),
+                                            "mane_type": tag.get("value"),
+                                            "transcript_start": transcript.get("start"),
+                                            "transcript_end": transcript.get("end"),
+                                            "biotype": transcript.get("biotype"),
+                                            "length": transcript.get("length"),
+                                        }
+                                        break
+                                if mane_transcript:
+                                    break
+
+                            # Update the result with transcript data
+                            if result[symbol]:
+                                result[symbol]["canonical_transcript"] = canonical_transcript
+                                result[symbol]["mane_transcript"] = mane_transcript
+
+            except requests.RequestException as e:
+                logger.warning(f"Batch transcript request failed: {e}, using fallback")
+                # Fallback to individual transcript requests for this batch
+                for symbol, _gene_id in batch_items:
+                    if result[symbol]:
+                        result[symbol]["canonical_transcript"] = None
+                        result[symbol]["mane_transcript"] = None
 
     @functools.lru_cache(maxsize=1000)  # noqa: B019
     def rsid_to_coordinates(
         self, rsid: str, species: str = "human"
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Convert rsID to genomic coordinates.
 
@@ -314,31 +379,39 @@ class EnsemblClient:
         Returns:
             Dictionary with comprehensive gene annotation
         """
-        result: dict[str, Any] = {
-            "gene_symbol": gene_symbol,
-            "coordinates": self.get_gene_coordinates(gene_symbol, species),
-            "gene_size": None,
-            "canonical_transcript": None,
-            "mane_transcript": None,
-        }
+        # Use the new batch method with expand for single gene
+        batch_result = self.get_symbols_data_batch([gene_symbol], species, expand=True)
+        gene_data = batch_result.get(gene_symbol)
+
+        if not gene_data:
+            return {
+                "gene_symbol": gene_symbol,
+                "coordinates": None,
+                "gene_size": None,
+                "canonical_transcript": None,
+                "mane_transcript": None,
+            }
 
         # Calculate gene size
-        if result["coordinates"]:
-            result["gene_size"] = self.calculate_gene_size(gene_symbol, species)
+        gene_size = None
+        if gene_data.get("start") and gene_data.get("end"):
+            gene_size = gene_data["end"] - gene_data["start"] + 1
 
-            # Get canonical transcript
-            coords = result["coordinates"]
-            if coords and isinstance(coords, dict):
-                gene_id = coords.get("gene_id")
-                if gene_id:
-                    result["canonical_transcript"] = self.get_canonical_transcript(
-                        gene_id, species
-                    )
-
-        # Get MANE transcript
-        result["mane_transcript"] = self.get_mane_transcript(gene_symbol, species)
-
-        return result
+        return {
+            "gene_symbol": gene_symbol,
+            "coordinates": {
+                "gene_id": gene_data.get("gene_id"),
+                "chromosome": gene_data.get("chromosome"),
+                "start": gene_data.get("start"),
+                "end": gene_data.get("end"),
+                "strand": gene_data.get("strand"),
+                "biotype": gene_data.get("biotype"),
+                "description": gene_data.get("description"),
+            },
+            "gene_size": gene_size,
+            "canonical_transcript": gene_data.get("canonical_transcript"),
+            "mane_transcript": gene_data.get("mane_transcript"),
+        }
 
     def get_cache_info(self) -> dict[str, Any]:
         """
@@ -349,14 +422,10 @@ class EnsemblClient:
         """
         return {
             "get_gene_coordinates": self.get_gene_coordinates.cache_info()._asdict(),
-            "get_canonical_transcript": self.get_canonical_transcript.cache_info()._asdict(),
-            "get_mane_transcript": self.get_mane_transcript.cache_info()._asdict(),
             "rsid_to_coordinates": self.rsid_to_coordinates.cache_info()._asdict(),
         }
 
     def clear_cache(self) -> None:
         """Clear all cached results."""
         self.get_gene_coordinates.cache_clear()
-        self.get_canonical_transcript.cache_clear()
-        self.get_mane_transcript.cache_clear()
         self.rsid_to_coordinates.cache_clear()

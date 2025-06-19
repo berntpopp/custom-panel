@@ -40,15 +40,16 @@ class GeneAnnotator:
 
         ensembl_config = api_config.get("ensembl", {})
         self.ensembl_client = EnsemblClient(
-            timeout=ensembl_config.get("timeout", 30),
+            timeout=ensembl_config.get("timeout", 60),
             max_retries=ensembl_config.get("max_retries", 3),
             retry_delay=ensembl_config.get("retry_delay", 1.0),
+            transcript_batch_size=ensembl_config.get("transcript_batch_size", 50),
         )
 
         # Performance settings
         perf_config = self.config.get("performance", {})
         self.max_workers = perf_config.get("max_workers", 4)
-        self.batch_size = perf_config.get("batch_size", 100)
+        self.batch_size = perf_config.get("batch_size", 200)  # Large batch size for coordinate lookup
 
         # Annotation settings
         annotation_config = self.config.get("annotation", {})
@@ -163,7 +164,7 @@ class GeneAnnotator:
         self, gene_symbols: list[str]
     ) -> dict[str, dict[str, Any]]:
         """
-        Get genomic annotations for genes.
+        Get genomic annotations for genes using optimized batch API calls.
 
         Args:
             gene_symbols: List of standardized gene symbols
@@ -171,38 +172,51 @@ class GeneAnnotator:
         Returns:
             Dictionary mapping gene symbols to annotation data
         """
-        logger.info("Fetching genomic annotations from Ensembl")
+        logger.info("Fetching genomic annotations from Ensembl using batch API")
 
         annotations = {}
 
-        # Process genes in batches
+        # Process genes in batches with expand=1 to get all data in one call
         for i in range(0, len(gene_symbols), self.batch_size):
             batch = gene_symbols[i : i + self.batch_size]
 
-            # Get batch coordinates (Ensembl supports batch requests)
-            if len(batch) > 1:
+            try:
+                # Single batch call with expand=1 to get coordinates and transcripts
+                batch_data = self.ensembl_client.get_symbols_data_batch(
+                    batch, self.species, expand=True
+                )
+
+                for symbol in batch:
+                    gene_data = batch_data.get(symbol)
+                    if gene_data:
+                        annotations[symbol] = self._build_gene_annotation_from_expanded_data(
+                            symbol, gene_data
+                        )
+                    else:
+                        annotations[symbol] = self._build_empty_annotation(symbol)
+
+            except Exception as e:
+                logger.warning(
+                    f"Batch API request failed: {e}, trying without transcript expansion"
+                )
+                # Try again without transcript expansion (faster)
                 try:
-                    batch_coords = self.ensembl_client.get_genes_coordinates(
-                        batch, self.species
+                    batch_coords = self.ensembl_client.get_symbols_data_batch(
+                        batch, self.species, expand=False
                     )
                     for symbol in batch:
                         coords = batch_coords.get(symbol)
                         if coords:
-                            annotations[symbol] = self._build_gene_annotation(
-                                symbol, coords
-                            )
+                            annotations[symbol] = self._build_gene_annotation(symbol, coords)
                         else:
                             annotations[symbol] = self._build_empty_annotation(symbol)
-                except Exception as e:
+                except Exception as e2:
                     logger.warning(
-                        f"Batch coordinate request failed: {e}, falling back to individual requests"
+                        f"Batch coordinate request also failed: {e2}, falling back to individual requests"
                     )
-                    # Fall back to individual requests
+                    # Final fallback to individual requests
                     for symbol in batch:
                         annotations[symbol] = self._get_individual_annotation(symbol)
-            else:
-                # Single gene
-                annotations[batch[0]] = self._get_individual_annotation(batch[0])
 
         return annotations
 
@@ -218,10 +232,46 @@ class GeneAnnotator:
             logger.warning(f"Failed to get annotation for {gene_symbol}: {e}")
             return self._build_empty_annotation(gene_symbol)
 
+    def _build_gene_annotation_from_expanded_data(
+        self, gene_symbol: str, gene_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build complete gene annotation from expanded batch data."""
+        annotation = {
+            "gene_id": gene_data.get("gene_id"),
+            "chromosome": gene_data.get("chromosome"),
+            "gene_start": gene_data.get("start"),
+            "gene_end": gene_data.get("end"),
+            "gene_strand": gene_data.get("strand"),
+            "biotype": gene_data.get("biotype"),
+            "gene_description": gene_data.get("description"),
+            "gene_size": None,
+            "canonical_transcript": None,
+            "mane_transcript": None,
+            "mane_type": None,
+        }
+
+        # Calculate gene size
+        if gene_data.get("start") and gene_data.get("end"):
+            annotation["gene_size"] = gene_data["end"] - gene_data["start"] + 1
+
+        # Extract transcript information from expanded data
+        if self.include_transcripts:
+            canonical_info = gene_data.get("canonical_transcript")
+            if canonical_info:
+                annotation["canonical_transcript"] = canonical_info.get("transcript_id")
+
+        if self.include_mane:
+            mane_info = gene_data.get("mane_transcript")
+            if mane_info:
+                annotation["mane_transcript"] = mane_info.get("transcript_id")
+                annotation["mane_type"] = mane_info.get("mane_type")
+
+        return annotation
+
     def _build_gene_annotation(
         self, gene_symbol: str, coords: dict[str, Any]
     ) -> dict[str, Any]:
-        """Build complete gene annotation from coordinate data."""
+        """Build complete gene annotation from coordinate data (fallback method)."""
         annotation = {
             "gene_id": coords.get("gene_id"),
             "chromosome": coords.get("chromosome"),
@@ -240,33 +290,11 @@ class GeneAnnotator:
         if coords.get("start") and coords.get("end"):
             annotation["gene_size"] = coords["end"] - coords["start"] + 1
 
-        # Get additional annotations if enabled
-        gene_id = coords.get("gene_id")
-
-        if self.include_transcripts and gene_id:
-            try:
-                canonical_info = self.ensembl_client.get_canonical_transcript(
-                    gene_id, self.species
-                )
-                if canonical_info:
-                    annotation["canonical_transcript"] = canonical_info.get(
-                        "transcript_id"
-                    )
-            except Exception as e:
-                logger.debug(
-                    f"Failed to get canonical transcript for {gene_symbol}: {e}"
-                )
-
-        if self.include_mane:
-            try:
-                mane_info = self.ensembl_client.get_mane_transcript(
-                    gene_symbol, self.species
-                )
-                if mane_info:
-                    annotation["mane_transcript"] = mane_info.get("transcript_id")
-                    annotation["mane_type"] = mane_info.get("mane_type")
-            except Exception as e:
-                logger.debug(f"Failed to get MANE transcript for {gene_symbol}: {e}")
+        # For fallback, we can't get transcript info without additional API calls
+        # This method is only used when batch API fails
+        logger.debug(
+            f"Using fallback annotation for {gene_symbol} - transcript info not available"
+        )
 
         return annotation
 
