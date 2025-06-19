@@ -5,6 +5,7 @@ Tests for engine modules (annotator and merger).
 from unittest.mock import Mock, patch
 
 import pandas as pd
+import pytest
 
 from custom_panel.core.io import create_standard_dataframe
 from custom_panel.engine.annotator import GeneAnnotator
@@ -190,7 +191,7 @@ class TestGeneAnnotator:
         df = pd.DataFrame(
             {
                 "approved_symbol": ["BRCA1", "TP53", "UNKNOWN"],
-                "hgnc_id": ["HGNC:1100", "HGNC:11998", ""],
+                "hgnc_id": ["HGNC:1100", "HGNC:11998", None],
                 "chromosome": ["17", "17", None],
                 "gene_id": ["ENSG00000012048", "ENSG00000141510", None],
                 "canonical_transcript": ["ENST00000357654", None, None],
@@ -482,6 +483,79 @@ class TestPanelMerger:
         assert result_df.loc[0, "include"]  # BRCA1: 3 sources >= 2
         assert result_df.loc[1, "include"]  # TP53: 2 sources >= 2
         assert not result_df.loc[2, "include"]  # EGFR: 1 source < 2
+
+    def test_apply_decision_logic_with_veto(self):
+        """Test that veto logic correctly overrides score thresholds."""
+        df = pd.DataFrame({
+            "approved_symbol": ["VETO_GENE", "NORMAL_GENE"],
+            "score": [0.1, 0.1],  # Both genes are below the threshold
+            "source_count": [1, 1],
+            "veto_reasons": ["Veto from Manual_Curation", ""]  # Only one has a veto reason
+        })
+
+        config = {
+            "scoring": {
+                "thresholds": {"score_threshold": 2.0, "min_sources": 1}
+            },
+            "data_sources": {
+                "manual_curation": {"veto": {"enabled": True}}
+            }
+        }
+        merger = PanelMerger(config)
+        result_df = merger._apply_decision_logic(df)
+
+        # VETO_GENE should be included despite its low score
+        veto_row = result_df[result_df["approved_symbol"] == "VETO_GENE"].iloc[0]
+        assert bool(veto_row["include"]) is True
+        assert veto_row["inclusion_reason"] == "veto"
+
+        # NORMAL_GENE should be excluded
+        normal_row = result_df[result_df["approved_symbol"] == "NORMAL_GENE"].iloc[0]
+        assert bool(normal_row["include"]) is False
+
+    # Define test cases for different configurations
+    decision_logic_test_cases = [
+        # Case 1: Standard thresholding
+        (
+            {"score_threshold": 2.0, "min_sources": 1},
+            [True, False, False],  # Expected include status for [BRCA1, TP53, LOWSCORE]
+            "standard_threshold"
+        ),
+        # Case 2: Lenient thresholding
+        (
+            {"score_threshold": 1.0, "min_sources": 1},
+            [True, True, False],
+            "lenient_threshold"
+        ),
+        # Case 3: High min_sources requirement
+        (
+            {"score_threshold": 1.0, "min_sources": 3},
+            [False, False, False],  # No gene has 3 sources
+            "high_min_sources"
+        ),
+        # Case 4: High score but low source count requirement
+        (
+            {"score_threshold": 2.5, "min_sources": 2},
+            [True, False, False],  # Only BRCA1 meets both
+            "high_score_min_sources"
+        ),
+    ]
+
+    @pytest.mark.parametrize("thresholds,expected_inclusions,test_id", decision_logic_test_cases)
+    def test_apply_decision_logic_parametrized(self, thresholds, expected_inclusions, test_id):
+        """Test decision logic with various threshold configurations."""
+        df = pd.DataFrame({
+            "approved_symbol": ["BRCA1", "TP53", "LOWSCORE"],
+            "score": [3.0, 1.5, 0.5],
+            "source_count": [2, 2, 1],
+            "veto_reasons": ["", "", ""]  # No vetos for this test
+        })
+
+        config = {"scoring": {"thresholds": thresholds}}
+        merger = PanelMerger(config)
+        result_df = merger._apply_decision_logic(df)
+
+        assert result_df["include"].tolist() == expected_inclusions, f"Failed for test case: {test_id}"
 
 
 class TestGeneAnnotatorEdgeCases:

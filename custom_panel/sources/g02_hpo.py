@@ -12,6 +12,7 @@ from typing import Any
 
 import pandas as pd
 
+from ..core.config_manager import ConfigManager
 from ..core.hpo_client import HPOClient
 from ..core.io import create_standard_dataframe
 
@@ -41,7 +42,8 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with HPO neoplasm data
     """
-    hpo_config = config.get("data_sources", {}).get("HPO_Neoplasm", {})
+    config_manager = ConfigManager(config)
+    hpo_config = config_manager.get_source_config("HPO_Neoplasm")
 
     if not hpo_config.get("enabled", True):
         logger.info("HPO neoplasm data source is disabled")
@@ -375,8 +377,9 @@ def validate_hpo_neoplasm_config(config: dict[str, Any]) -> list[str]:
     Returns:
         List of validation errors
     """
-    errors = []
-    hpo_config = config.get("data_sources", {}).get("HPO_Neoplasm", {})
+    errors: list[str] = []
+    config_manager = ConfigManager(config)
+    hpo_config = config_manager.get_source_config("HPO_Neoplasm")
 
     if not isinstance(hpo_config, dict):
         errors.append("hpo_neoplasm config must be a dictionary")
@@ -420,7 +423,8 @@ def get_hpo_neoplasm_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    hpo_config = config.get("data_sources", {}).get("HPO_Neoplasm", {})
+    config_manager = ConfigManager(config)
+    hpo_config = config_manager.get_source_config("HPO_Neoplasm")
 
     summary = {
         "enabled": hpo_config.get("enabled", True),

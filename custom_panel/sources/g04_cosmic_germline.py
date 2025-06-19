@@ -14,6 +14,7 @@ from typing import Any
 import pandas as pd
 import requests
 
+from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 
 logger = logging.getLogger(__name__)
@@ -434,7 +435,9 @@ def _process_cosmic_genes(
 
     # Filter for genes relevant to this category
     # Look for "yes", "y", or non-empty values indicating presence
-    category_df = df[df[col_name].notna()].copy()
+    category_df = (
+        df[df[col_name].notna()].copy() if col_name in df.columns else df.copy()
+    )
     category_df = category_df[
         category_df[col_name].astype(str).str.lower().isin(["yes", "y"])
         | (category_df[col_name].astype(str).str.len() > 0)
@@ -484,7 +487,8 @@ def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with COSMIC germline data only
     """
-    cosmic_config = config.get("data_sources", {}).get("COSMIC_Germline", {})
+    config_manager = ConfigManager(config)
+    cosmic_config = config_manager.get_source_config("COSMIC_Germline")
 
     if not cosmic_config.get("enabled", False):
         logger.info("COSMIC data source is disabled")
@@ -585,7 +589,8 @@ def validate_cosmic_config(config: dict[str, Any]) -> list[str]:
         List of validation errors
     """
     errors: list[str] = []
-    cosmic_config = config.get("data_sources", {}).get("COSMIC_Germline", {})
+    config_manager = ConfigManager(config)
+    cosmic_config = config_manager.get_source_config("COSMIC_Germline")
 
     if not cosmic_config.get("enabled", False):
         return errors  # Skip validation if disabled
@@ -639,7 +644,8 @@ def get_cosmic_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    cosmic_config = config.get("data_sources", {}).get("COSMIC_Germline", {})
+    config_manager = ConfigManager(config)
+    cosmic_config = config_manager.get_source_config("COSMIC_Germline")
 
     summary = {
         "enabled": cosmic_config.get("enabled", False),
@@ -649,8 +655,12 @@ def get_cosmic_summary(config: dict[str, Any]) -> dict[str, Any]:
         "census_url": cosmic_config.get("census_url"),
         "cache_dir": cosmic_config.get("cache_dir", ".cache/cosmic"),
         "cache_expiry_days": cosmic_config.get("cache_expiry_days", 30),
-        "germline_enabled": cosmic_config.get("germline_scoring", {}).get(
-            "enabled", True
+        "germline_enabled": config_manager.get_nested(
+            "data_sources",
+            "COSMIC_Germline",
+            "germline_scoring",
+            "enabled",
+            default=True,
         ),
         "validation_errors": validate_cosmic_config(config),
     }

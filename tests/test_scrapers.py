@@ -308,7 +308,7 @@ class TestCommercialPanelsIntegration:
 
             config = {
                 "data_sources": {
-                    "commercial_panels": {
+                    "Commercial_Panels": {
                         "enabled": True,
                         "panels": [
                             {

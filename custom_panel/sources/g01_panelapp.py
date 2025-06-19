@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 import requests
 
+from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,8 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with PanelApp data
     """
-    panelapp_config = config.get("data_sources", {}).get("PanelApp", {})
+    config_manager = ConfigManager(config)
+    panelapp_config = config_manager.get_source_config("PanelApp")
 
     if not panelapp_config.get("enabled", True):
         logger.info("PanelApp data source is disabled")
@@ -284,7 +286,8 @@ def search_panelapp_panels(
     Returns:
         List of matching panels
     """
-    panelapp_config = config.get("data_sources", {}).get("PanelApp", {})
+    config_manager = ConfigManager(config)
+    panelapp_config = config_manager.get_source_config("PanelApp")
 
     if not panelapp_config.get("enabled", True):
         return []

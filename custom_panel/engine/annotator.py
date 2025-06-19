@@ -12,6 +12,10 @@ from typing import Any
 import pandas as pd
 
 from ..core.cache_manager import CacheManager
+from ..core.config_manager import ConfigManager
+from ..core.dataframe_utils import (
+    safe_column_count,
+)
 from ..core.ensembl_client import EnsemblClient
 from ..core.hgnc_client import HGNCClient
 
@@ -83,7 +87,8 @@ class GeneAnnotator:
         self.transcript_padding = annotation_config.get("transcript_padding", 25)
         self.gene_padding = annotation_config.get("gene_padding", 5000)
 
-        self.species = self.config.get("general", {}).get("species", "human")
+        config_manager = ConfigManager(self.config)
+        self.species = config_manager.get_nested("general", "species", default="human")
 
     def annotate_genes(self, gene_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -633,7 +638,7 @@ class GeneAnnotator:
         # Add HGNC IDs if not already present
         if (
             "hgnc_id" not in annotated_df.columns
-            or annotated_df["hgnc_id"].isna().all()
+            or safe_column_count(annotated_df, "hgnc_id") == 0
         ):
             hgnc_ids = []
             for symbol in annotated_df["approved_symbol"]:
@@ -688,19 +693,19 @@ class GeneAnnotator:
 
         summary: dict[str, Any] = {
             "total_genes": total_genes,
-            "with_hgnc_id": (
-                ~annotated_df["hgnc_id"].isna() & (annotated_df["hgnc_id"] != "")
-            ).sum(),
-            "with_coordinates": (~annotated_df["chromosome"].isna()).sum(),
-            "with_gene_id": (~annotated_df["gene_id"].isna()).sum(),
-            "with_canonical_transcript": (
-                ~annotated_df["canonical_transcript"].isna()
-            ).sum(),
-            "with_mane_select": (~annotated_df["mane_select_transcript"].isna()).sum(),
-            "with_mane_clinical": (
-                ~annotated_df["mane_clinical_transcript"].isna()
-            ).sum(),
-            "with_description": (~annotated_df["gene_description"].isna()).sum(),
+            "with_hgnc_id": safe_column_count(annotated_df, "hgnc_id"),
+            "with_coordinates": safe_column_count(annotated_df, "chromosome"),
+            "with_gene_id": safe_column_count(annotated_df, "gene_id"),
+            "with_canonical_transcript": safe_column_count(
+                annotated_df, "canonical_transcript"
+            ),
+            "with_mane_select": safe_column_count(
+                annotated_df, "mane_select_transcript"
+            ),
+            "with_mane_clinical": safe_column_count(
+                annotated_df, "mane_clinical_transcript"
+            ),
+            "with_description": safe_column_count(annotated_df, "gene_description"),
         }
 
         # Calculate percentages

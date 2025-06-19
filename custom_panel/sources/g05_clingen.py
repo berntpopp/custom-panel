@@ -13,6 +13,7 @@ from typing import Any
 import pandas as pd
 import requests
 
+from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 
 logger = logging.getLogger(__name__)
@@ -108,7 +109,8 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with ClinGen gene validity data
     """
-    clingen_config = config.get("data_sources", {}).get("ClinGen", {})
+    config_manager = ConfigManager(config)
+    clingen_config = config_manager.get_source_config("ClinGen")
 
     if not clingen_config.get("enabled", True):
         logger.info("ClinGen data source is disabled")

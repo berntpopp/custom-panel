@@ -233,7 +233,7 @@ class TestHPONeoplasm:
             try:
                 config = {
                     "data_sources": {
-                        "hpo_neoplasm": {
+                        "HPO_Neoplasm": {
                             "enabled": True,
                             "omim_genemap2_path": f.name,
                             "base_evidence_score": 0.7,
@@ -251,7 +251,7 @@ class TestHPONeoplasm:
         """Test validation of invalid HPO neoplasm config."""
         config = {
             "data_sources": {
-                "hpo_neoplasm": {
+                "HPO_Neoplasm": {
                     "enabled": True,
                     "omim_genemap2_path": "/nonexistent/file.txt",
                     "base_evidence_score": 1.5,  # Invalid range
@@ -490,7 +490,7 @@ class TestHPONeoplasm:
                 try:
                     config = {
                         "data_sources": {
-                            "hpo_neoplasm": {
+                            "HPO_Neoplasm": {
                                 "enabled": True,
                                 "omim_genemap2_path": omim_f.name,
                                 "base_evidence_score": 0.6,
@@ -531,7 +531,7 @@ class TestHPONeoplasm:
                     assert len(df) == 2
                     assert "TP53" in df["approved_symbol"].values
                     assert "BRCA1" in df["approved_symbol"].values
-                    assert all(df["source_name"] == "HPO_OMIM_Neoplasm")
+                    assert all(df["source_name"] == "HPO_Neoplasm")
 
                 finally:
                     Path(omim_f.name).unlink(missing_ok=True)
@@ -542,7 +542,7 @@ class TestHPONeoplasm:
         """Test getting HPO neoplasm summary."""
         config = {
             "data_sources": {
-                "hpo_neoplasm": {
+                "HPO_Neoplasm": {
                     "enabled": True,
                     "omim_genemap2_path": "/path/to/omim.txt",
                     "base_evidence_score": 0.8,

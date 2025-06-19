@@ -122,7 +122,7 @@ class TestFetchPanelAppData:
 
         config = {
             "data_sources": {
-                "panelapp": {
+                "PanelApp": {
                     "enabled": True,
                     "panels": [
                         {
@@ -145,7 +145,7 @@ class TestFetchPanelAppData:
 
     def test_fetch_panelapp_data_disabled(self):
         """Test when PanelApp is disabled."""
-        config = {"data_sources": {"panelapp": {"enabled": False}}}
+        config = {"data_sources": {"PanelApp": {"enabled": False}}}
 
         df = fetch_panelapp_data(config)
         assert df.empty
@@ -277,7 +277,7 @@ class TestInhousePanels:
             try:
                 config = {
                     "data_sources": {
-                        "inhouse_panels": {
+                        "Inhouse_Panels": {
                             "enabled": True,
                             "panels": [
                                 {
@@ -321,7 +321,7 @@ class TestACMGIncidentalFindings:
 
     def test_fetch_acmg_incidental_data_disabled(self):
         """Test when ACMG is disabled."""
-        config = {"data_sources": {"acmg_incidental": {"enabled": False}}}
+        config = {"data_sources": {"ACMG_Incidental_Findings": {"enabled": False}}}
 
         df = fetch_acmg_incidental_data(config)
         assert df.empty
@@ -339,7 +339,7 @@ class TestACMGIncidentalFindings:
             try:
                 config = {
                     "data_sources": {
-                        "acmg_incidental": {
+                        "ACMG_Incidental_Findings": {
                             "enabled": True,
                             "file_path": f.name,
                             "evidence_score": 1.0,
@@ -367,7 +367,7 @@ class TestACMGIncidentalFindings:
             try:
                 config = {
                     "data_sources": {
-                        "acmg_incidental": {
+                        "ACMG_Incidental_Findings": {
                             "enabled": True,
                             "file_path": f.name,
                             "evidence_score": 1.0,
@@ -408,7 +408,7 @@ class TestACMGIncidentalFindings:
             try:
                 config = {
                     "data_sources": {
-                        "acmg_incidental": {
+                        "ACMG_Incidental_Findings": {
                             "enabled": True,
                             "file_path": f.name,
                             "evidence_score": 2.0,
@@ -504,7 +504,7 @@ class TestACMGIncidentalFindings:
             try:
                 config = {
                     "data_sources": {
-                        "acmg_incidental": {
+                        "ACMG_Incidental_Findings": {
                             "enabled": True,
                             "file_path": f.name,
                             "evidence_score": 1.5,
@@ -537,7 +537,7 @@ class TestACMGIncidentalFindings:
 
         config = {
             "data_sources": {
-                "acmg_incidental": {
+                "ACMG_Incidental_Findings": {
                     "enabled": True,
                     "url": "https://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/",
                     "evidence_score": 1.5,
@@ -688,7 +688,7 @@ class TestManualCuration:
         """Test validation of invalid manual curation config."""
         config = {
             "data_sources": {
-                "manual_curation": {
+                "Manual_Curation": {
                     "enabled": True,
                     "lists": [
                         {
@@ -837,7 +837,7 @@ class TestManualCuration:
 
             config = {
                 "data_sources": {
-                    "manual_curation": {
+                    "Manual_Curation": {
                         "enabled": True,
                         "lists": [
                             {
@@ -918,7 +918,7 @@ class TestManualCuration:
             try:
                 config = {
                     "data_sources": {
-                        "manual_curation": {
+                        "Manual_Curation": {
                             "enabled": True,
                             "lists": [
                                 {
@@ -1060,7 +1060,7 @@ class TestCOSMICGermlineData:
         """Test validation of invalid COSMIC germline config."""
         config = {
             "data_sources": {
-                "cosmic_germline": {
+                "COSMIC_Germline": {
                     "enabled": True,
                     "cache_expiry_days": -1,
                     "germline_scoring": {
@@ -1106,7 +1106,7 @@ class TestCOSMICGermlineData:
 
         config = {
             "data_sources": {
-                "cosmic_germline": {
+                "COSMIC_Germline": {
                     "enabled": True,
                     "census_url": "https://example.com/census.csv",
                     "cache_dir": ".cache/cosmic",
@@ -1132,7 +1132,7 @@ class TestCOSMICGermlineData:
         """Test COSMIC germline configuration summary."""
         config = {
             "data_sources": {
-                "cosmic_germline": {
+                "COSMIC_Germline": {
                     "enabled": True,
                     "email": "test@example.com",
                     "password": "testpass",

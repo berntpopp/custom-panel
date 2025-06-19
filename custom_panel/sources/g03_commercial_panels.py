@@ -12,6 +12,7 @@ from typing import Any
 
 import pandas as pd
 
+from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,8 @@ def fetch_commercial_panels_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with commercial panel data
     """
-    commercial_config = config.get("data_sources", {}).get("Commercial_Panels", {})
+    config_manager = ConfigManager(config)
+    commercial_config = config_manager.get_source_config("Commercial_Panels")
 
     if not commercial_config.get("enabled", True):
         logger.info("Commercial panels data source is disabled")
@@ -355,7 +357,8 @@ def get_commercial_panel_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    commercial_config = config.get("data_sources", {}).get("Commercial_Panels", {})
+    config_manager = ConfigManager(config)
+    commercial_config = config_manager.get_source_config("Commercial_Panels")
     panels_config = commercial_config.get("panels", [])
 
     summary = {

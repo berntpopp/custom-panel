@@ -11,6 +11,7 @@ from typing import Any
 
 import pandas as pd
 
+from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 from .g00_inhouse_panels import (
     extract_genes_from_column,
@@ -32,7 +33,8 @@ def fetch_manual_curation_data(config: dict[str, Any]) -> pd.DataFrame:
     Returns:
         Standardized DataFrame with manual curation data
     """
-    manual_config = config.get("data_sources", {}).get("Manual_Curation", {})
+    config_manager = ConfigManager(config)
+    manual_config = config_manager.get_source_config("Manual_Curation")
 
     if not manual_config.get("enabled", True):
         logger.info("Manual curation data source is disabled")
@@ -170,7 +172,8 @@ def validate_manual_curation_config(config: dict[str, Any]) -> list[str]:
         List of validation errors
     """
     errors = []
-    manual_config = config.get("data_sources", {}).get("Manual_Curation", {})
+    config_manager = ConfigManager(config)
+    manual_config = config_manager.get_source_config("Manual_Curation")
 
     if not isinstance(manual_config, dict):
         errors.append("manual_curation config must be a dictionary")
@@ -231,7 +234,8 @@ def get_manual_curation_summary(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Summary dictionary
     """
-    manual_config = config.get("data_sources", {}).get("Manual_Curation", {})
+    config_manager = ConfigManager(config)
+    manual_config = config_manager.get_source_config("Manual_Curation")
 
     summary = {
         "enabled": manual_config.get("enabled", True),
