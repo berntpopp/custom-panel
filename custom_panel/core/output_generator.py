@@ -19,7 +19,6 @@ else:
 
 from rich.console import Console
 
-from ..engine.annotator import GeneAnnotator
 from .config_manager import ConfigManager
 from .format_strategies import DataFrameSaver
 from .io import create_bed_file, create_exon_bed_file
@@ -140,7 +139,7 @@ def _generate_exon_bed_files(
     df: pd.DataFrame,
     config_manager: ConfigManager,
     output_dir: Path,
-    transcript_data: dict[str, Any] | None = None,
+    transcript_data: dict[str, Any] | None,
 ) -> None:
     """Generate exon BED files using stored transcript data from annotation."""
     # Get only included genes
@@ -148,6 +147,13 @@ def _generate_exon_bed_files(
     if included_df.empty:
         console.print(
             "[yellow]No included genes found for exon BED file generation[/yellow]"
+        )
+        return
+
+    # Check if transcript data is available
+    if not transcript_data:
+        console.print(
+            "[yellow]No transcript data available. Skipping exon BED file generation.[/yellow]"
         )
         return
 
@@ -159,19 +165,14 @@ def _generate_exon_bed_files(
     transcript_types = _build_transcript_types_list(transcript_types_config)
 
     console.print(
-        f"[blue]Generating exon BED files from stored annotation data for {len(included_df)} genes (no API calls)...[/blue]"
-    )
-
-    # Initialize annotator with transcript data
-    annotator = _initialize_annotator_with_data(
-        config_manager.to_dict(), transcript_data, included_df
+        f"[blue]Generating exon BED files from {len(transcript_data)} genes with provided transcript data...[/blue]"
     )
 
     # Generate BED file for each transcript type
     for transcript_type, column_name in transcript_types:
         _generate_single_transcript_bed_file(
             included_df,
-            annotator,
+            transcript_data,
             transcript_type,
             column_name,
             output_dir,
@@ -203,38 +204,9 @@ def _build_transcript_types_list(
     return transcript_types
 
 
-def _initialize_annotator_with_data(
-    config: dict[str, Any],
-    transcript_data: dict[str, Any] | None,
-    included_df: pd.DataFrame,
-) -> GeneAnnotator:
-    """
-    Initialize annotator with transcript data.
-
-    Args:
-        config: Configuration dictionary
-        transcript_data: Optional transcript data
-        included_df: DataFrame with included genes
-
-    Returns:
-        Initialized GeneAnnotator instance
-    """
-    annotator = GeneAnnotator(config)
-
-    if transcript_data:
-        annotator.transcript_data = transcript_data
-    elif not hasattr(annotator, "transcript_data"):
-        console.print(
-            "[yellow]No stored transcript data found - extracting from cache...[/yellow]"
-        )
-        _extract_transcript_data_from_cache(annotator, included_df)
-
-    return annotator
-
-
 def _generate_single_transcript_bed_file(
     included_df: pd.DataFrame,
-    annotator: GeneAnnotator,
+    transcript_data: dict[str, Any],
     transcript_type: str,
     column_name: str,
     output_dir: Path,
@@ -245,7 +217,7 @@ def _generate_single_transcript_bed_file(
 
     Args:
         included_df: DataFrame with included genes
-        annotator: GeneAnnotator instance with transcript data
+        transcript_data: Dictionary containing transcript data
         transcript_type: Type of transcript (canonical, mane_select, etc.)
         column_name: Column name in DataFrame
         output_dir: Output directory
@@ -272,7 +244,7 @@ def _generate_single_transcript_bed_file(
 
         # Extract exons from stored transcript data
         exons = _extract_exons_from_stored_data(
-            annotator, gene_symbol, transcript_id, transcript_type, row
+            transcript_data, gene_symbol, transcript_id, transcript_type, row
         )
 
         if exons:
@@ -293,39 +265,8 @@ def _generate_single_transcript_bed_file(
         )
 
 
-def _extract_transcript_data_from_cache(
-    annotator: GeneAnnotator, df: pd.DataFrame
-) -> None:
-    """Extract transcript data from cache for genes that need exon BED files."""
-    annotator.transcript_data = {}
-
-    unique_genes = df["approved_symbol"].unique()
-    for gene_symbol in unique_genes:
-        # Try to get from cache
-        if annotator.ensembl_client.cache_manager:
-            # Look for cached gene data with transcripts
-            # This is a simplified extraction - in a real scenario we'd need the gene ID
-            gene_data = df[df["approved_symbol"] == gene_symbol].iloc[0]
-            gene_id = gene_data.get("gene_id")
-
-            if gene_id:
-                endpoint = f"lookup/id/{gene_id}?expand=1&mane=1"
-                cached_response = annotator.ensembl_client.cache_manager.get(
-                    "ensembl", endpoint, "POST", None
-                )
-
-                if cached_response and isinstance(cached_response, dict):
-                    gene_response = cached_response.get(gene_id)
-                    if gene_response and "Transcript" in gene_response:
-                        annotator.transcript_data[gene_symbol] = {
-                            "all_transcripts": gene_response["Transcript"],
-                            "gene_id": gene_id,
-                            "chromosome": gene_response.get("seq_region_name"),
-                        }
-
-
 def _extract_exons_from_stored_data(
-    annotator: GeneAnnotator,
+    transcript_data: dict[str, Any],
     gene_symbol: str,
     transcript_id: str,
     transcript_type: str,
@@ -333,7 +274,7 @@ def _extract_exons_from_stored_data(
 ) -> list[dict[str, Any]]:
     """Extract exon data from stored transcript information."""
     # Get stored transcript data for this gene
-    gene_data = annotator.transcript_data.get(gene_symbol)
+    gene_data = transcript_data.get(gene_symbol)
     if not gene_data or "all_transcripts" not in gene_data:
         return []
 
