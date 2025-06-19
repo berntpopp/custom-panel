@@ -429,6 +429,8 @@ class EnsemblClient:
                             ] = canonical_transcript_full
                             result[symbol]["mane_select_full"] = mane_select_full
                             result[symbol]["mane_clinical_full"] = mane_clinical_full
+                            # Store ALL transcripts with exon data for BED file generation
+                            result[symbol]["all_transcripts"] = transcripts
 
         except requests.RequestException as e:
             logger.warning(f"Batch transcript request failed: {e}, using fallback")
@@ -611,6 +613,91 @@ class EnsemblClient:
                 f"Failed to calculate gene coverage for positions {gene_start}-{gene_end}"
             )
             return None
+
+    def get_transcript_exons(
+        self, transcript_id: str, species: str = "human"
+    ) -> list[dict[str, Any]]:
+        """
+        Get exon coordinates for a specific transcript.
+        
+        Args:
+            transcript_id: Ensembl transcript ID
+            species: Species name (default: "human")
+            
+        Returns:
+            List of exon dictionaries with coordinates
+        """
+        try:
+            response = self._make_request(f"lookup/id/{transcript_id}?expand=1")
+            
+            if isinstance(response, dict) and "Exon" in response:
+                exons = []
+                for exon in response["Exon"]:
+                    exon_info = {
+                        "exon_id": exon.get("id"),
+                        "chromosome": exon.get("seq_region_name"),
+                        "start": exon.get("start"),
+                        "end": exon.get("end"),
+                        "strand": exon.get("strand"),
+                        "rank": exon.get("rank", 0),
+                    }
+                    exons.append(exon_info)
+                
+                # Sort by rank to maintain exon order
+                exons.sort(key=lambda x: x["rank"])
+                return exons
+                
+        except (requests.RequestException, ValueError) as e:
+            logger.warning(f"Failed to get exons for transcript {transcript_id}: {e}")
+            
+        return []
+
+    def get_gene_exons_by_transcript_type(
+        self, gene_data: dict[str, Any], transcript_type: str = "canonical"
+    ) -> list[dict[str, Any]]:
+        """
+        Get exon coordinates for a gene using a specific transcript type.
+        
+        Args:
+            gene_data: Gene data from batch annotation (with transcript info)
+            transcript_type: Type of transcript ("canonical", "mane_select", "mane_clinical")
+            
+        Returns:
+            List of exon dictionaries with coordinates and gene info
+        """
+        transcript_id = None
+        
+        # Get the appropriate transcript ID based on type
+        if transcript_type == "canonical":
+            transcript_info = gene_data.get("canonical_transcript")
+            if transcript_info:
+                transcript_id = transcript_info.get("transcript_id")
+        elif transcript_type == "mane_select":
+            mane_info = gene_data.get("mane_select")
+            if mane_info:
+                transcript_id = mane_info.get("transcript_id")
+        elif transcript_type == "mane_clinical":
+            mane_info = gene_data.get("mane_clinical")
+            if mane_info:
+                transcript_id = mane_info.get("transcript_id")
+        
+        if not transcript_id:
+            return []
+        
+        # Get exons for this transcript
+        exons = self.get_transcript_exons(transcript_id)
+        
+        # Add gene information to each exon
+        gene_symbol = gene_data.get("gene_symbol", "")
+        gene_id = gene_data.get("gene_id", "")
+        
+        for exon in exons:
+            exon["gene_symbol"] = gene_symbol
+            exon["gene_id"] = gene_id
+            exon["transcript_id"] = transcript_id
+            exon["transcript_type"] = transcript_type
+        
+        return exons
 
     def clear_cache(self) -> None:
         """Clear all cached results."""

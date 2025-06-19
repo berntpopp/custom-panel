@@ -17,7 +17,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from .core.io import create_bed_file
+from .core.io import create_bed_file, create_exon_bed_file
 from .core.output_manager import OutputManager
 from .core.utils import normalize_count
 from .engine.annotator import GeneAnnotator
@@ -754,11 +754,157 @@ def generate_outputs(
         bed_path = output_dir / "germline_panel.bed"
         create_bed_file(df, bed_path, "include")
 
+    # Generate exon BED files if enabled
+    exon_config = bed_config.get("exons", {})
+    if exon_config.get("enabled", False) and "include" in df.columns:
+        _generate_exon_bed_files(df, config, output_dir)
+
     # Generate HTML report
     html_config = output_config.get("html_report", {})
     if html_config.get("enabled", True):  # Default enabled
         html_path = output_dir / "panel_report.html"
         _generate_html_report(df, config, html_path)
+
+
+def _generate_exon_bed_files(df: pd.DataFrame, config: dict[str, Any], output_dir: Path) -> None:
+    """Generate exon BED files using stored transcript data from annotation (no additional API calls)."""
+    
+    # Get only included genes
+    included_df = df[df["include"]].copy()
+    if included_df.empty:
+        console.print("[yellow]No included genes found for exon BED file generation[/yellow]")
+        return
+    
+    # Get exon configuration
+    exon_config = config.get("output", {}).get("bed_files", {}).get("exons", {})
+    exon_padding = exon_config.get("exon_padding", 10)
+    
+    # Track transcript types to generate
+    transcript_types = []
+    if exon_config.get("canonical_transcript", True):
+        transcript_types.append(("canonical", "canonical_transcript"))
+    if exon_config.get("mane_select_transcript", True):
+        transcript_types.append(("mane_select", "mane_select_transcript"))
+    if exon_config.get("mane_clinical_transcript", False):
+        transcript_types.append(("mane_clinical", "mane_clinical_transcript"))
+    
+    console.print(f"[blue]Generating exon BED files from stored annotation data for {len(included_df)} genes (no API calls)...[/blue]")
+    
+    # We need to access the stored transcript data from the annotator
+    # Create a temporary annotator to get the transcript data storage
+    annotator = GeneAnnotator(config)
+    
+    # Check if we have stored transcript data (this should exist from the annotation step)
+    if not hasattr(annotator, 'transcript_data'):
+        # If no stored data, we need to extract from cache
+        console.print("[yellow]No stored transcript data found - extracting from cache...[/yellow]")
+        _extract_transcript_data_from_cache(annotator, included_df)
+    
+    for transcript_type, column_name in transcript_types:
+        all_exons = []
+        genes_with_transcripts = 0
+        genes_processed = 0
+        
+        # Check if this transcript type column exists
+        if column_name not in included_df.columns:
+            console.print(f"[yellow]No {column_name} column found - skipping {transcript_type} exon BED[/yellow]")
+            continue
+        
+        for _, row in included_df.iterrows():
+            gene_symbol = row["approved_symbol"]
+            transcript_id = row.get(column_name)
+            
+            if pd.isna(transcript_id) or not transcript_id:
+                continue
+                
+            genes_processed += 1
+            
+            # Extract exons from stored transcript data
+            exons = _extract_exons_from_stored_data(
+                annotator, gene_symbol, transcript_id, transcript_type, row
+            )
+            
+            if exons:
+                genes_with_transcripts += 1
+                all_exons.extend(exons)
+        
+        if all_exons:
+            # Generate BED file for this transcript type
+            bed_filename = f"exons_{transcript_type}_transcript.bed"
+            bed_path = output_dir / bed_filename
+            create_exon_bed_file(all_exons, bed_path, transcript_type, exon_padding)
+            console.print(f"[green]Generated {bed_filename} with {len(all_exons)} exons from {genes_with_transcripts}/{genes_processed} genes[/green]")
+        else:
+            console.print(f"[yellow]No {transcript_type} exon data available for BED generation[/yellow]")
+
+
+def _extract_transcript_data_from_cache(annotator: GeneAnnotator, df: pd.DataFrame) -> None:
+    """Extract transcript data from cache for genes that need exon BED files."""
+    annotator.transcript_data = {}
+    
+    unique_genes = df["approved_symbol"].unique()
+    for gene_symbol in unique_genes:
+        # Try to get from cache
+        if annotator.ensembl_client.cache_manager:
+            # Look for cached gene data with transcripts
+            # This is a simplified extraction - in a real scenario we'd need the gene ID
+            gene_data = df[df["approved_symbol"] == gene_symbol].iloc[0]
+            gene_id = gene_data.get("gene_id")
+            
+            if gene_id:
+                endpoint = f"lookup/id/{gene_id}?expand=1&mane=1"
+                cached_response = annotator.ensembl_client.cache_manager.get("ensembl", endpoint, "POST", None)
+                
+                if cached_response and isinstance(cached_response, dict):
+                    gene_response = cached_response.get(gene_id)
+                    if gene_response and "Transcript" in gene_response:
+                        annotator.transcript_data[gene_symbol] = {
+                            "all_transcripts": gene_response["Transcript"],
+                            "gene_id": gene_id,
+                            "chromosome": gene_response.get("seq_region_name"),
+                        }
+
+
+def _extract_exons_from_stored_data(
+    annotator: GeneAnnotator, gene_symbol: str, transcript_id: str, transcript_type: str, row: pd.Series
+) -> list[dict]:
+    """Extract exon data from stored transcript information."""
+    
+    # Get stored transcript data for this gene
+    gene_data = annotator.transcript_data.get(gene_symbol)
+    if not gene_data or "all_transcripts" not in gene_data:
+        return []
+    
+    # Find the specific transcript in the stored data
+    target_transcript = None
+    for transcript in gene_data["all_transcripts"]:
+        if transcript.get("id") == transcript_id:
+            target_transcript = transcript
+            break
+    
+    if not target_transcript or "Exon" not in target_transcript:
+        return []
+    
+    # Extract exon information
+    exons = []
+    for exon in target_transcript["Exon"]:
+        exon_info = {
+            "exon_id": exon.get("id"),
+            "chromosome": exon.get("seq_region_name"),
+            "start": exon.get("start"),
+            "end": exon.get("end"),
+            "strand": exon.get("strand"),
+            "rank": exon.get("rank", 0),
+            "gene_symbol": gene_symbol,
+            "gene_id": row.get("gene_id", ""),
+            "transcript_id": transcript_id,
+            "transcript_type": transcript_type,
+        }
+        exons.append(exon_info)
+    
+    # Sort by rank to maintain exon order
+    exons.sort(key=lambda x: x["rank"])
+    return exons
 
 
 def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path: Path) -> None:
@@ -805,11 +951,11 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
     all_potential_columns = [
         "approved_symbol", "hgnc_id", "gene_size", "chromosome", "gene_start", "gene_end", 
         "biotype", "gene_description", "canonical_transcript_coverage", "mane_select_coverage", 
-        "mane_clinical_coverage", "score", "include", "source_count"
+        "mane_clinical_coverage", "score", "include", "source_count", "veto_reasons", "inclusion_reason"
     ]
     
     # Default visible columns (optimized for display)
-    default_visible_columns = ["approved_symbol", "gene_size", "mane_select_coverage", "score", "include", "source_count"]
+    default_visible_columns = ["approved_symbol", "gene_size", "mane_select_coverage", "score", "include", "source_count", "inclusion_reason"]
     
     # Filter to only existing columns
     available_columns = [col for col in all_potential_columns if col in df.columns]
@@ -966,7 +1112,17 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
         .dataTables_wrapper .dataTables_filter input {{
             border: 1px solid #ced4da;
             border-radius: 4px;
-            padding: 6px 12px;
+            padding: 8px 12px;
+            width: 300px;
+            font-size: 14px;
+        }}
+        .dataTables_wrapper .dataTables_filter {{
+            margin-bottom: 10px;
+        }}
+        .dataTables_wrapper .dataTables_filter label {{
+            font-weight: 500;
+            color: #495057;
+            margin-right: 10px;
         }}
         .dataTables_wrapper .dataTables_paginate .paginate_button {{
             border: 1px solid #dee2e6;
@@ -1144,7 +1300,7 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
             <!-- Gene Data Table -->
             <div class="section">
                 <h2>Gene Data Table</h2>
-                <p>Interactive table showing all genes with sorting, filtering, and search capabilities.</p>
+                <p>Interactive table showing all genes with sorting, filtering, and search capabilities. Use the search box to find genes by name, score values, source information, inclusion reasons, or any other field data.</p>
                 
                 <!-- Column Toggle Controls -->
                 <div class="column-toggles" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
@@ -1289,6 +1445,36 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                         }}
                         return data;
                     }}
+                }},
+                'veto_reasons': {{
+                    title: 'Veto Reasons',
+                    render: function(data, type, row) {{
+                        if (type === 'display' && data) {{
+                            return '<span class="tooltip-cell" title="' + data + '" style="color: #e83e8c; font-weight: 500;">Veto Applied</span>';
+                        }}
+                        return data || '';
+                    }}
+                }},
+                'inclusion_reason': {{
+                    title: 'Inclusion Reason',
+                    render: function(data, type, row) {{
+                        if (type === 'display') {{
+                            var reasonClass = '';
+                            var displayText = '';
+                            if (data === 'veto') {{
+                                reasonClass = 'style="color: #e83e8c; font-weight: 500;"';
+                                displayText = 'Veto Override';
+                            }} else if (data === 'threshold+veto') {{
+                                reasonClass = 'style="color: #6f42c1; font-weight: 500;"';
+                                displayText = 'Threshold + Veto';
+                            }} else {{
+                                reasonClass = 'style="color: #28a745;"';
+                                displayText = 'Score Threshold';
+                            }}
+                            return '<span ' + reasonClass + '>' + displayText + '</span>';
+                        }}
+                        return data;
+                    }}
                 }}
             }};
             
@@ -1321,7 +1507,8 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                 processing: true,
                 language: {{
                     processing: "Loading gene data...",
-                    search: "Search genes:",
+                    search: "Search all fields:",
+                    searchPlaceholder: "Gene names, scores, sources, reasons, etc.",
                     lengthMenu: "Show _MENU_ genes per page",
                     info: "Showing _START_ to _END_ of _TOTAL_ genes",
                     infoEmpty: "Showing 0 to 0 of 0 genes",
@@ -1334,6 +1521,12 @@ def _generate_html_report(df: pd.DataFrame, config: dict[str, Any], output_path:
                     }}
                 }}
             }});
+            
+            // Enhanced search functionality - add placeholder text to search input
+            setTimeout(function() {{
+                $('div.dataTables_filter input').attr('placeholder', 'Gene names, scores, sources, reasons, etc.');
+                $('div.dataTables_filter input').addClass('form-control');
+            }}, 100);
             
             // Add toggle event listeners
             availableColumns.forEach(function(col) {{

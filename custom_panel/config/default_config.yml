@@ -130,6 +130,10 @@ data_sources:
     url: "https://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/"
     # Fallback source: Local file (if URL scraping fails)
     file_path: "data/acmg/acmg_incidental_findings.csv"
+    # Veto option: Always include genes from this source regardless of score
+    veto:
+      enabled: true
+      reason: "ACMG recommended for reporting of incidental findings"
 
   # Manual curation lists - Standalone source
   Manual_Curation:
@@ -141,6 +145,10 @@ data_sources:
       - name: "manual_gene-list_2023"
         file_path: "data/manual/manual_gene-list.xlsx"
         gene_column: "genes"  # Default column name for text files
+    # Veto option: Always include manually curated genes regardless of score
+    veto:
+      enabled: true
+      reason: "Manually curated and reviewed by clinical experts"
 
 
   # HPO/OMIM neoplasm gene identification - Standalone source
@@ -285,6 +293,15 @@ output:
     germline: true
     # Extend gene coordinates by this many base pairs
     padding: 0
+    # Generate exon BED files
+    exons:
+      enabled: true
+      # Types of exon BED files to generate
+      canonical_transcript: true      # Exons from canonical transcripts
+      mane_select_transcript: true    # Exons from MANE Select transcripts
+      mane_clinical_transcript: false # Exons from MANE Plus Clinical transcripts
+      # Padding around exons in base pairs
+      exon_padding: 10
 
   # HTML report generation
   html_report:

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gene Panel Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 10px 0 0;
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section h2 {
+            color: #495057;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .top-genes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .gene-card {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            text-align: center;
+        }
+        .gene-name {
+            font-weight: bold;
+            color: #495057;
+        }
+        .gene-score {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        #geneTable {
+            margin-top: 20px;
+        }
+        .dataTables_wrapper .dataTables_length select,
+        .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 8px 12px;
+            width: 300px;
+            font-size: 14px;
+        }
+        .dataTables_wrapper .dataTables_filter {
+            margin-bottom: 10px;
+        }
+        .dataTables_wrapper .dataTables_filter label {
+            font-weight: 500;
+            color: #495057;
+            margin-right: 10px;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            border: 1px solid #dee2e6;
+            margin: 0 2px;
+            padding: 6px 12px;
+            border-radius: 4px;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: #007bff;
+            color: white !important;
+            border-color: #007bff;
+        }
+        table.dataTable {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        table.dataTable th,
+        table.dataTable td {
+            border: 1px solid #dee2e6;
+            padding: 8px 12px;
+        }
+        table.dataTable thead th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        table.dataTable tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        table.dataTable tbody tr:hover {
+            background-color: #e3f2fd;
+        }
+        .score-high { color: #28a745; font-weight: bold; }
+        .score-medium { color: #ffc107; font-weight: bold; }
+        .score-low { color: #dc3545; font-weight: bold; }
+        .include-yes { color: #28a745; font-weight: bold; }
+        .include-no { color: #6c757d; }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+        }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .chart-card {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        .chart-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .tooltip-cell {
+            cursor: help;
+            position: relative;
+        }
+        .tooltip-cell:hover {
+            background-color: #e3f2fd !important;
+        }
+        .column-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .column-toggle input[type="checkbox"] {
+            margin: 0;
+        }
+        .column-toggle label {
+            margin: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+        .gene-link {
+            text-decoration: none !important;
+            color: #007bff !important;
+            font-weight: 500 !important;
+            transition: color 0.2s ease;
+        }
+        .gene-link:hover {
+            color: #0056b3 !important;
+            text-decoration: underline !important;
+        }
+        .gene-link:visited {
+            color: #6f42c1 !important;
+        }
+    </style>
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <!-- Chart.js for interactive charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jQuery and DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Gene Panel Report</h1>
+            <p>Generated on June 19, 2025 at 10:26 AM</p>
+        </div>
+        
+        <div class="content">
+            <!-- Summary Statistics -->
+            <div class="section">
+                <h2>Summary Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">Total Genes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">Panel Genes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">With Coordinates</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">MANE Select</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">MANE Clinical</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Interactive Charts -->
+            <div class="section">
+                <h2>Data Visualizations</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-title">Score Distribution</div>
+                        <div class="chart-container">
+                            <canvas id="scoreChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Gene Size Distribution</div>
+                        <div class="chart-container">
+                            <canvas id="geneSizeChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Source Count Distribution</div>
+                        <div class="chart-container">
+                            <canvas id="sourceCountChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Transcript Size Distribution</div>
+                        <div class="chart-container">
+                            <canvas id="transcriptSizeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gene Data Table -->
+            <div class="section">
+                <h2>Gene Data Table</h2>
+                <p>Interactive table showing all genes with sorting, filtering, and search capabilities. Use the search box to find genes by name, score values, source information, inclusion reasons, or any other field data.</p>
+                
+                <!-- Column Toggle Controls -->
+                <div class="column-toggles" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                    <h4 style="margin: 0 0 10px 0; color: #495057;">Toggle Columns:</h4>
+                    <div id="columnToggles" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+                </div>
+                
+                <table id="geneTable" class="display" style="width:100%">
+                    <thead>
+                        <tr id="tableHeader"></tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Gene data
+            var geneData = [{"approved_symbol": "BRCA1", "hgnc_id": "HGNC:1100", "gene_size": 81189, "chromosome": "17", "gene_start": 43044295, "gene_end": 43125484, "mane_select_coverage": 4500, "score": 3.5, "include": true, "source_count": 5, "veto_reasons": "", "inclusion_reason": "threshold", "hgnc_id_tooltip": "HGNC:1100", "source_names_tooltip": ""}, {"approved_symbol": "BRCA2", "hgnc_id": "HGNC:1101", "gene_size": 84193, "chromosome": "13", "gene_start": 32315086, "gene_end": 32400266, "mane_select_coverage": 8200, "score": 2.8, "include": true, "source_count": 4, "veto_reasons": "ACMG recommended for reporting of incidental findings", "inclusion_reason": "veto", "hgnc_id_tooltip": "HGNC:1101", "source_names_tooltip": ""}, {"approved_symbol": "TP53", "hgnc_id": "HGNC:11998", "gene_size": 19149, "chromosome": "17", "gene_start": 7661779, "gene_end": 7687550, "mane_select_coverage": 1896, "score": 4.2, "include": true, "source_count": 6, "veto_reasons": "Manually curated", "inclusion_reason": "threshold+veto", "hgnc_id_tooltip": "HGNC:11998", "source_names_tooltip": ""}];
+            var chartData = {"scores": [3.5, 2.8, 4.2], "gene_sizes": [81189, 84193, 19149], "source_counts": [5, 4, 6], "transcript_sizes": [4500, 8200, 1896]};
+            var availableColumns = ["approved_symbol", "hgnc_id", "gene_size", "chromosome", "gene_start", "gene_end", "mane_select_coverage", "score", "include", "source_count", "veto_reasons", "inclusion_reason"];
+            var defaultVisible = ["approved_symbol", "gene_size", "mane_select_coverage", "score", "include", "source_count", "inclusion_reason"];
+            
+            // Create interactive charts
+            createCharts(chartData);
+            
+            // Initialize table with column toggles
+            initializeTable(geneData, availableColumns, defaultVisible);
+        });
+        
+        function initializeTable(geneData, availableColumns, defaultVisible) {
+            // Column configuration
+            var columnConfig = {
+                'approved_symbol': {
+                    title: 'Gene Symbol',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var hgncId = row.hgnc_id_tooltip || '';
+                            var tooltipText = hgncId ? 'HGNC ID: ' + hgncId : 'No HGNC ID';
+                            
+                            // Use direct HGNC ID URL if available, otherwise fallback to search
+                            var hgncUrl;
+                            if (hgncId && hgncId.startsWith('HGNC:')) {
+                                hgncUrl = 'https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/' + hgncId;
+                                tooltipText += ' (Click to view gene report)';
+                            } else {
+                                hgncUrl = 'https://www.genenames.org/tools/search/#!/?query=' + encodeURIComponent(data);
+                                tooltipText += ' (Click to search in HGNC)';
+                            }
+                            
+                            return '<a href="' + hgncUrl + '" target="_blank" class="tooltip-cell gene-link" title="' + tooltipText + '">' + data + '</a>';
+                        }
+                        return data;
+                    }
+                },
+                'hgnc_id': { title: 'HGNC ID' },
+                'gene_size': {
+                    title: 'Gene Size (bp)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'chromosome': { title: 'Chromosome' },
+                'gene_start': {
+                    title: 'Start',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'gene_end': {
+                    title: 'End',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'biotype': { title: 'Biotype' },
+                'gene_description': { title: 'Description' },
+                'canonical_transcript_coverage': {
+                    title: 'Canonical Coverage (bp)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'mane_select_coverage': {
+                    title: 'MANE Select Coverage (bp)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'mane_clinical_coverage': {
+                    title: 'MANE Clinical Coverage (bp)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'source_count': {
+                    title: 'Sources',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var sourceNames = row.source_names_tooltip || 'No source details';
+                            return '<span class="tooltip-cell" title="' + sourceNames + '">' + data + '</span>';
+                        }
+                        return data;
+                    }
+                },
+                'score': {
+                    title: 'Score',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null && data !== undefined) {
+                            var scoreClass = data >= 3 ? 'score-high' : data >= 1.5 ? 'score-medium' : 'score-low';
+                            return '<span class="' + scoreClass + '">' + parseFloat(data).toFixed(2) + '</span>';
+                        }
+                        return data;
+                    }
+                },
+                'include': {
+                    title: 'Included',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var includeClass = data ? 'include-yes' : 'include-no';
+                            var includeText = data ? 'Yes' : 'No';
+                            return '<span class="' + includeClass + '">' + includeText + '</span>';
+                        }
+                        return data;
+                    }
+                },
+                'veto_reasons': {
+                    title: 'Veto Reasons',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data) {
+                            return '<span class="tooltip-cell" title="' + data + '" style="color: #e83e8c; font-weight: 500;">Veto Applied</span>';
+                        }
+                        return data || '';
+                    }
+                },
+                'inclusion_reason': {
+                    title: 'Inclusion Reason',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var reasonClass = '';
+                            var displayText = '';
+                            if (data === 'veto') {
+                                reasonClass = 'style="color: #e83e8c; font-weight: 500;"';
+                                displayText = 'Veto Override';
+                            } else if (data === 'threshold+veto') {
+                                reasonClass = 'style="color: #6f42c1; font-weight: 500;"';
+                                displayText = 'Threshold + Veto';
+                            } else {
+                                reasonClass = 'style="color: #28a745;"';
+                                displayText = 'Score Threshold';
+                            }
+                            return '<span ' + reasonClass + '>' + displayText + '</span>';
+                        }
+                        return data;
+                    }
+                }
+            };
+            
+            // Create column toggles
+            var togglesContainer = $('#columnToggles');
+            availableColumns.forEach(function(col) {
+                var isVisible = defaultVisible.includes(col);
+                var displayName = columnConfig[col] ? columnConfig[col].title : col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                
+                var toggleHtml = '<div class="column-toggle">' +
+                    '<input type="checkbox" id="toggle_' + col + '" ' + (isVisible ? 'checked' : '') + '>' +
+                    '<label for="toggle_' + col + '">' + displayName + '</label>' +
+                    '</div>';
+                togglesContainer.append(toggleHtml);
+            });
+            
+            // Build initial columns
+            var columns = buildColumns(availableColumns, defaultVisible, columnConfig);
+            
+            // Initialize DataTable
+            var table = $('#geneTable').DataTable({
+                data: geneData,
+                columns: columns,
+                pageLength: 25,
+                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+                order: [[columns.findIndex(col => col.data === 'score'), 'desc']],
+                responsive: true,
+                autoWidth: false,
+                scrollX: true,
+                processing: true,
+                language: {
+                    processing: "Loading gene data...",
+                    search: "Search all fields:",
+                    searchPlaceholder: "Gene names, scores, sources, reasons, etc.",
+                    lengthMenu: "Show _MENU_ genes per page",
+                    info: "Showing _START_ to _END_ of _TOTAL_ genes",
+                    infoEmpty: "Showing 0 to 0 of 0 genes",
+                    infoFiltered: "(filtered from _MAX_ total genes)",
+                    paginate: {
+                        first: "First",
+                        last: "Last",
+                        next: "Next",
+                        previous: "Previous"
+                    }
+                }
+            });
+            
+            // Enhanced search functionality - add placeholder text to search input
+            setTimeout(function() {
+                $('div.dataTables_filter input').attr('placeholder', 'Gene names, scores, sources, reasons, etc.');
+                $('div.dataTables_filter input').addClass('form-control');
+            }, 100);
+            
+            // Add toggle event listeners
+            availableColumns.forEach(function(col) {
+                $('#toggle_' + col).on('change', function() {
+                    var column = table.column(col + ':name');
+                    column.visible(this.checked);
+                });
+            });
+        }
+        
+        function buildColumns(availableColumns, visibleColumns, columnConfig) {
+            var columns = [];
+            
+            availableColumns.forEach(function(col) {
+                var config = columnConfig[col] || { title: col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) };
+                columns.push({
+                    data: col,
+                    name: col,
+                    title: config.title,
+                    render: config.render || null,
+                    visible: visibleColumns.includes(col)
+                });
+            });
+            
+            return columns;
+        }
+        
+        function createCharts(data) {
+            // Score Distribution with natural boundaries
+            if (data.scores && data.scores.length > 0) {
+                var ctx1 = document.getElementById('scoreChart').getContext('2d');
+                var scoreHistogram = createScoreHistogram(data.scores);
+                new Chart(ctx1, {
+                    type: 'bar',
+                    data: {
+                        labels: scoreHistogram.labels,
+                        datasets: [{
+                            label: 'Gene Count',
+                            data: scoreHistogram.data,
+                            backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: true, text: 'Distribution of Gene Scores' }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: 'Number of Genes' } },
+                            x: { title: { display: true, text: 'Score Range' } }
+                        }
+                    }
+                });
+            }
+            
+            // Gene Size Distribution with natural boundaries
+            if (data.gene_sizes && data.gene_sizes.length > 0) {
+                var ctx2 = document.getElementById('geneSizeChart').getContext('2d');
+                var sizeHistogram = createSizeHistogram(data.gene_sizes);
+                new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: sizeHistogram.labels,
+                        datasets: [{
+                            label: 'Gene Count',
+                            data: sizeHistogram.data,
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: true, text: 'Distribution of Gene Sizes' }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: 'Number of Genes' } },
+                            x: { title: { display: true, text: 'Gene Size (bp)' } }
+                        }
+                    }
+                });
+            }
+            
+            // Source Count Distribution
+            if (data.source_counts && data.source_counts.length > 0) {
+                var ctx3 = document.getElementById('sourceCountChart').getContext('2d');
+                var sourceCountData = data.source_counts.reduce((acc, count) => {
+                    acc[count] = (acc[count] || 0) + 1;
+                    return acc;
+                }, {});
+                new Chart(ctx3, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(sourceCountData).sort((a, b) => parseInt(a) - parseInt(b)),
+                        datasets: [{
+                            label: 'Gene Count',
+                            data: Object.keys(sourceCountData).sort((a, b) => parseInt(a) - parseInt(b)).map(k => sourceCountData[k]),
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: true, text: 'Distribution of Source Counts' }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: 'Number of Genes' } },
+                            x: { title: { display: true, text: 'Number of Sources' } }
+                        }
+                    }
+                });
+            }
+            
+            // Transcript Size Distribution
+            if (data.transcript_sizes && data.transcript_sizes.length > 0) {
+                var ctx4 = document.getElementById('transcriptSizeChart').getContext('2d');
+                var transcriptHistogram = createTranscriptSizeHistogram(data.transcript_sizes);
+                new Chart(ctx4, {
+                    type: 'bar',
+                    data: {
+                        labels: transcriptHistogram.labels,
+                        datasets: [{
+                            label: 'Transcript Count',
+                            data: transcriptHistogram.data,
+                            backgroundColor: 'rgba(255, 159, 64, 0.6)',
+                            borderColor: 'rgba(255, 159, 64, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: true, text: 'Distribution of Transcript Sizes' }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: 'Number of Transcripts' } },
+                            x: { title: { display: true, text: 'Transcript Size (bp)' } }
+                        }
+                    }
+                });
+            }
+        }
+        
+        function createScoreHistogram(scores) {
+            // Natural boundaries for scores: 0-1, 1-2, 2-3, 3-4, 4-5, 5+
+            var boundaries = [0, 1, 2, 3, 4, 5, 999];
+            var labels = ['0-1', '1-2', '2-3', '3-4', '4-5', '5+'];
+            var histogram = new Array(labels.length).fill(0);
+            
+            scores.forEach(score => {
+                for (var i = 0; i < boundaries.length - 1; i++) {
+                    if (score >= boundaries[i] && score < boundaries[i + 1]) {
+                        histogram[i]++;
+                        break;
+                    }
+                }
+            });
+            
+            return { labels: labels, data: histogram };
+        }
+        
+        function createSizeHistogram(sizes) {
+            // Natural boundaries for sizes: 0-10k, 10k-50k, 50k-100k, 100k-200k, 200k+
+            var boundaries = [0, 10000, 50000, 100000, 200000, 500000, 999999999];
+            var labels = ['0-10k', '10k-50k', '50k-100k', '100k-200k', '200k-500k', '500k+'];
+            var histogram = new Array(labels.length).fill(0);
+            
+            sizes.forEach(size => {
+                for (var i = 0; i < boundaries.length - 1; i++) {
+                    if (size >= boundaries[i] && size < boundaries[i + 1]) {
+                        histogram[i]++;
+                        break;
+                    }
+                }
+            });
+            
+            return { labels: labels, data: histogram };
+        }
+        
+        function createTranscriptSizeHistogram(sizes) {
+            // More granular boundaries for transcript sizes in 2kb steps
+            var boundaries = [0, 2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000, 25000, 30000, 999999999];
+            var labels = ['0-2k', '2k-4k', '4k-6k', '6k-8k', '8k-10k', '10k-12k', '12k-14k', '14k-16k', '16k-18k', '18k-20k', '20k-25k', '25k-30k', '30k+'];
+            var histogram = new Array(labels.length).fill(0);
+            
+            sizes.forEach(size => {
+                for (var i = 0; i < boundaries.length - 1; i++) {
+                    if (size >= boundaries[i] && size < boundaries[i + 1]) {
+                        histogram[i]++;
+                        break;
+                    }
+                }
+            });
+            
+            return { labels: labels, data: histogram };
+        }
+    </script>
+</body>
+</html>

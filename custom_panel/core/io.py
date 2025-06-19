@@ -314,6 +314,92 @@ def create_bed_file(
     logger.info(f"Created BED file with {len(bed_df)} regions: {output_path}")
 
 
+def create_exon_bed_file(
+    exons_data: list[dict], output_path: str | Path, transcript_type: str = "canonical", padding: int = 0
+) -> None:
+    """
+    Create a BED file from exon data.
+
+    Args:
+        exons_data: List of exon dictionaries with coordinates
+        output_path: Output BED file path
+        transcript_type: Type of transcript (for naming)
+        padding: Padding around exons in base pairs
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not exons_data:
+        logger.warning(f"No exon data provided for BED file: {output_path}")
+        return
+
+    # Convert exon data to DataFrame
+    exon_records = []
+    for exon in exons_data:
+        if all(key in exon for key in ["chromosome", "start", "end", "gene_symbol"]):
+            record = {
+                "chromosome": str(exon["chromosome"]),
+                "start": int(exon["start"]) - 1 - padding,  # BED is 0-based, add padding
+                "end": int(exon["end"]) + padding,
+                "gene_symbol": exon["gene_symbol"],
+                "exon_id": exon.get("exon_id", ""),
+                "strand": exon.get("strand", "+"),
+                "transcript_id": exon.get("transcript_id", ""),
+                "rank": exon.get("rank", 0),
+            }
+            # Ensure start is not negative
+            record["start"] = max(0, record["start"])
+            exon_records.append(record)
+
+    if not exon_records:
+        logger.warning(f"No valid exon records for BED file: {output_path}")
+        return
+
+    exon_df = pd.DataFrame(exon_records)
+
+    # Create BED format DataFrame
+    bed_df = pd.DataFrame(
+        {
+            "chrom": exon_df["chromosome"],
+            "chromStart": exon_df["start"],
+            "chromEnd": exon_df["end"],
+            "name": exon_df["gene_symbol"] + "_" + exon_df["transcript_id"] + "_exon" + exon_df["rank"].astype(str),
+            "score": 1000,  # Default score
+            "strand": exon_df["strand"].fillna("+"),
+        }
+    )
+
+    # Sort by chromosome and position with natural chromosome ordering
+    # Extract numeric part of chromosome for sorting
+    bed_df["chrom_num"] = (
+        bed_df["chrom"]
+        .str.replace("chr", "", case=False)
+        .str.replace("X", "23")
+        .str.replace("Y", "24")
+        .str.replace("M", "25")
+        .str.replace("MT", "25")  # Alternative mitochondrial notation
+    )
+
+    # Handle chromosomes that might not convert to integers (keep as high numbers)
+    def safe_int_convert(x: str) -> int:
+        try:
+            return int(x)
+        except (ValueError, TypeError):
+            return 999  # Put unknown chromosomes at the end
+
+    bed_df["chrom_num"] = bed_df["chrom_num"].apply(safe_int_convert)
+
+    # Sort by the numeric chromosome column, then by start position
+    bed_df = bed_df.sort_values(["chrom_num", "chromStart"])
+
+    # Remove the temporary column before saving
+    bed_df = bed_df.drop(columns=["chrom_num"])
+
+    # Save BED file
+    bed_df.to_csv(output_path, sep="\t", header=False, index=False)
+    logger.info(f"Created {transcript_type} exon BED file with {len(bed_df)} exons: {output_path}")
+
+
 def merge_panel_dataframes(dataframes: list[pd.DataFrame]) -> pd.DataFrame:
     """
     Merge multiple panel DataFrames into a single DataFrame.

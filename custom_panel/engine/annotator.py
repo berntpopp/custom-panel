@@ -110,6 +110,12 @@ class GeneAnnotator:
         # Step 1: Get genomic annotations
         annotations = self._get_gene_annotations(list(standardized_symbols.values()))
 
+        # Store transcript data for potential exon BED file generation
+        self.transcript_data = {
+            symbol: annot for symbol, annot in annotations.items() 
+            if annot and "all_transcripts" in annot
+        }
+
         # Step 2: Add annotations to the DataFrame
         annotated_df = self._add_annotations_to_dataframe(
             gene_df, standardized_symbols, annotations
