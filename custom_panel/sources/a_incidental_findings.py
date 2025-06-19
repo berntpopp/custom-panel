@@ -141,58 +141,58 @@ def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
             "Could not find the ACMG gene table on the NCBI page. The website structure may have changed."
         )
 
-    # Parse table with pandas
-    try:
-        table_html = StringIO(str(table_element))
-        tables = pd.read_html(table_html)
-        if not tables:
-            raise ValueError("No tables could be parsed from the NCBI page.")
-
-        df = tables[0]  # First table
-    except Exception as e:
-        raise ValueError(f"Failed to parse table from NCBI page: {e}") from e
-
-    # Check for expected column
-    expected_column = "Gene via GTR"
-    if expected_column not in df.columns:
-        available_columns = list(df.columns)
-        raise ValueError(
-            f"Expected column '{expected_column}' not found in the ACMG table. Available columns: {available_columns}"
-        )
-
-    # Extract and clean gene symbols from anchor tags
-    gene_series = df[expected_column].dropna()
-
-    # Use BeautifulSoup to extract gene symbols from anchor tags
+    # Use robust parsing method due to malformed HTML in the NCBI table
+    # The table has issues with nested <tr> tags that break standard parsers
+    logger.info("Using robust parsing method to handle malformed table HTML")
+    
     cleaned_genes = []
-    for cell_content in gene_series:
-        cell_soup = BeautifulSoup(str(cell_content), "html.parser")
-        # Find anchor tag containing gene link
-        gene_link = cell_soup.find("a", href=lambda x: x and "/gtr/genes/" in x)
-        if gene_link:
-            gene_symbol = gene_link.get_text(strip=True)
-            if gene_symbol:
+    seen_genes = set()
+    
+    # Find all gene links directly in the table HTML (both GTR and regular gene links)
+    # This bypasses the malformed table structure
+    gene_links = table_element.find_all("a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x))
+    
+    for link in gene_links:
+        gene_text = link.get_text(strip=True)
+        if gene_text:
+            # Remove MIM numbers and other suffixes (e.g., "COL3A1 (MIM 120180)" -> "COL3A1")
+            if "(" in gene_text:
+                gene_symbol = gene_text.split("(")[0].strip()
+            else:
+                gene_symbol = gene_text.strip()
+            
+            # Only add valid gene symbols (allow alphanumeric)
+            if gene_symbol and gene_symbol.replace("_", "").replace("-", "").isalnum() and gene_symbol not in seen_genes:
                 cleaned_genes.append(gene_symbol)
-        else:
-            # Fallback: try to extract gene from text directly
-            text_content = str(cell_content).strip()
-            if text_content and not text_content.startswith("<"):
-                # Remove text after first space (e.g., "APC (OMIM)" becomes "APC")
-                gene_candidate = text_content.split()[0] if text_content.split() else ""
-                if gene_candidate:
-                    cleaned_genes.append(gene_candidate)
+                seen_genes.add(gene_symbol)
+                logger.debug(f"Extracted gene: {gene_symbol}")
 
-    # Remove duplicates while preserving order
-    unique_genes = []
-    seen = set()
-    for gene in cleaned_genes:
-        if gene not in seen and gene.strip():
-            unique_genes.append(gene.strip())
-            seen.add(gene.strip())
-
-    cleaned_genes = unique_genes
+    if not cleaned_genes:
+        # Fallback: try pandas parsing method 
+        logger.warning("No genes found with robust method, trying pandas fallback")
+        try:
+            table_html = StringIO(str(table_element))
+            tables = pd.read_html(table_html)
+            if tables:
+                df = tables[0]
+                expected_column = "Gene via GTR"
+                if expected_column in df.columns:
+                    gene_series = df[expected_column].dropna()
+                    for cell_content in gene_series:
+                        cell_soup = BeautifulSoup(str(cell_content), "html.parser")
+                        gene_link = cell_soup.find("a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x))
+                        if gene_link:
+                            gene_symbol = gene_link.get_text(strip=True)
+                            if "(" in gene_symbol:
+                                gene_symbol = gene_symbol.split("(")[0].strip()
+                            if gene_symbol and gene_symbol not in seen_genes:
+                                cleaned_genes.append(gene_symbol)
+                                seen_genes.add(gene_symbol)
+        except Exception as e:
+            logger.warning(f"Pandas fallback also failed: {e}")
 
     logger.info(f"Successfully scraped {len(cleaned_genes)} ACMG genes from NCBI")
+    logger.debug(f"Extracted genes: {sorted(cleaned_genes)}")
     return cleaned_genes
 
 
