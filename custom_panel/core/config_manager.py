@@ -5,7 +5,10 @@ This module provides a centralized way to access configuration values
 with type safety and default handling.
 """
 
-from typing import Any
+from pathlib import Path
+from typing import Any, Optional
+
+import yaml
 
 
 class ConfigManager:
@@ -145,7 +148,7 @@ class ConfigManager:
         """
         return self.get_nested("scoring", default={})
 
-    def get_score_threshold(self) -> float | None:
+    def get_score_threshold(self) -> Optional[float]:
         """
         Get score threshold for gene inclusion.
 
@@ -154,7 +157,7 @@ class ConfigManager:
         """
         return self.get_nested("scoring", "thresholds", "score_threshold")
 
-    def get_min_sources(self) -> int | None:
+    def get_min_sources(self) -> Optional[int]:
         """
         Get minimum number of sources required.
 
@@ -374,6 +377,53 @@ class ConfigManager:
 
         # Set the final value
         target[keys[-1]] = value
+
+    @classmethod
+    def from_files(
+        cls,
+        default_path: Path,
+        override_path: Optional[Path] = None,
+        local_path: Optional[Path] = None,
+    ) -> "ConfigManager":
+        """Load configuration from files and create a ConfigManager instance."""
+        if not default_path.exists():
+            raise FileNotFoundError(
+                "Default configuration file not found. Installation may be corrupted."
+            )
+
+        with open(default_path) as f:
+            config = yaml.safe_load(f) or {}
+
+        if override_path and override_path.exists():
+            with open(override_path) as f:
+                override_config = yaml.safe_load(f) or {}
+            config = cls._merge_configs(config, override_config)
+
+        if local_path and local_path.exists():
+            with open(local_path) as f:
+                local_config = yaml.safe_load(f) or {}
+            config = cls._merge_configs(config, local_config)
+
+        return cls(config)
+
+    @staticmethod
+    def _merge_configs(
+        base_config: dict[str, Any], override_config: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Recursively merge override configuration into base configuration."""
+        import copy
+
+        result = copy.deepcopy(base_config)
+        for key, value in override_config.items():
+            if (
+                key in result
+                and isinstance(result.get(key), dict)
+                and isinstance(value, dict)
+            ):
+                result[key] = ConfigManager._merge_configs(result[key], value)
+            else:
+                result[key] = value
+        return result
 
     def to_dict(self) -> dict[str, Any]:
         """

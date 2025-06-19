@@ -63,6 +63,7 @@ ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
+    "UP007", # Use X | Y for type annotations (conflicts with Typer compatibility)
 ]
 
 [tool.ruff.per-file-ignores]

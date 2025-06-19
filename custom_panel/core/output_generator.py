@@ -329,7 +329,7 @@ def _extract_exons_from_stored_data(
     gene_symbol: str,
     transcript_id: str,
     transcript_type: str,
-    row: "pd.Series[Any]",
+    row: pd.Series[Any],
 ) -> list[dict[str, Any]]:
     """Extract exon data from stored transcript information."""
     # Get stored transcript data for this gene

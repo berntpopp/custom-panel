@@ -8,7 +8,7 @@ modularization and use of DRY principles.
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 from rich.console import Console
@@ -36,7 +36,7 @@ console = Console()
 class Pipeline:
     """Orchestrates the gene panel curation pipeline with improved modularity."""
 
-    def __init__(self, config: dict[str, Any], output_dir_path: Path | None = None):
+    def __init__(self, config: dict[str, Any], output_dir_path: Optional[Path] = None):
         """
         Initialize the pipeline with configuration.
 
@@ -53,7 +53,7 @@ class Pipeline:
         self.merger = PanelMerger(config)
         self.transcript_data: dict[str, Any] = {}
 
-    def run(self, show_progress: bool = True) -> pd.DataFrame:
+    def run(self, show_progress: bool = True) -> tuple[pd.DataFrame, dict[str, Any]]:
         """
         Execute the full gene panel curation pipeline.
 
@@ -61,7 +61,7 @@ class Pipeline:
             show_progress: Whether to show progress indicators
 
         Returns:
-            Final annotated DataFrame
+            Tuple of (Final annotated DataFrame, transcript data)
 
         Raises:
             RuntimeError: If pipeline fails at any step
@@ -76,7 +76,9 @@ class Pipeline:
         else:
             return self._run_without_progress()
 
-    def _run_with_progress(self, progress: Progress) -> pd.DataFrame:
+    def _run_with_progress(
+        self, progress: Progress
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
         """Run pipeline with progress indicators."""
         task = progress.add_task("Starting pipeline...", total=None)
 
@@ -113,9 +115,9 @@ class Pipeline:
         annotated_df = self._annotate_and_save(master_df)
 
         progress.remove_task(task)
-        return annotated_df
+        return annotated_df, self.transcript_data
 
-    def _run_without_progress(self) -> pd.DataFrame:
+    def _run_without_progress(self) -> tuple[pd.DataFrame, dict[str, Any]]:
         """Run pipeline without progress indicators."""
         # Step 1: Fetch data
         raw_dataframes = self._fetch_all_sources()
@@ -137,7 +139,7 @@ class Pipeline:
         # Step 5: Annotate
         annotated_df = self._annotate_and_save(master_df)
 
-        return annotated_df
+        return annotated_df, self.transcript_data
 
     def _fetch_all_sources(self) -> list[pd.DataFrame]:
         """Fetch data from all enabled sources."""
@@ -207,7 +209,7 @@ class Pipeline:
     def _standardize_symbols(
         self,
         raw_dataframes: list[pd.DataFrame],
-        progress: Progress | None = None,
+        progress: Optional[Progress] = None,
         task_id: Any = None,
     ) -> tuple[pd.DataFrame, dict[str, dict[str, Any]]]:
         """Centralized gene symbol standardization."""

@@ -13,7 +13,6 @@ from typing import Any, Optional
 
 import pandas as pd
 import typer
-import yaml
 from rich.console import Console
 from rich.table import Table
 
@@ -53,89 +52,27 @@ def setup_logging(log_level: str = "INFO") -> None:
     )
 
 
-def load_config(config_file: Optional[str] = None) -> dict[str, Any]:
-    """Load configuration from file using improved config management."""
+def load_config_manager(config_file: Optional[str] = None) -> ConfigManager:
+    """Load configuration from files and create a ConfigManager instance."""
     try:
-        # Load default config first
-        default_config_path = Path(__file__).parent / "config" / "default_config.yml"
-        config = _load_config_file(default_config_path, "default")
+        default_path = Path(__file__).parent / "config" / "default_config.yml"
+        override_path = Path(config_file) if config_file else None
+        local_path = Path("config.local.yml")
 
-        # Apply overrides if specified
-        if config_file:
-            override_config = _load_config_file(Path(config_file), "override")
-            config = _merge_configs(config, override_config)
-        else:
-            # Check for local overrides
-            local_config_path = Path("config.local.yml")
-            if local_config_path.exists():
-                local_config = _load_config_file(local_config_path, "local")
-                config = _merge_configs(config, local_config)
+        # Suppress typer.echo during this process, logging is enough
+        config_manager = ConfigManager.from_files(
+            default_path, override_path, local_path
+        )
 
-        _log_final_config_debug(config)
-        return config
+        logger.info("Successfully loaded and merged configurations.")
+        return config_manager
 
+    except FileNotFoundError as e:
+        typer.echo(f"Configuration Error: {e}", err=True)
+        raise typer.Exit(1) from e
     except Exception as e:
         typer.echo(f"Error loading configuration: {e}", err=True)
         raise typer.Exit(1) from e
-
-
-def _load_config_file(config_path: Path, config_type: str) -> dict[str, Any]:
-    """Load a single configuration file."""
-    if not config_path.exists():
-        if config_type == "default":
-            typer.echo(
-                "Default configuration file not found. Installation may be corrupted.",
-                err=True,
-            )
-            raise typer.Exit(1)
-        return {}
-
-    typer.echo(f"Loading {config_type} configuration from: {config_path}")
-
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
-
-    _log_hpo_config_debug(config, config_type)
-    return config or {}
-
-
-def _log_hpo_config_debug(config: dict[str, Any], config_type: str) -> None:
-    """Log HPO configuration for debugging."""
-    config_manager = ConfigManager(config)
-    hpo_config = config_manager.get_source_config("HPO_Neoplasm")
-    typer.echo(
-        f"DEBUG: {config_type.title()} HPO config - "
-        f"URL: {hpo_config.get('omim_genemap2_url')}, "
-        f"Path: {hpo_config.get('omim_genemap2_path')}"
-    )
-
-
-def _log_final_config_debug(config: dict[str, Any]) -> None:
-    """Log final merged HPO configuration for debugging."""
-    config_manager = ConfigManager(config)
-    hpo_final = config_manager.get_source_config("HPO_Neoplasm")
-    typer.echo(
-        f"DEBUG: Final merged HPO config - "
-        f"URL: {hpo_final.get('omim_genemap2_url')}, "
-        f"Path: {hpo_final.get('omim_genemap2_path')}"
-    )
-
-
-def _merge_configs(
-    base_config: dict[str, Any], override_config: dict[str, Any]
-) -> dict[str, Any]:
-    """Recursively merge override configuration into base configuration."""
-    import copy
-
-    result = copy.deepcopy(base_config)
-
-    for key, value in override_config.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _merge_configs(result[key], value)
-        else:
-            result[key] = value
-
-    return result
 
 
 @app.command()
@@ -178,8 +115,7 @@ def run(
     setup_logging(log_level)
 
     # Load and configure
-    config = load_config(config_file)
-    config_manager = ConfigManager(config)
+    config_manager = load_config_manager(config_file)
 
     # Override configuration with command line arguments
     config_manager.override_with_cli_args(
@@ -204,11 +140,13 @@ def run(
     try:
         # Initialize and run the pipeline
         pipeline = Pipeline(config_manager.to_dict(), output_dir_path)
-        annotated_df = pipeline.run(show_progress=True)
+        annotated_df, transcript_data = pipeline.run(show_progress=True)
 
         # Generate outputs if not a dry run
         if not dry_run:
-            _generate_pipeline_outputs(pipeline, annotated_df, config_manager)
+            _generate_pipeline_outputs(
+                pipeline, annotated_df, transcript_data, config_manager
+            )
 
         # Display summary
         display_summary(annotated_df, config_manager.to_dict())
@@ -226,7 +164,10 @@ def run(
 
 
 def _generate_pipeline_outputs(
-    pipeline: Pipeline, annotated_df: pd.DataFrame, config_manager: ConfigManager
+    pipeline: Pipeline,
+    annotated_df: pd.DataFrame,
+    transcript_data: dict[str, Any],
+    config_manager: ConfigManager,
 ) -> None:
     """Generate all pipeline outputs."""
     final_output_dir = pipeline.output_manager.get_final_output_dir()
@@ -234,7 +175,7 @@ def _generate_pipeline_outputs(
         df=annotated_df,
         config=config_manager.to_dict(),
         output_dir=final_output_dir,
-        transcript_data=pipeline.transcript_data,
+        transcript_data=transcript_data,
     )
 
     # Save run summary
@@ -274,10 +215,7 @@ def _print_completion_messages(pipeline: Pipeline, dry_run: bool) -> None:
 
 @app.command()
 def fetch(
-    source: str = typer.Argument(
-        ...,
-        help="Data source to fetch (use the pipeline instead - this command is deprecated)",
-    ),
+    source: str = typer.Argument(..., help="This command is deprecated."),
     config_file: Optional[str] = typer.Option(
         None, "--config-file", "-c", help="Configuration file path"
     ),
@@ -290,16 +228,15 @@ def fetch(
     log_level: str = typer.Option("INFO", "--log-level", help="Log level"),
 ) -> None:
     """
-    Fetch data from a single source (deprecated - use pipeline instead).
+    (DEPRECATED) Fetch data from a single source. Please use the 'run' command instead.
     """
-    setup_logging(log_level)
     console.print(
-        "[yellow]The fetch command is deprecated. Use 'run' command with specific source configuration instead.[/yellow]"
+        "[bold red]DEPRECATION WARNING: The 'fetch' command is deprecated and will be removed in a future version.[/bold red]"
     )
     console.print(
-        f"[yellow]Source '{source}' should be configured in your config file and run via the main pipeline.[/yellow]"
+        "Please use the main 'run' command and enable the desired source in your configuration file."
     )
-    raise typer.Exit(1)
+    raise typer.Exit(code=1)
 
 
 @app.command()
@@ -311,8 +248,7 @@ def config_check(
     """
     Validate and display configuration using improved config management.
     """
-    config = load_config(config_file)
-    config_manager = ConfigManager(config)
+    config_manager = load_config_manager(config_file)
 
     console.print("[bold blue]Configuration Validation[/bold blue]")
 
@@ -442,7 +378,8 @@ def search_panels(
     Search for available panels in PanelApp.
     """
     setup_logging(log_level)
-    config = load_config(config_file)
+    config_manager = load_config_manager(config_file)
+    config = config_manager.to_dict()
 
     from .sources.g01_panelapp import search_panelapp_panels
 
