@@ -958,7 +958,7 @@ def _generate_html_report(
     # Calculate source statistics
     source_stats = {}
     unique_sources = set()
-    source_gene_counts: dict[str, int] = {}
+    source_gene_counts: dict[str, set[str]] = {}
 
     if "source_names" in df.columns:
         # Parse source information from each gene
