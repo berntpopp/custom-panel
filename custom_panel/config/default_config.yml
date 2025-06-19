@@ -61,7 +61,7 @@ data_sources:
         sheet_name: "genes"  # Optional
     # Veto option: Always include genes from this source regardless of score
     veto:
-      enabled: true
+      enabled: false  # No veto for in-house panels
       reason: "Inhouse Panels should remain stable and reliable for clinical use"
 
   # Commercial panels configuration - Source Group
