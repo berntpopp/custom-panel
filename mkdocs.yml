@@ -1,0 +1,94 @@
+# Project Information
+site_name: Custom Panel
+site_url: https://berntpopp.github.io/custom-panel/
+repo_url: https://github.com/berntpopp/custom-panel
+repo_name: berntpopp/custom-panel
+site_description: A modern Python tool for gene panel curation and aggregation from multiple genomic databases
+
+# Theme Configuration
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - search.highlight
+    - search.share
+  icon:
+    repo: fontawesome/brands/github
+
+# Plugins
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_toc_entry: false
+            docstring_style: google
+            merge_init_into_class: true
+            separate_signature: true
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+# Navigation
+nav:
+  - 'Home': 'index.md'
+  - 'User Guide':
+    - 'Installation': 'user_guide/installation.md'
+    - 'Running the Pipeline': 'user_guide/running_pipeline.md'
+    - 'Configuration': 'user_guide/configuration.md'
+    - 'Data Sources':
+      - 'COSMIC Setup': 'user_guide/cosmic_setup.md'
+      - 'OMIM / HPO Setup': 'user_guide/omim_setup.md'
+  - 'API Reference':
+    - 'CLI Interface': 'api/cli.md'
+    - 'Core Components':
+      - 'Gene Annotator': 'api/annotator.md'
+      - 'Panel Merger': 'api/merger.md'
+    - 'Data Clients':
+      - 'Ensembl Client': 'api/ensembl_client.md'
+      - 'HGNC Client': 'api/hgnc_client.md'
+
+# Extra CSS and JavaScript
+extra_css:
+  - assets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/berntpopp/custom-panel
+  generator: false

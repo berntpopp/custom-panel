@@ -29,6 +29,10 @@ isort = "^5.12.0"
 types-requests = "^2.31.0"
 types-pyyaml = "^6.0.0"
 pandas-stubs = "^2.0.0"
+mkdocs = "^1.6.1"
+mkdocs-material = "^9.6.14"
+mkdocstrings = {extras = ["python"], version = "^0.29.1"}
+mdit-py-plugins = "^0.4.2"
 
 [tool.poetry.group.scrapers.dependencies]
 selenium = "^4.15.0"

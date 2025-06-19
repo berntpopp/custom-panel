@@ -1,0 +1,37 @@
+/* Custom styling for Custom Panel documentation */
+
+/* Code block improvements */
+.highlight {
+    margin: 1em 0;
+}
+
+/* Improved table styling */
+table {
+    margin: 1em 0;
+}
+
+/* Navigation improvements */
+.md-nav__title {
+    font-weight: 600;
+}
+
+/* Custom admonition colors */
+.md-typeset .admonition.note {
+    border-color: #2196f3;
+}
+
+.md-typeset .admonition.tip {
+    border-color: #00bcd4;
+}
+
+/* Code copy button improvements */
+.md-code__copy {
+    color: inherit;
+}
+
+/* Improve readability of inline code */
+.md-typeset code {
+    background-color: var(--md-code-bg-color);
+    border-radius: 0.2em;
+    padding: 0.1em 0.3em;
+}
