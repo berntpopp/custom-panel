@@ -82,6 +82,12 @@ def load_config(config_file: Optional[str] = None) -> dict[str, Any]:  # noqa: U
             config = yaml.safe_load(f)
         typer.echo(f"Loaded default configuration from: {default_config_path}")
 
+        # Debug: Show default HPO config before merging
+        hpo_default = config.get("data_sources", {}).get("HPO_Neoplasm", {})
+        typer.echo(
+            f"DEBUG: Default HPO config - URL: {hpo_default.get('omim_genemap2_url')}, Path: {hpo_default.get('omim_genemap2_path')}"
+        )
+
         # If a specific config file was provided, treat it as override
         if config_file:
             override_path = Path(config_file)
@@ -93,6 +99,13 @@ def load_config(config_file: Optional[str] = None) -> dict[str, Any]:  # noqa: U
             with open(override_path) as f:
                 override_config = yaml.safe_load(f)
                 if override_config:
+                    # Debug: Show override HPO config before merging
+                    hpo_override = override_config.get("data_sources", {}).get(
+                        "HPO_Neoplasm", {}
+                    )
+                    typer.echo(
+                        f"DEBUG: Override HPO config - URL: {hpo_override.get('omim_genemap2_url')}, Path: {hpo_override.get('omim_genemap2_path')}"
+                    )
                     config = _merge_configs(config, override_config)
         else:
             # No specific config file, check for local overrides
@@ -102,7 +115,20 @@ def load_config(config_file: Optional[str] = None) -> dict[str, Any]:  # noqa: U
                 with open(local_config_path) as f:
                     local_config = yaml.safe_load(f)
                     if local_config:
+                        # Debug: Show local HPO config before merging
+                        hpo_local = local_config.get("data_sources", {}).get(
+                            "HPO_Neoplasm", {}
+                        )
+                        typer.echo(
+                            f"DEBUG: Local HPO config - URL: {hpo_local.get('omim_genemap2_url')}, Path: {hpo_local.get('omim_genemap2_path')}"
+                        )
                         config = _merge_configs(config, local_config)
+
+        # Debug: Show final merged HPO config
+        hpo_final = config.get("data_sources", {}).get("HPO_Neoplasm", {})
+        typer.echo(
+            f"DEBUG: Final merged HPO config - URL: {hpo_final.get('omim_genemap2_url')}, Path: {hpo_final.get('omim_genemap2_path')}"
+        )
 
         return config
     except Exception as e:
@@ -1444,12 +1470,6 @@ def _generate_html_report(
                         </div>
                     </div>
                     <div class="chart-card">
-                        <div class="chart-title">Top Data Sources</div>
-                        <div class="chart-container">
-                            <canvas id="sourceContributionChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="chart-card">
                         <div class="chart-title">Transcript Size Distribution</div>
                         <div class="chart-container">
                             <canvas id="transcriptSizeChart"></canvas>
@@ -1843,57 +1863,6 @@ def _generate_html_report(
                 }});
             }}
 
-            // Source Contribution Chart
-            if (data.source_labels && data.source_labels.length > 0) {{
-                var ctx5 = document.getElementById('sourceContributionChart').getContext('2d');
-                new Chart(ctx5, {{
-                    type: 'bar',
-                    data: {{
-                        labels: data.source_labels,
-                        datasets: [{{
-                            label: 'Gene Count',
-                            data: data.source_gene_counts,
-                            backgroundColor: 'rgba(153, 102, 255, 0.6)',
-                            borderColor: 'rgba(153, 102, 255, 1)',
-                            borderWidth: 1
-                        }}]
-                    }},
-                    options: {{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        indexAxis: 'y',
-                        plugins: {{
-                            legend: {{ display: false }},
-                            title: {{ display: true, text: 'Genes per Data Source' }},
-                            tooltip: {{
-                                callbacks: {{
-                                    afterLabel: function(context) {{
-                                        var percentage = data.source_percentages[context.dataIndex];
-                                        return percentage + '% of all genes';
-                                    }}
-                                }}
-                            }}
-                        }},
-                        scales: {{
-                            x: {{
-                                beginAtZero: true,
-                                title: {{ display: true, text: 'Number of Genes' }},
-                                ticks: {{
-                                    callback: function(value) {{
-                                        return value.toLocaleString();
-                                    }}
-                                }}
-                            }},
-                            y: {{
-                                title: {{ display: false }},
-                                ticks: {{
-                                    autoSkip: false
-                                }}
-                            }}
-                        }}
-                    }}
-                }});
-            }}
         }}
 
         function createScoreHistogram(scores) {{

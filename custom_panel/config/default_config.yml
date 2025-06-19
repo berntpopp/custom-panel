@@ -29,12 +29,16 @@ data_sources:
       - name: "PanelApp_UK"
         base_url: "https://panelapp.genomicsengland.co.uk/api/v1/panels"
         panels:
-          - id: 1
+          - id: 243
             name: "Childhood_solid_tumours"
-          - id: 2
-            name: "Adult_solid_tumours"
-          - id: 3
-            name: "Haematological_malignancies"
+          - id: 245
+            name: "Adult_solid_tumours_cancer_susceptibility"
+          - id: 391
+            name: "Adult_solid_tumours_for_rare_disease"
+          - id: 59
+            name: "Haematological_malignancies_cancer_susceptibility"
+          - id: 407
+            name: "Haematological_malignancies_for_rare_disease"
     # Evidence level scoring
     evidence_scores:
       "3": 1.0  # Green - high confidence
