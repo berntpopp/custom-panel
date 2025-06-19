@@ -59,6 +59,10 @@ data_sources:
         file_path: "data/Dresden-Cancer_v1_gene-list.xlsx"
         gene_column: "genes"
         sheet_name: "genes"  # Optional
+    # Veto option: Always include genes from this source regardless of score
+    veto:
+      enabled: true
+      reason: "Inhouse Panels should remain stable and reliable for clinical use"
 
   # Commercial panels configuration - Source Group
   Commercial_Panels:
