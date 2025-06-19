@@ -6,6 +6,7 @@ using HGNC and Ensembl APIs.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import pandas as pd
@@ -38,11 +39,11 @@ class GeneAnnotator:
         self.cache_manager = None
         if cache_enabled:
             self.cache_manager = CacheManager(
-                cache_dir=cache_dir,
-                cache_ttl=cache_ttl,
-                enabled=True
+                cache_dir=cache_dir, cache_ttl=cache_ttl, enabled=True
             )
-            logger.info(f"Cache enabled at {cache_dir} with TTL {cache_ttl/86400:.1f} days")
+            logger.info(
+                f"Cache enabled at {cache_dir} with TTL {cache_ttl/86400:.1f} days"
+            )
 
         # Initialize API clients
         api_config = self.config.get("apis", {})
@@ -67,7 +68,9 @@ class GeneAnnotator:
         # Performance settings
         perf_config = self.config.get("performance", {})
         self.max_workers = perf_config.get("max_workers", 4)
-        self.batch_size = perf_config.get("batch_size", 200)  # Large batch size for coordinate lookup
+        self.batch_size = perf_config.get(
+            "batch_size", 200
+        )  # Large batch size for coordinate lookup
 
         # Annotation settings
         annotation_config = self.config.get("annotation", {})
@@ -115,7 +118,7 @@ class GeneAnnotator:
         self, gene_symbols: list[str]
     ) -> dict[str, dict[str, str | None]]:
         """
-        Standardize gene symbols using HGNC batch API.
+        Standardize gene symbols using parallel HGNC batch API calls.
 
         This method is public to allow standardization before merging.
 
@@ -125,52 +128,55 @@ class GeneAnnotator:
         Returns:
             Dictionary mapping original symbols to dict containing approved_symbol and hgnc_id
         """
-        logger.info("Standardizing gene symbols with HGNC batch API")
+        logger.info(
+            f"Standardizing {len(gene_symbols)} gene symbols with parallel HGNC batch API"
+        )
+
+        # Split genes into batches
+        batches = [
+            gene_symbols[i : i + self.batch_size]
+            for i in range(0, len(gene_symbols), self.batch_size)
+        ]
+
+        if len(batches) == 1:
+            # Single batch - process directly
+            return self._standardize_single_batch(batches[0])
+
+        # Multiple batches - use parallel processing
+        logger.info(
+            f"Processing {len(batches)} HGNC batches in parallel (max_workers={self.max_workers})"
+        )
 
         standardized = {}
 
-        # Process genes in batches for better performance
-        for i in range(0, len(gene_symbols), self.batch_size):
-            batch = gene_symbols[i : i + self.batch_size]
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit all batch jobs
+            future_to_batch = {
+                executor.submit(self._standardize_single_batch, batch): batch
+                for batch in batches
+            }
 
-            try:
-                # Use batch standardization for improved performance
-                batch_result = self.hgnc_client.standardize_symbols(batch)
-                standardized.update(batch_result)
-
-                # No need for additional individual lookups - the batch method already handles fallbacks internally
-                # The batch method in standardize_symbols() already does individual lookups for symbols not found
-
-            except Exception as e:
-                logger.warning(
-                    f"Batch standardization failed for batch: {e}, falling back to individual requests"
-                )
-                # Fall back to individual processing
-                for symbol in batch:
-                    try:
-                        standardized_symbol = self.hgnc_client.standardize_symbol(
-                            symbol
-                        )
-                        # For individual lookups, get the gene info to have HGNC ID
-                        gene_info = self.hgnc_client.get_gene_info(standardized_symbol)
-                        hgnc_id = gene_info.get("hgnc_id") if gene_info else None
-                        standardized[symbol] = {
-                            "approved_symbol": standardized_symbol,
-                            "hgnc_id": hgnc_id,
-                        }
-                    except Exception as e2:
-                        logger.warning(f"Failed to standardize {symbol}: {e2}")
-                        standardized[symbol] = {
-                            "approved_symbol": symbol,
-                            "hgnc_id": None,
-                        }
+            # Collect results as they complete
+            for future in as_completed(future_to_batch):
+                batch = future_to_batch[future]
+                try:
+                    batch_result = future.result()
+                    standardized.update(batch_result)
+                    logger.info(f"✓ Completed HGNC batch of {len(batch)} symbols")
+                except Exception as e:
+                    logger.error(
+                        f"✗ HGNC batch processing failed for {len(batch)} symbols: {e}"
+                    )
+                    # Fallback to individual processing
+                    batch_result = self._standardize_individual_parallel(batch)
+                    standardized.update(batch_result)
 
         # Log standardization results
         changed_symbols = {
             k: v for k, v in standardized.items() if k != v["approved_symbol"]
         }
         if changed_symbols:
-            logger.info(f"Standardized {len(changed_symbols)} gene symbols")
+            logger.info(f"✨ Standardized {len(changed_symbols)} gene symbols")
             for original, info in changed_symbols.items():
                 logger.debug(
                     f"  {original} -> {info['approved_symbol']} (HGNC ID: {info['hgnc_id']})"
@@ -178,11 +184,95 @@ class GeneAnnotator:
 
         return standardized
 
+    def _standardize_single_batch(
+        self, batch: list[str]
+    ) -> dict[str, dict[str, str | None]]:
+        """
+        Standardize a single batch of gene symbols.
+
+        Args:
+            batch: List of gene symbols to standardize
+
+        Returns:
+            Dictionary mapping symbols to standardization results
+        """
+        try:
+            # Use batch standardization for improved performance
+            return self.hgnc_client.standardize_symbols(batch)
+        except Exception as e:
+            logger.warning(
+                f"Batch standardization failed: {e}, falling back to individual requests"
+            )
+            return self._standardize_individual_parallel(batch)
+
+    def _standardize_individual_parallel(
+        self, symbols: list[str]
+    ) -> dict[str, dict[str, str | None]]:
+        """
+        Standardize symbols individually in parallel when batch fails.
+
+        Args:
+            symbols: List of gene symbols to standardize
+
+        Returns:
+            Dictionary mapping symbols to standardization results
+        """
+        logger.info(f"Standardizing {len(symbols)} symbols individually in parallel")
+
+        standardized = {}
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit individual standardization jobs
+            future_to_symbol = {
+                executor.submit(self._standardize_single_symbol, symbol): symbol
+                for symbol in symbols
+            }
+
+            # Collect results
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    result = future.result()
+                    standardized[symbol] = result
+                except Exception as e:
+                    logger.warning(f"Failed to standardize {symbol}: {e}")
+                    standardized[symbol] = {
+                        "approved_symbol": symbol,
+                        "hgnc_id": None,
+                    }
+
+        return standardized
+
+    def _standardize_single_symbol(self, symbol: str) -> dict[str, str | None]:
+        """
+        Standardize a single gene symbol.
+
+        Args:
+            symbol: Gene symbol to standardize
+
+        Returns:
+            Dictionary with approved_symbol and hgnc_id
+        """
+        try:
+            standardized_symbol = self.hgnc_client.standardize_symbol(symbol)
+            # For individual lookups, get the gene info to have HGNC ID
+            gene_info = self.hgnc_client.get_gene_info(standardized_symbol)
+            hgnc_id = gene_info.get("hgnc_id") if gene_info else None
+            return {
+                "approved_symbol": standardized_symbol,
+                "hgnc_id": hgnc_id,
+            }
+        except Exception:
+            return {
+                "approved_symbol": symbol,
+                "hgnc_id": None,
+            }
+
     def _get_gene_annotations(
         self, gene_symbols: list[str]
     ) -> dict[str, dict[str, Any]]:
         """
-        Get genomic annotations for genes using optimized batch API calls.
+        Get genomic annotations for genes using optimized parallel batch API calls.
 
         Args:
             gene_symbols: List of standardized gene symbols
@@ -190,51 +280,159 @@ class GeneAnnotator:
         Returns:
             Dictionary mapping gene symbols to annotation data
         """
-        logger.info("Fetching genomic annotations from Ensembl using batch API")
+        logger.info(
+            f"Fetching genomic annotations for {len(gene_symbols)} genes using parallel batch API"
+        )
+
+        # Split genes into batches
+        batches = [
+            gene_symbols[i : i + self.batch_size]
+            for i in range(0, len(gene_symbols), self.batch_size)
+        ]
+
+        if len(batches) == 1:
+            # Single batch - no need for parallelization
+            return self._process_single_batch(batches[0])
+
+        # Multiple batches - use parallel processing
+        logger.info(
+            f"Processing {len(batches)} batches in parallel (max_workers={self.max_workers})"
+        )
 
         annotations = {}
 
-        # Process genes in batches with expand=1 to get all data in one call
-        for i in range(0, len(gene_symbols), self.batch_size):
-            batch = gene_symbols[i : i + self.batch_size]
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit all batch jobs
+            future_to_batch = {
+                executor.submit(self._process_single_batch, batch): batch
+                for batch in batches
+            }
 
+            # Collect results as they complete
+            for future in as_completed(future_to_batch):
+                batch = future_to_batch[future]
+                try:
+                    batch_annotations = future.result()
+                    annotations.update(batch_annotations)
+                    logger.info(f"✓ Completed batch of {len(batch)} genes")
+                except Exception as e:
+                    logger.error(
+                        f"✗ Batch processing failed for {len(batch)} genes: {e}"
+                    )
+                    # Fallback to sequential processing for this batch
+                    batch_annotations = self._process_single_batch_fallback(batch)
+                    annotations.update(batch_annotations)
+
+        return annotations
+
+    def _process_single_batch(self, batch: list[str]) -> dict[str, dict[str, Any]]:
+        """
+        Process a single batch of genes with full error handling.
+
+        Args:
+            batch: List of gene symbols to process
+
+        Returns:
+            Dictionary mapping gene symbols to annotation data
+        """
+        annotations = {}
+
+        try:
+            # Try batch call with transcript expansion first (most complete)
+            batch_data = self.ensembl_client.get_symbols_data_batch(
+                batch, self.species, expand=True
+            )
+
+            for symbol in batch:
+                gene_data = batch_data.get(symbol)
+                if gene_data:
+                    annotations[
+                        symbol
+                    ] = self._build_gene_annotation_from_expanded_data(
+                        symbol, gene_data
+                    )
+                else:
+                    annotations[symbol] = self._build_empty_annotation(symbol)
+
+        except Exception as e:
+            logger.warning(
+                f"Batch API request failed: {e}, trying without transcript expansion"
+            )
+            # Try again without transcript expansion (faster, less complete)
             try:
-                # Single batch call with expand=1 to get coordinates and transcripts
-                batch_data = self.ensembl_client.get_symbols_data_batch(
-                    batch, self.species, expand=True
+                batch_coords = self.ensembl_client.get_symbols_data_batch(
+                    batch, self.species, expand=False
                 )
-
                 for symbol in batch:
-                    gene_data = batch_data.get(symbol)
-                    if gene_data:
-                        annotations[symbol] = self._build_gene_annotation_from_expanded_data(
-                            symbol, gene_data
+                    coords = batch_coords.get(symbol)
+                    if coords:
+                        annotations[symbol] = self._build_gene_annotation(
+                            symbol, coords
                         )
                     else:
                         annotations[symbol] = self._build_empty_annotation(symbol)
-
-            except Exception as e:
+            except Exception as e2:
                 logger.warning(
-                    f"Batch API request failed: {e}, trying without transcript expansion"
+                    f"Batch coordinate request also failed: {e2}, falling back to individual requests"
                 )
-                # Try again without transcript expansion (faster)
+                # Final fallback - parallel individual requests
+                annotations = self._process_individual_genes_parallel(batch)
+
+        return annotations
+
+    def _process_single_batch_fallback(
+        self, batch: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Fallback processing for a single batch that failed in parallel execution.
+
+        Args:
+            batch: List of gene symbols to process
+
+        Returns:
+            Dictionary mapping gene symbols to annotation data
+        """
+        logger.info(f"Processing fallback for batch of {len(batch)} genes")
+        annotations = {}
+
+        # Use individual processing as final fallback
+        for symbol in batch:
+            annotations[symbol] = self._get_individual_annotation(symbol)
+
+        return annotations
+
+    def _process_individual_genes_parallel(
+        self, gene_symbols: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Process individual genes in parallel when batch requests fail.
+
+        Args:
+            gene_symbols: List of gene symbols to process individually
+
+        Returns:
+            Dictionary mapping gene symbols to annotation data
+        """
+        logger.info(f"Processing {len(gene_symbols)} genes individually in parallel")
+
+        annotations = {}
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit individual gene jobs
+            future_to_symbol = {
+                executor.submit(self._get_individual_annotation, symbol): symbol
+                for symbol in gene_symbols
+            }
+
+            # Collect results
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
                 try:
-                    batch_coords = self.ensembl_client.get_symbols_data_batch(
-                        batch, self.species, expand=False
-                    )
-                    for symbol in batch:
-                        coords = batch_coords.get(symbol)
-                        if coords:
-                            annotations[symbol] = self._build_gene_annotation(symbol, coords)
-                        else:
-                            annotations[symbol] = self._build_empty_annotation(symbol)
-                except Exception as e2:
-                    logger.warning(
-                        f"Batch coordinate request also failed: {e2}, falling back to individual requests"
-                    )
-                    # Final fallback to individual requests
-                    for symbol in batch:
-                        annotations[symbol] = self._get_individual_annotation(symbol)
+                    annotation = future.result()
+                    annotations[symbol] = annotation
+                except Exception as e:
+                    logger.warning(f"Failed to get annotation for {symbol}: {e}")
+                    annotations[symbol] = self._build_empty_annotation(symbol)
 
         return annotations
 

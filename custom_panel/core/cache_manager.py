@@ -52,7 +52,7 @@ class CacheManager:
         service: str,
         endpoint: str,
         method: str = "GET",
-        data: dict[str, Any] | None = None
+        data: dict[str, Any] | None = None,
     ) -> str:
         """
         Generate a unique cache key for a request.
@@ -92,7 +92,7 @@ class CacheManager:
         service: str,
         endpoint: str,
         method: str = "GET",
-        data: dict[str, Any] | None = None
+        data: dict[str, Any] | None = None,
     ) -> Any | None:
         """
         Retrieve cached response if available and valid.
@@ -122,11 +122,21 @@ class CacheManager:
 
             # Check if cache is expired
             if time.time() - cache_entry["timestamp"] > self.cache_ttl:
-                logger.debug(f"Cache expired for {service} {endpoint}")
+                logger.info(f"⏰ Cache expired for {service} {endpoint}")
                 cache_path.unlink()  # Remove expired cache
                 return None
 
-            logger.debug(f"Cache hit for {service} {endpoint}")
+            # Show cache hits at INFO level so users can see the benefit
+            if data and "symbols" in data:
+                gene_count = len(data["symbols"])
+                logger.info(f"🚀 Cache hit: {service} {endpoint} ({gene_count} genes)")
+            elif data and "ids" in data:
+                gene_count = len(data["ids"])
+                logger.info(
+                    f"🚀 Cache hit: {service} {endpoint} ({gene_count} gene IDs)"
+                )
+            else:
+                logger.info(f"🚀 Cache hit: {service} {endpoint}")
             return cache_entry["response"]
 
         except (OSError, json.JSONDecodeError, KeyError) as e:
@@ -142,7 +152,7 @@ class CacheManager:
         endpoint: str,
         method: str,
         data: dict[str, Any] | None,
-        response: Any
+        response: Any,
     ) -> None:
         """
         Cache a response.
@@ -176,7 +186,19 @@ class CacheManager:
             # Atomic rename
             temp_path.replace(cache_path)
 
-            logger.debug(f"Cached response for {service} {endpoint}")
+            # Show cache saves at INFO level for transparency
+            if data and "symbols" in data:
+                gene_count = len(data["symbols"])
+                logger.info(
+                    f"💾 Cached response: {service} {endpoint} ({gene_count} genes)"
+                )
+            elif data and "ids" in data:
+                gene_count = len(data["ids"])
+                logger.info(
+                    f"💾 Cached response: {service} {endpoint} ({gene_count} gene IDs)"
+                )
+            else:
+                logger.info(f"💾 Cached response: {service} {endpoint}")
 
         except OSError as e:
             logger.warning(f"Failed to cache response for {cache_key}: {e}")

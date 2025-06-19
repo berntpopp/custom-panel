@@ -23,8 +23,11 @@ class HGNCClient:
     BASE_URL = "https://rest.genenames.org"
 
     def __init__(
-        self, timeout: int = 30, max_retries: int = 3, retry_delay: float = 1.0,
-        cache_manager: CacheManager | None = None
+        self,
+        timeout: int = 30,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        cache_manager: CacheManager | None = None,
     ):
         """
         Initialize the HGNC client.
@@ -70,7 +73,9 @@ class HGNCClient:
         if self.cache_manager:
             # Create a cache key that includes params
             cache_data = {"params": params} if params else data
-            cached_response = self.cache_manager.get("hgnc", endpoint, method, cache_data)
+            cached_response = self.cache_manager.get(
+                "hgnc", endpoint, method, cache_data
+            )
             if cached_response is not None:
                 return cached_response
 
@@ -92,7 +97,9 @@ class HGNCClient:
                 # Cache successful response
                 if self.cache_manager:
                     cache_data = {"params": params} if params else data
-                    self.cache_manager.set("hgnc", endpoint, method, cache_data, json_response)
+                    self.cache_manager.set(
+                        "hgnc", endpoint, method, cache_data, json_response
+                    )
 
                 return json_response
             except (requests.RequestException, ValueError) as e:

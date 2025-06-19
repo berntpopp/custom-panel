@@ -341,15 +341,18 @@ reporting:
 
 # Performance settings
 performance:
-  # Number of parallel requests for batch operations
+  # Number of parallel workers for batch operations
+  # Recommended: 2-6 for API calls (too many can overwhelm servers)
   max_workers: 4
   # Chunk size for batch processing (coordinate lookup)
-  batch_size: 200
-  # Enable caching of API responses
+  # Larger batches = fewer API calls but longer response times
+  batch_size: 300
+  # Enable caching of API responses for faster reruns
   enable_caching: true
-  # Cache directory
+  # Cache directory (relative to working directory)
   cache_dir: ".cache"
   # Cache time-to-live in seconds (default: 30 days)
+  # Set to 0 to disable expiry (cache forever)
   cache_ttl: 2592000
 
 # Directory structure for outputs
