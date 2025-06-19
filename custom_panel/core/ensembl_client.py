@@ -8,7 +8,7 @@ retrieve gene coordinates, transcript information, and other genomic data.
 import functools
 import logging
 import time
-from typing import Any
+from typing import Any, Optional
 
 import requests
 
@@ -88,7 +88,7 @@ class EnsemblClient:
     @functools.lru_cache(maxsize=5000)  # noqa: B019
     def get_gene_coordinates(
         self, gene_symbol: str, species: str = "human"
-    ) -> dict[str, Any] | None:
+    ) -> Optional[dict[str, Any]]:
         """
         Get genomic coordinates for a gene symbol.
 
@@ -162,7 +162,7 @@ class EnsemblClient:
     @functools.lru_cache(maxsize=2000)  # noqa: B019
     def get_canonical_transcript(
         self, gene_id: str, species: str = "human"
-    ) -> dict[str, Any] | None:
+    ) -> Optional[dict[str, Any]]:
         """
         Get the canonical transcript for a gene.
 
@@ -204,7 +204,7 @@ class EnsemblClient:
     @functools.lru_cache(maxsize=1000)  # noqa: B019
     def get_mane_transcript(
         self, gene_symbol: str, species: str = "human"
-    ) -> dict[str, Any] | None:
+    ) -> Optional[dict[str, Any]]:
         """
         Get MANE (Matched Annotation from NCBI and EBI) transcript information.
 
@@ -254,7 +254,7 @@ class EnsemblClient:
     @functools.lru_cache(maxsize=1000)  # noqa: B019
     def rsid_to_coordinates(
         self, rsid: str, species: str = "human"
-    ) -> dict[str, Any] | None:
+    ) -> Optional[dict[str, Any]]:
         """
         Convert rsID to genomic coordinates.
 

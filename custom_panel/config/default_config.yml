@@ -164,6 +164,48 @@ data_sources:
     
     # Note: The neoplasm root term HP:0002664 is automatically used
 
+  # ClinGen gene validity - Standalone source
+  ClinGen:
+    enabled: true
+    source_group: false  # This is a standalone source
+    category: "germline"
+    evidence_score: 1.2  # Base evidence score
+    # Primary source: Live API (JSON endpoint)
+    url: "https://search.clinicalgenome.org/api/affiliates/40023"
+    # Fallback source: Local file (if API call fails)
+    file_path: "data/clingen/gene_validity.tsv"
+    # Classification scoring
+    classification_scores:
+      "Definitive": 2.0
+      "Strong": 1.5
+      "Moderate": 1.0
+      "Limited": 0.5
+      "Disputed": 0.3
+      "Refuted": 0.0  # Will be filtered out
+
+  # GenCC gene-disease associations - Standalone source
+  TheGenCC:
+    enabled: true
+    source_group: false  # This is a standalone source
+    category: "germline"
+    evidence_score: 1.2  # Base evidence score
+    # Primary source: Live URL (direct Excel download)
+    url: "https://search.thegencc.org/download/action/submissions-export-xlsx"
+    # Fallback source: Local file (if URL download fails)
+    file_path: "data/gencc/submissions_export.xlsx"
+    # Keywords to filter for cancer-related diseases
+    filter_keywords: ["cancer", "tumor", "tumour"]
+    # Classification scoring
+    classification_scores:
+      "Definitive": 2.0
+      "Strong": 1.5
+      "Moderate": 1.0
+      "Supportive": 0.7
+      "Limited": 0.5
+      "Disputed Evidence": 0.3
+      "No Known Disease Relationship": 0.0  # Will be filtered out
+      "Refuted Evidence": 0.0  # Will be filtered out
+
 # Scoring and decision logic
 scoring:
   # Source group weights for pre-aggregated groups
@@ -175,6 +217,8 @@ scoring:
     ACMG_Incidental_Findings: 1.5
     Manual_Curation: 1.1
     HPO_Neoplasm: 0.7
+    ClinGen: 1.2
+    TheGenCC: 1.2
 
   # Decision thresholds
   thresholds:

@@ -29,6 +29,8 @@ from .sources.g01_panelapp import fetch_panelapp_data
 from .sources.g02_hpo import fetch_hpo_neoplasm_data
 from .sources.g03_commercial_panels import fetch_commercial_panels_data
 from .sources.g04_cosmic_germline import fetch_cosmic_germline_data
+from .sources.g05_clingen import fetch_clingen_data
+from .sources.g06_gencc import fetch_gencc_data
 
 # Suppress ALL deprecation warnings at module level
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -147,7 +149,7 @@ def run(
     save_intermediate: bool = typer.Option(
         False, "--save-intermediate", help="Save intermediate files for debugging"
     ),
-    intermediate_format: str | None = typer.Option(
+    intermediate_format: Optional[str] = typer.Option(
         None,
         "--intermediate-format",
         help="Format for intermediate files (csv, excel, parquet)",
@@ -511,10 +513,14 @@ def fetch(
         df = fetch_commercial_panels_data(config)
     elif source.lower() == "cosmic":
         df = fetch_cosmic_germline_data(config)
+    elif source.lower() == "clingen":
+        df = fetch_clingen_data(config)
+    elif source.lower() == "gencc":
+        df = fetch_gencc_data(config)
     else:
         console.print(f"[red]Unknown source: {source}[/red]")
         console.print(
-            "Available sources: panelapp, inhouse, acmg, manual, hpo, commercial, cosmic"
+            "Available sources: panelapp, inhouse, acmg, manual, hpo, commercial, cosmic, clingen, gencc"
         )
         raise typer.Exit(1)
 
@@ -652,7 +658,7 @@ def search_panels(
 
 
 def fetch_all_sources(
-    config: dict[str, Any], output_manager: OutputManager | None = None
+    config: dict[str, Any], output_manager: Optional[OutputManager] = None
 ) -> list[pd.DataFrame]:
     """Fetch data from all enabled sources."""
     dataframes = []
@@ -666,6 +672,8 @@ def fetch_all_sources(
         "HPO_Neoplasm": fetch_hpo_neoplasm_data,
         "Commercial_Panels": fetch_commercial_panels_data,
         "COSMIC_Germline": fetch_cosmic_germline_data,
+        "ClinGen": fetch_clingen_data,
+        "TheGenCC": fetch_gencc_data,
     }
 
     data_sources = config.get("data_sources", {})

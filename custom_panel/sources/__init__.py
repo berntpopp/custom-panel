@@ -7,6 +7,8 @@ from .g01_panelapp import fetch_panelapp_data
 from .g02_hpo import fetch_hpo_neoplasm_data
 from .g03_commercial_panels import fetch_commercial_panels_data
 from .g04_cosmic_germline import fetch_cosmic_germline_data
+from .g05_clingen import fetch_clingen_data
+from .g06_gencc import fetch_gencc_data
 
 __all__ = [
     "fetch_acmg_incidental_data",
@@ -16,4 +18,6 @@ __all__ = [
     "fetch_hpo_neoplasm_data",
     "fetch_commercial_panels_data",
     "fetch_cosmic_germline_data",
+    "fetch_clingen_data",
+    "fetch_gencc_data",
 ]
