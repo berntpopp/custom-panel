@@ -609,7 +609,7 @@ class TestDataFrameOperations:
                 "exon_id": "E1",
                 "strand": "+",
                 "transcript_id": "T1",
-                "rank": 1
+                "rank": 1,
             },
             {
                 "chromosome": "1",
@@ -619,7 +619,7 @@ class TestDataFrameOperations:
                 "exon_id": "E2",
                 "strand": "+",
                 "transcript_id": "T1",
-                "rank": 2
+                "rank": 2,
             },
             # Gene 2, MANE select transcript
             {
@@ -630,13 +630,15 @@ class TestDataFrameOperations:
                 "exon_id": "E3",
                 "strand": "-",
                 "transcript_id": "T2",
-                "rank": 1
+                "rank": 1,
             },
         ]
 
         with tempfile.TemporaryDirectory() as tmpdir:
             bed_path = Path(tmpdir) / "test_exons.bed"
-            create_exon_bed_file(exons_data, bed_path, transcript_type="canonical", padding=10)
+            create_exon_bed_file(
+                exons_data, bed_path, transcript_type="canonical", padding=10
+            )
 
             assert bed_path.exists()
             with open(bed_path) as f:
@@ -648,7 +650,7 @@ class TestDataFrameOperations:
             fields1 = lines[0].strip().split("\t")
             assert fields1[0] == "1"
             assert fields1[1] == "89"  # 100 - 1 - 10
-            assert fields1[2] == "210" # 200 + 10
+            assert fields1[2] == "210"  # 200 + 10
             assert "GENE1_T1_exon1" in fields1[3]
             assert fields1[4] == "1000"
             assert fields1[5] == "+"
@@ -657,14 +659,14 @@ class TestDataFrameOperations:
             fields2 = lines[1].strip().split("\t")
             assert fields2[0] == "1"
             assert fields2[1] == "289"  # 300 - 1 - 10
-            assert fields2[2] == "410" # 400 + 10
+            assert fields2[2] == "410"  # 400 + 10
             assert "GENE1_T1_exon2" in fields2[3]
 
             # Check exon of GENE2 (negative strand)
             fields3 = lines[2].strip().split("\t")
             assert fields3[0] == "2"
-            assert fields3[1] == "489" # 500 - 1 - 10
-            assert fields3[2] == "560" # 550 + 10
+            assert fields3[1] == "489"  # 500 - 1 - 10
+            assert fields3[2] == "560"  # 550 + 10
             assert "GENE2_T2_exon1" in fields3[3]
             assert fields3[5] == "-"
 
@@ -689,15 +691,21 @@ class TestEnsemblHelpers:
         # Total exon length = 101 + 101 = 202
 
         # Test without padding
-        coverage = ensembl_client.calculate_transcript_coverage(transcript_data, padding=0)
+        coverage = ensembl_client.calculate_transcript_coverage(
+            transcript_data, padding=0
+        )
         assert coverage == 202
 
         # Test with padding
-        coverage_padded = ensembl_client.calculate_transcript_coverage(transcript_data, padding=10)
+        coverage_padded = ensembl_client.calculate_transcript_coverage(
+            transcript_data, padding=10
+        )
         # Expected: 202 + (2 * 10) = 222
         assert coverage_padded == 222
 
-    def test_calculate_transcript_coverage_edge_cases(self, ensembl_client: EnsemblClient):
+    def test_calculate_transcript_coverage_edge_cases(
+        self, ensembl_client: EnsemblClient
+    ):
         """Test edge cases for transcript coverage calculation."""
         # No exons - returns 0, not None
         assert ensembl_client.calculate_transcript_coverage({"Exon": []}) == 0
@@ -705,7 +713,9 @@ class TestEnsemblHelpers:
         assert ensembl_client.calculate_transcript_coverage({}) is None
         assert ensembl_client.calculate_transcript_coverage(None) is None
 
-    def test_calculate_transcript_coverage_overlapping_exons(self, ensembl_client: EnsemblClient):
+    def test_calculate_transcript_coverage_overlapping_exons(
+        self, ensembl_client: EnsemblClient
+    ):
         """Test transcript coverage calculation with overlapping exons."""
         transcript_data = {
             "Exon": [
@@ -714,7 +724,9 @@ class TestEnsemblHelpers:
             ]
         }
         # Should handle overlapping exons properly
-        coverage = ensembl_client.calculate_transcript_coverage(transcript_data, padding=0)
+        coverage = ensembl_client.calculate_transcript_coverage(
+            transcript_data, padding=0
+        )
         # This would depend on the implementation - might be sum of all exons or merged regions
         assert coverage is not None
         assert coverage > 0

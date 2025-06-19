@@ -486,20 +486,21 @@ class TestPanelMerger:
 
     def test_apply_decision_logic_with_veto(self):
         """Test that veto logic correctly overrides score thresholds."""
-        df = pd.DataFrame({
-            "approved_symbol": ["VETO_GENE", "NORMAL_GENE"],
-            "score": [0.1, 0.1],  # Both genes are below the threshold
-            "source_count": [1, 1],
-            "veto_reasons": ["Veto from Manual_Curation", ""]  # Only one has a veto reason
-        })
+        df = pd.DataFrame(
+            {
+                "approved_symbol": ["VETO_GENE", "NORMAL_GENE"],
+                "score": [0.1, 0.1],  # Both genes are below the threshold
+                "source_count": [1, 1],
+                "veto_reasons": [
+                    "Veto from Manual_Curation",
+                    "",
+                ],  # Only one has a veto reason
+            }
+        )
 
         config = {
-            "scoring": {
-                "thresholds": {"score_threshold": 2.0, "min_sources": 1}
-            },
-            "data_sources": {
-                "manual_curation": {"veto": {"enabled": True}}
-            }
+            "scoring": {"thresholds": {"score_threshold": 2.0, "min_sources": 1}},
+            "data_sources": {"manual_curation": {"veto": {"enabled": True}}},
         }
         merger = PanelMerger(config)
         result_df = merger._apply_decision_logic(df)
@@ -519,43 +520,51 @@ class TestPanelMerger:
         (
             {"score_threshold": 2.0, "min_sources": 1},
             [True, False, False],  # Expected include status for [BRCA1, TP53, LOWSCORE]
-            "standard_threshold"
+            "standard_threshold",
         ),
         # Case 2: Lenient thresholding
         (
             {"score_threshold": 1.0, "min_sources": 1},
             [True, True, False],
-            "lenient_threshold"
+            "lenient_threshold",
         ),
         # Case 3: High min_sources requirement
         (
             {"score_threshold": 1.0, "min_sources": 3},
             [False, False, False],  # No gene has 3 sources
-            "high_min_sources"
+            "high_min_sources",
         ),
         # Case 4: High score but low source count requirement
         (
             {"score_threshold": 2.5, "min_sources": 2},
             [True, False, False],  # Only BRCA1 meets both
-            "high_score_min_sources"
+            "high_score_min_sources",
         ),
     ]
 
-    @pytest.mark.parametrize("thresholds,expected_inclusions,test_id", decision_logic_test_cases)
-    def test_apply_decision_logic_parametrized(self, thresholds, expected_inclusions, test_id):
+    @pytest.mark.parametrize(
+        "thresholds,expected_inclusions,test_id", decision_logic_test_cases
+    )
+    def test_apply_decision_logic_parametrized(
+        self, thresholds, expected_inclusions, test_id
+    ):
         """Test decision logic with various threshold configurations."""
-        df = pd.DataFrame({
-            "approved_symbol": ["BRCA1", "TP53", "LOWSCORE"],
-            "score": [3.0, 1.5, 0.5],
-            "source_count": [2, 2, 1],
-            "veto_reasons": ["", "", ""]  # No vetos for this test
-        })
+        df = pd.DataFrame(
+            {
+                "approved_symbol": ["BRCA1", "TP53", "LOWSCORE"],
+                "score": [3.0, 1.5, 0.5],
+                "source_count": [2, 2, 1],
+                "veto_reasons": ["", "", ""],  # No vetos for this test
+            }
+        )
 
         config = {"scoring": {"thresholds": thresholds}}
         merger = PanelMerger(config)
         result_df = merger._apply_decision_logic(df)
 
-        assert result_df["include"].tolist() == expected_inclusions, f"Failed for test case: {test_id}"
+        assert (
+            result_df["include"].tolist() == expected_inclusions
+        ), f"Failed for test case: {test_id}"
 
 
 class TestGeneAnnotatorEdgeCases:

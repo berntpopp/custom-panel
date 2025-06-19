@@ -111,7 +111,7 @@ output:
     return {
         "config_path": config_path,
         "output_dir": tmp_path / "cli_output",
-        "tmp_path": tmp_path
+        "tmp_path": tmp_path,
     }
 
 
@@ -119,10 +119,7 @@ output:
 @patch("custom_panel.engine.annotator.EnsemblClient")
 @patch("custom_panel.engine.annotator.HGNCClient")
 def test_cli_run_success(
-    mock_hgnc_client,
-    mock_ensembl_client,
-    runner: CliRunner,
-    test_environment: dict
+    mock_hgnc_client, mock_ensembl_client, runner: CliRunner, test_environment: dict
 ):
     """Test a successful end-to-end run via the CLI."""
     # Setup mock HGNC client
@@ -141,7 +138,7 @@ def test_cli_run_success(
             "start": 43044295,
             "end": 43125483,
             "canonical_transcript": "ENST00000357654",
-            "mane_select_transcript": "ENST00000357654.9"
+            "mane_select_transcript": "ENST00000357654.9",
         },
         "TP53": {
             "gene_id": "ENSG00000141510",
@@ -149,7 +146,7 @@ def test_cli_run_success(
             "start": 7661779,
             "end": 7687550,
             "canonical_transcript": "ENST00000269305",
-            "mane_select_transcript": "ENST00000269305.9"
+            "mane_select_transcript": "ENST00000269305.9",
         },
         "KRAS": {
             "gene_id": "ENSG00000133703",
@@ -157,14 +154,14 @@ def test_cli_run_success(
             "start": 25205246,
             "end": 25250936,
             "canonical_transcript": "ENST00000256078",
-            "mane_select_transcript": "ENST00000256078.10"
+            "mane_select_transcript": "ENST00000256078.10",
         },
         "VETO_GENE": {
             "gene_id": "ENSG00000999999",
             "chromosome": "1",
             "start": 1000000,
             "end": 1010000,
-            "canonical_transcript": "ENST00000999999"
+            "canonical_transcript": "ENST00000999999",
         },
         "MLH1": {
             "gene_id": "ENSG00000076242",
@@ -172,55 +169,118 @@ def test_cli_run_success(
             "start": 36993325,
             "end": 37050845,
             "canonical_transcript": "ENST00000231790",
-            "mane_select_transcript": "ENST00000231790.8"
-        }
+            "mane_select_transcript": "ENST00000231790.8",
+        },
     }
 
     # Mock transcript data for exon BED generation
     mock_transcript_data = {
         "BRCA1": {
-            "all_transcripts": [{
-                "id": "ENST00000357654",
-                "Exon": [
-                    {"id": "ENSE00001", "start": 43044295, "end": 43044400, "strand": -1, "rank": 1, "seq_region_name": "17"},
-                    {"id": "ENSE00002", "start": 43045800, "end": 43045900, "strand": -1, "rank": 2, "seq_region_name": "17"}
-                ]
-            }],
+            "all_transcripts": [
+                {
+                    "id": "ENST00000357654",
+                    "Exon": [
+                        {
+                            "id": "ENSE00001",
+                            "start": 43044295,
+                            "end": 43044400,
+                            "strand": -1,
+                            "rank": 1,
+                            "seq_region_name": "17",
+                        },
+                        {
+                            "id": "ENSE00002",
+                            "start": 43045800,
+                            "end": 43045900,
+                            "strand": -1,
+                            "rank": 2,
+                            "seq_region_name": "17",
+                        },
+                    ],
+                }
+            ],
             "gene_id": "ENSG00000012048",
-            "chromosome": "17"
+            "chromosome": "17",
         },
         "TP53": {
-            "all_transcripts": [{
-                "id": "ENST00000269305",
-                "Exon": [
-                    {"id": "ENSE00003", "start": 7661779, "end": 7661900, "strand": -1, "rank": 1, "seq_region_name": "17"}
-                ]
-            }],
+            "all_transcripts": [
+                {
+                    "id": "ENST00000269305",
+                    "Exon": [
+                        {
+                            "id": "ENSE00003",
+                            "start": 7661779,
+                            "end": 7661900,
+                            "strand": -1,
+                            "rank": 1,
+                            "seq_region_name": "17",
+                        }
+                    ],
+                }
+            ],
             "gene_id": "ENSG00000141510",
-            "chromosome": "17"
-        }
+            "chromosome": "17",
+        },
     }
 
     # Patch the pipeline run method to return our mock transcript data
     with patch("custom_panel.engine.pipeline.Pipeline.run") as mock_run:
         # Create a mock annotated DataFrame
-        annotated_df = pd.DataFrame({
-            "approved_symbol": ["BRCA1", "TP53", "KRAS", "VETO_GENE", "MLH1"],
-            "hgnc_id": ["HGNC:1", "HGNC:2", "HGNC:3", "HGNC:4", "HGNC:5"],
-            "gene_id": ["ENSG00000012048", "ENSG00000141510", "ENSG00000133703", "ENSG00000999999", "ENSG00000076242"],
-            "chromosome": ["17", "17", "12", "1", "3"],
-            "gene_start": [43044295, 7661779, 25205246, 1000000, 36993325],
-            "gene_end": [43125483, 7687550, 25250936, 1010000, 37050845],
-            "gene_strand": [-1, -1, 1, 1, -1],
-            "canonical_transcript": ["ENST00000357654", "ENST00000269305", "ENST00000256078", "ENST00000999999", "ENST00000231790"],
-            "mane_select_transcript": ["ENST00000357654.9", "ENST00000269305.9", "ENST00000256078.10", pd.NA, "ENST00000231790.8"],
-            "score": [2.5, 2.5, 2.5, 0.5, 1.5],
-            "source_count": [1, 1, 1, 1, 1],
-            "sources": ["inhouse_panels", "inhouse_panels", "inhouse_panels", "manual_curation", "manual_curation"],
-            "veto_reasons": ["", "", "", "Veto from manual_curation: Manual veto", ""],
-            "include": [True, True, True, True, False],
-            "inclusion_reason": ["score", "score", "score", "veto", "below_threshold"]
-        })
+        annotated_df = pd.DataFrame(
+            {
+                "approved_symbol": ["BRCA1", "TP53", "KRAS", "VETO_GENE", "MLH1"],
+                "hgnc_id": ["HGNC:1", "HGNC:2", "HGNC:3", "HGNC:4", "HGNC:5"],
+                "gene_id": [
+                    "ENSG00000012048",
+                    "ENSG00000141510",
+                    "ENSG00000133703",
+                    "ENSG00000999999",
+                    "ENSG00000076242",
+                ],
+                "chromosome": ["17", "17", "12", "1", "3"],
+                "gene_start": [43044295, 7661779, 25205246, 1000000, 36993325],
+                "gene_end": [43125483, 7687550, 25250936, 1010000, 37050845],
+                "gene_strand": [-1, -1, 1, 1, -1],
+                "canonical_transcript": [
+                    "ENST00000357654",
+                    "ENST00000269305",
+                    "ENST00000256078",
+                    "ENST00000999999",
+                    "ENST00000231790",
+                ],
+                "mane_select_transcript": [
+                    "ENST00000357654.9",
+                    "ENST00000269305.9",
+                    "ENST00000256078.10",
+                    pd.NA,
+                    "ENST00000231790.8",
+                ],
+                "score": [2.5, 2.5, 2.5, 0.5, 1.5],
+                "source_count": [1, 1, 1, 1, 1],
+                "sources": [
+                    "inhouse_panels",
+                    "inhouse_panels",
+                    "inhouse_panels",
+                    "manual_curation",
+                    "manual_curation",
+                ],
+                "veto_reasons": [
+                    "",
+                    "",
+                    "",
+                    "Veto from manual_curation: Manual veto",
+                    "",
+                ],
+                "include": [True, True, True, True, False],
+                "inclusion_reason": [
+                    "score",
+                    "score",
+                    "score",
+                    "veto",
+                    "below_threshold",
+                ],
+            }
+        )
 
         mock_run.return_value = (annotated_df, mock_transcript_data)
 
@@ -228,11 +288,10 @@ def test_cli_run_success(
         output_dir = test_environment["output_dir"]
 
         # Invoke the CLI 'run' command
-        result = runner.invoke(app, [
-            "run",
-            "--config-file", str(config_path),
-            "--output-dir", str(output_dir)
-        ])
+        result = runner.invoke(
+            app,
+            ["run", "--config-file", str(config_path), "--output-dir", str(output_dir)],
+        )
 
     # 1. Assert the command exited successfully
     assert result.exit_code == 0, f"CLI failed with: {result.stdout}"
@@ -299,12 +358,17 @@ def test_cli_dry_run(runner: CliRunner, test_environment: dict):
     output_dir = test_environment["output_dir"]
 
     # Invoke the CLI with --dry-run
-    result = runner.invoke(app, [
-        "run",
-        "--config-file", str(config_path),
-        "--output-dir", str(output_dir),
-        "--dry-run"
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--config-file",
+            str(config_path),
+            "--output-dir",
+            str(output_dir),
+            "--dry-run",
+        ],
+    )
 
     assert result.exit_code == 0
     assert "Running in dry-run mode" in result.stdout
@@ -317,18 +381,19 @@ def test_cli_dry_run(runner: CliRunner, test_environment: dict):
             final_output_dir = run_dir / "06_final_output"
             if final_output_dir.exists():
                 # Should not have generated actual output files
-                output_files = list(final_output_dir.glob("*.csv")) + list(final_output_dir.glob("*.xlsx"))
-                assert len(output_files) == 0, "Output files were created in dry run mode"
+                output_files = list(final_output_dir.glob("*.csv")) + list(
+                    final_output_dir.glob("*.xlsx")
+                )
+                assert (
+                    len(output_files) == 0
+                ), "Output files were created in dry run mode"
 
 
 def test_cli_config_check(runner: CliRunner, test_environment: dict):
     """Test the config-check command."""
     config_path = test_environment["config_path"]
 
-    result = runner.invoke(app, [
-        "config-check",
-        "--config-file", str(config_path)
-    ])
+    result = runner.invoke(app, ["config-check", "--config-file", str(config_path)])
 
     assert result.exit_code == 0
     assert "Configuration Validation" in result.stdout
@@ -345,7 +410,7 @@ def test_cli_search_panels(mock_search, runner: CliRunner):
     # Mock search results
     mock_search.return_value = [
         {"id": "123", "name": "Cancer Panel", "version": "1.0", "source": "panelapp"},
-        {"id": "456", "name": "Cardiac Panel", "version": "2.1", "source": "panelapp"}
+        {"id": "456", "name": "Cardiac Panel", "version": "2.1", "source": "panelapp"},
     ]
 
     result = runner.invoke(app, ["search-panels", "cancer"])
@@ -373,11 +438,9 @@ def test_cli_invalid_log_level(runner: CliRunner, test_environment: dict):
     config_path = test_environment["config_path"]
 
     # This should still work, defaulting to a valid log level
-    result = runner.invoke(app, [
-        "run",
-        "--config-file", str(config_path),
-        "--log-level", "INVALID"
-    ])
+    result = runner.invoke(
+        app, ["run", "--config-file", str(config_path), "--log-level", "INVALID"]
+    )
 
     # The command should handle this gracefully
     assert result.exit_code in [0, 1]  # May succeed or fail gracefully
