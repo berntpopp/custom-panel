@@ -40,17 +40,33 @@ class IDTHybridizationParser(BaseSNPScraper):
             with PanelDownloader() as downloader:
                 list_path = downloader.download(self.url, "list", "requests")
 
-            # Extract rsIDs from the list file
-            rsids = self._extract_rsids_from_list(list_path)
+            # Extract rsIDs and coordinates from the list file
+            snp_data = self._extract_rsids_from_list(list_path)
 
-            # Create SNP records
+            # Create SNP records with coordinates when available
             snps = []
-            for rsid in rsids:
+            for data in snp_data:
+                rsid = data["rsid"]
+
+                # Extract coordinate information if available
+                coord_args = {}
+                if "chromosome" in data:
+                    coord_args.update(
+                        {
+                            "chromosome": data["chromosome"],
+                            "start": data.get("start"),
+                            "end": data.get("end"),
+                            "strand": data.get("strand"),
+                            "assembly": data.get("assembly"),
+                        }
+                    )
+
                 snps.append(
                     self.create_snp_record(
                         rsid=rsid,
                         category="identity",
                         panel_specific_name="IDT xGen Human ID Hybridization Panel",
+                        **coord_args,
                     )
                 )
 
@@ -75,21 +91,25 @@ class IDTHybridizationParser(BaseSNPScraper):
             logger.error(f"Error parsing IDT Hybridization panel: {e}")
             raise
 
-    def _extract_rsids_from_list(self, list_path: Path) -> list[str]:
+    def _extract_rsids_from_list(self, list_path: Path) -> list[dict[str, Any]]:
         """
-        Extract rsIDs from the IDT targets list file.
+        Extract rsIDs with genomic coordinates from the IDT targets list file.
 
-        The .list file is typically tab-delimited with multiple columns.
-        Based on the R script, rsIDs are in column 5 (0-based index 4).
-        Lines starting with @ are comments.
+        The .list file is BED-like format with columns:
+        chr1	14155402	14155402	+	rs7520386
+        - Column 0: Chromosome
+        - Column 1: Start position
+        - Column 2: End position
+        - Column 3: Strand
+        - Column 4: rsID
 
         Args:
             list_path: Path to the list file
 
         Returns:
-            List of unique rsIDs
+            List of dictionaries with rsID and coordinate information
         """
-        rsids = []
+        snp_records = []
 
         try:
             # Read the file as tab-delimited
@@ -102,53 +122,113 @@ class IDTHybridizationParser(BaseSNPScraper):
                 on_bad_lines="skip",  # Skip malformed lines
             )
 
-            # Check if we have at least 5 columns (0-based index 4)
-            if len(df.columns) < 5:
-                logger.warning(f"Expected at least 5 columns, got {len(df.columns)}")
-                # Try to find rsIDs in any column
+            logger.info(f"Read {len(df)} rows from {list_path}")
+
+            # Check if we have the expected BED-like format (5 columns)
+            if len(df.columns) >= 5:
+                logger.info("Found BED-like format with genomic coordinates")
+
+                for _, row in df.iterrows():
+                    try:
+                        chromosome = str(row.iloc[0]).strip()
+                        start = int(row.iloc[1])
+                        end = int(row.iloc[2])
+                        strand = str(row.iloc[3]).strip()
+                        rsid = str(row.iloc[4]).strip()
+
+                        # Validate rsID
+                        if self.validate_rsid(rsid):
+                            snp_records.append(
+                                {
+                                    "rsid": rsid,
+                                    "chromosome": chromosome,
+                                    "start": start,
+                                    "end": end,
+                                    "strand": strand,
+                                    "assembly": "GRCh37",  # IDT typically uses GRCh37/hg19
+                                }
+                            )
+                        else:
+                            logger.debug(f"Invalid rsID: {rsid}")
+
+                    except (ValueError, IndexError) as e:
+                        logger.debug(f"Skipping malformed row: {e}")
+                        continue
+
+            elif len(df.columns) >= 1:
+                logger.warning(
+                    f"Expected BED format but got {len(df.columns)} columns, extracting rsIDs only"
+                )
+
+                # Fallback: try to find rsIDs in any column
                 for col in df.columns:
                     col_data = df[col].dropna().astype(str)
                     for value in col_data:
                         if value.startswith("rs") and self.validate_rsid(value):
-                            rsids.append(value)
-            else:
-                # Extract from column 5 (index 4) as per R script
-                rsid_column = df.iloc[:, 4]  # 5th column (0-based index 4)
+                            snp_records.append({"rsid": value})
 
-                for value in rsid_column.dropna():
-                    value_str = str(value).strip()
-                    if value_str.startswith("rs") and self.validate_rsid(value_str):
-                        rsids.append(value_str)
-
-            # Also try parsing as a more flexible format
-            if not rsids:
+            # If no records found, try line-by-line parsing
+            if not snp_records:
                 logger.info(
-                    "No rsIDs found in expected column, trying alternative parsing"
+                    "No records found in tabular format, trying line-by-line parsing"
                 )
 
-                # Read line by line and extract rsIDs
                 with open(list_path, encoding="utf-8") as f:
                     for line in f:
                         line = line.strip()
 
-                        # Skip comments
+                        # Skip comments and empty lines
                         if line.startswith("@") or not line:
                             continue
 
-                        # Extract rsIDs from the line
-                        line_rsids = self.extract_rsids_from_text(line)
-                        rsids.extend(line_rsids)
+                        # Try to parse as tab-delimited BED format
+                        parts = line.split("\t")
+                        if len(parts) >= 5:
+                            try:
+                                chromosome = parts[0]
+                                start = int(parts[1])
+                                end = int(parts[2])
+                                strand = parts[3]
+                                rsid = parts[4]
 
-            # Remove duplicates while preserving order
+                                if self.validate_rsid(rsid):
+                                    snp_records.append(
+                                        {
+                                            "rsid": rsid,
+                                            "chromosome": chromosome,
+                                            "start": start,
+                                            "end": end,
+                                            "strand": strand,
+                                            "assembly": "GRCh37",
+                                        }
+                                    )
+                            except (ValueError, IndexError):
+                                # Extract rsIDs from the line using regex
+                                line_rsids = self.extract_rsids_from_text(line)
+                                for rsid in line_rsids:
+                                    snp_records.append({"rsid": rsid})
+                        else:
+                            # Extract rsIDs from the line using regex
+                            line_rsids = self.extract_rsids_from_text(line)
+                            for rsid in line_rsids:
+                                snp_records.append({"rsid": rsid})
+
+            # Remove duplicates based on rsID while preserving order
             seen = set()
-            unique_rsids = []
-            for rsid in rsids:
+            unique_records = []
+            for record in snp_records:
+                rsid = record["rsid"]
                 if rsid not in seen:
                     seen.add(rsid)
-                    unique_rsids.append(rsid)
+                    unique_records.append(record)
 
-            return unique_rsids
+            with_coords = sum(1 for r in unique_records if "chromosome" in r)
+            logger.info(
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)"
+            )
+
+            return unique_records
 
         except Exception as e:
-            logger.error(f"Error extracting rsIDs from list file: {e}")
+            logger.error(f"Error extracting data from list file: {e}")
             raise

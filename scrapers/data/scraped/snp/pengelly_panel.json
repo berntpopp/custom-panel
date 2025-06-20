@@ -1,0 +1,158 @@
+{
+  "panel_name": "pengelly_panel",
+  "source_url": "https://genomemedicine.biomedcentral.com/counter/pdf/10.1186/gm492.pdf",
+  "description": "Pengelly et al. (2013) - 56 SNP panel for sample tracking",
+  "snps": [
+    {
+      "rsid": "rs10203363",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs1037256",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs10373",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs10883099",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs1381532",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs1410592",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs17548783",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs2070203",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs2228611",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs2229546",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs2297995",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs2819561",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs2942",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs309557",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs4148973",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs4577050",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs4617548",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs4675",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs4688963",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs4735258",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs497692",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs7300444",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs9532292",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    },
+    {
+      "rsid": "rs9962023",
+      "source": "Pengelly_Panel",
+      "category": "identity",
+      "panel_specific_name": "Pengelly et al. 2013"
+    }
+  ],
+  "metadata": {
+    "publication": "Genome Medicine 2013",
+    "doi": "10.1186/gm492",
+    "source_url": "https://genomemedicine.biomedcentral.com/counter/pdf/10.1186/gm492.pdf",
+    "snp_count": 24
+  },
+  "retrieval_date": "2025-06-20"
+}

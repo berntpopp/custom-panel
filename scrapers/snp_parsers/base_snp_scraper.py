@@ -203,17 +203,155 @@ class BaseSNPScraper(ABC):
 
         return list(set(rsids))  # Return unique rsIDs
 
-    def create_snp_record(self, rsid: str, **kwargs) -> dict[str, Any]:
+    def create_snp_record(
+        self,
+        rsid: str,
+        chromosome: str = None,
+        position: int = None,
+        start: int = None,
+        end: int = None,
+        strand: str = None,
+        assembly: str = None,
+        **kwargs,
+    ) -> dict[str, Any]:
         """
-        Create a standardized SNP record.
+        Create a standardized SNP record with optional genomic coordinates.
 
         Args:
             rsid: The rsID
+            chromosome: Chromosome (e.g., '1', 'chr1', 'X')
+            position: Genomic position (for point mutations)
+            start: Start position (for ranges)
+            end: End position (for ranges)
+            strand: Strand orientation ('+', '-')
+            assembly: Reference assembly ('GRCh37', 'GRCh38', 'hg19', 'hg38')
             **kwargs: Additional fields for the record
 
         Returns:
             Standardized SNP record dictionary
         """
         record = {"rsid": rsid, "source": self.config.get("name", "unknown")}
+
+        # Add genomic coordinates if provided
+        if chromosome is not None:
+            record["chromosome"] = self.clean_chromosome(chromosome)
+
+        if position is not None:
+            record["position"] = int(position)
+        elif start is not None:
+            record["start"] = int(start)
+            if end is not None:
+                record["end"] = int(end)
+
+        if strand is not None:
+            record["strand"] = strand
+
+        if assembly is not None:
+            record["assembly"] = self.clean_assembly(assembly)
+
         record.update(kwargs)
         return record
+
+    def clean_chromosome(self, chromosome: str) -> str:
+        """
+        Clean and standardize chromosome notation.
+
+        Args:
+            chromosome: Raw chromosome string
+
+        Returns:
+            Cleaned chromosome (e.g., '1', '2', 'X', 'Y', 'MT')
+        """
+        if not chromosome:
+            return ""
+
+        chrom = str(chromosome).strip().upper()
+
+        # Remove 'chr' prefix if present
+        if chrom.startswith("CHR"):
+            chrom = chrom[3:]
+
+        # Handle mitochondrial
+        if chrom in ["MT", "M", "MITO", "MITOCHONDRIAL"]:
+            return "MT"
+
+        # Handle sex chromosomes
+        if chrom in ["23", "XX"]:
+            return "X"
+        if chrom in ["24", "XY"]:
+            return "Y"
+
+        # Numeric chromosomes
+        if chrom.isdigit():
+            return chrom
+
+        # Already clean format
+        if chrom in ["X", "Y"]:
+            return chrom
+
+        return chrom
+
+    def clean_assembly(self, assembly: str) -> str:
+        """
+        Clean and standardize genome assembly notation.
+
+        Args:
+            assembly: Raw assembly string
+
+        Returns:
+            Standardized assembly ('GRCh37', 'GRCh38')
+        """
+        if not assembly:
+            return ""
+
+        assembly = str(assembly).strip().lower()
+
+        # Map common assembly names
+        assembly_map = {
+            "grch37": "GRCh37",
+            "grch38": "GRCh38",
+            "hg19": "GRCh37",
+            "hg38": "GRCh38",
+            "b37": "GRCh37",
+            "b38": "GRCh38",
+            "37": "GRCh37",
+            "38": "GRCh38",
+        }
+
+        return assembly_map.get(assembly, assembly.upper())
+
+    def parse_genomic_position(self, position_str: str) -> dict[str, Any]:
+        """
+        Parse genomic position string in various formats.
+
+        Args:
+            position_str: Position string (e.g., 'chr1:123456', '1:123456-123457')
+
+        Returns:
+            Dictionary with parsed coordinates
+        """
+        result = {}
+
+        if not position_str:
+            return result
+
+        position_str = str(position_str).strip()
+
+        # Pattern: chr1:123456 or chr1:123456-123457
+        match = re.match(r"(chr)?(\w+):(\d+)(?:-(\d+))?", position_str, re.IGNORECASE)
+        if match:
+            chromosome = match.group(2)
+            start = int(match.group(3))
+            end = int(match.group(4)) if match.group(4) else start
+
+            result["chromosome"] = self.clean_chromosome(chromosome)
+            result["start"] = start
+            result["end"] = end
+
+            return result
+
+        # Pattern: just a number (position only)
+        if position_str.isdigit():
+            result["position"] = int(position_str)
+
+        return result

@@ -41,17 +41,23 @@ class PengellyParser(BaseSNPScraper):
             with PanelDownloader() as downloader:
                 pdf_path = downloader.download(self.url, "pdf", "requests")
 
-            # Extract rsIDs from PDF
-            rsids = self._extract_rsids_from_pdf(pdf_path)
+            # Extract rsIDs and coordinates from PDF
+            snp_data = self._extract_rsids_from_pdf(pdf_path)
 
-            # Create SNP records
+            # Create SNP records with coordinates when available
             snps = []
-            for rsid in rsids:
+            for data in snp_data:
+                rsid = data["rsid"]
+
+                # Extract all non-rsid fields for the record
+                record_kwargs = {k: v for k, v in data.items() if k != "rsid"}
+
                 snps.append(
                     self.create_snp_record(
                         rsid=rsid,
                         category="identity",
                         panel_specific_name="Pengelly et al. 2013",
+                        **record_kwargs,
                     )
                 )
 
@@ -74,58 +80,187 @@ class PengellyParser(BaseSNPScraper):
             logger.error(f"Error parsing Pengelly panel: {e}")
             raise
 
-    def _extract_rsids_from_pdf(self, pdf_path: Path) -> list[str]:
+    def _extract_rsids_from_pdf(self, pdf_path: Path) -> list[dict[str, Any]]:
         """
-        Extract rsIDs from the Pengelly PDF.
+        Extract rsIDs with genomic coordinates from the Pengelly PDF.
 
-        The PDF contains rsIDs in table format, not at the start of lines.
-        We need to extract all rsID patterns from the entire text.
+        The PDF contains a table with format:
+        Chromosome Position dbSNP rsID Gene Alleles ...
 
         Args:
             pdf_path: Path to the PDF file
 
         Returns:
-            List of unique rsIDs
+            List of dictionaries with rsID and coordinate information
         """
-        rsids = []
+        snp_records = []
 
         try:
             with pdfplumber.open(pdf_path) as pdf:
-                # First try to extract tables
                 for page in pdf.pages:
                     # Try table extraction first
                     tables = page.extract_tables()
                     for table in tables:
-                        for row in table:
-                            if row:
-                                for cell in row:
-                                    if cell and isinstance(cell, str):
-                                        # Look for rsID in cell
-                                        rsid_match = re.search(r"\b(rs\d+)\b", cell)
-                                        if rsid_match:
-                                            rsid = rsid_match.group(1)
-                                            if self.validate_rsid(rsid):
-                                                rsids.append(rsid)
+                        if not table:
+                            continue
 
-                    # Also extract from plain text
-                    text = page.extract_text()
-                    if text:
-                        # Extract all rsIDs from text
-                        rsid_matches = re.findall(r"\b(rs\d+)\b", text, re.IGNORECASE)
-                        for rsid in rsid_matches:
-                            if self.validate_rsid(rsid):
-                                rsids.append(rsid)
+                        # Look for coordinate table
+                        coords_found = self._parse_pengelly_table(table)
+                        if coords_found:
+                            snp_records.extend(coords_found)
+                            logger.info(
+                                f"Found Pengelly coordinate table with {len(coords_found)} SNPs"
+                            )
 
-            # Remove duplicates while preserving order
+                    # If no coordinate table found, fall back to text extraction
+                    if not snp_records:
+                        text = page.extract_text()
+                        if text:
+                            # Extract all rsIDs from text
+                            rsid_matches = re.findall(
+                                r"\b(rs\d+)\b", text, re.IGNORECASE
+                            )
+                            for rsid in rsid_matches:
+                                if self.validate_rsid(rsid):
+                                    snp_records.append({"rsid": rsid})
+
+            # Remove duplicates based on rsID while preserving order
             seen = set()
-            unique_rsids = []
-            for rsid in rsids:
+            unique_records = []
+            for record in snp_records:
+                rsid = record["rsid"]
                 if rsid not in seen:
                     seen.add(rsid)
-                    unique_rsids.append(rsid)
+                    unique_records.append(record)
 
-            return unique_rsids
+            with_coords = sum(1 for r in unique_records if "chromosome" in r)
+            logger.info(
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)"
+            )
+            return unique_records
 
         except Exception as e:
             logger.error(f"Error extracting rsIDs from PDF: {e}")
             raise
+
+    def _parse_pengelly_table(self, table) -> list[dict[str, Any]]:
+        """
+        Parse Pengelly table with coordinate information.
+
+        Expected format: Chromosome Position dbSNP rsID Gene Alleles ...
+
+        Args:
+            table: Extracted table from PDF
+
+        Returns:
+            List of SNP records with coordinates
+        """
+        records = []
+
+        try:
+            if not table or len(table) < 2:  # Need header + data
+                return records
+
+            # Find header row to identify column positions
+            header_row = table[0]
+            headers = [str(cell).strip().lower() if cell else "" for cell in header_row]
+
+            # Look for coordinate columns
+            chr_col = None
+            pos_col = None
+            rsid_col = None
+            gene_col = None
+            allele_col = None
+
+            for i, header in enumerate(headers):
+                if "chromosome" in header:
+                    chr_col = i
+                elif "position" in header:
+                    pos_col = i
+                elif "rsid" in header or "dbsnp" in header:
+                    rsid_col = i
+                elif "gene" in header:
+                    gene_col = i
+                elif "allele" in header:
+                    allele_col = i
+
+            # If we don't have basic coordinate columns, this isn't the right table
+            if chr_col is None or pos_col is None or rsid_col is None:
+                return records
+
+            logger.info(
+                f"Found Pengelly coordinate table: chr={chr_col}, pos={pos_col}, rsid={rsid_col}"
+            )
+
+            # Parse data rows
+            for row in table[1:]:  # Skip header
+                if not row or len(row) <= max(chr_col, pos_col, rsid_col):
+                    continue
+
+                try:
+                    chromosome = (
+                        str(row[chr_col]).strip()
+                        if chr_col < len(row) and row[chr_col]
+                        else ""
+                    )
+                    position_str = (
+                        str(row[pos_col]).strip()
+                        if pos_col < len(row) and row[pos_col]
+                        else ""
+                    )
+                    rsid = (
+                        str(row[rsid_col]).strip()
+                        if rsid_col < len(row) and row[rsid_col]
+                        else ""
+                    )
+                    gene = (
+                        str(row[gene_col]).strip()
+                        if gene_col is not None
+                        and gene_col < len(row)
+                        and row[gene_col]
+                        else ""
+                    )
+                    alleles = (
+                        str(row[allele_col]).strip()
+                        if allele_col is not None
+                        and allele_col < len(row)
+                        and row[allele_col]
+                        else ""
+                    )
+
+                    # Validate rsID
+                    if not self.validate_rsid(rsid):
+                        continue
+
+                    record = {"rsid": rsid}
+
+                    # Add chromosome
+                    if chromosome:
+                        record["chromosome"] = self.clean_chromosome(chromosome)
+
+                    # Add position
+                    if position_str and position_str.isdigit():
+                        record["position"] = int(position_str)
+                        record["assembly"] = "GRCh37"  # Pengelly et al. used GRCh37
+
+                    # Add gene information
+                    if gene:
+                        record["gene"] = gene
+
+                    # Add allele information
+                    if alleles and "/" in alleles:
+                        allele_parts = alleles.split("/")
+                        if len(allele_parts) == 2:
+                            record["ref_allele"] = allele_parts[0].strip()
+                            record["alt_allele"] = allele_parts[1].strip()
+
+                    records.append(record)
+
+                except (ValueError, IndexError) as e:
+                    logger.debug(f"Could not parse Pengelly table row: {e}")
+                    continue
+
+        except Exception as e:
+            logger.debug(f"Error parsing Pengelly table: {e}")
+
+        return records

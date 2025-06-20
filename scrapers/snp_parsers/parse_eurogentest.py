@@ -41,17 +41,23 @@ class EurogentestParser(BaseSNPScraper):
             with PanelDownloader() as downloader:
                 pdf_path = downloader.download(self.url, "pdf", "requests")
 
-            # Extract rsIDs from PDF
-            rsids = self._extract_rsids_from_pdf(pdf_path)
+            # Extract rsIDs and coordinates from PDF
+            snp_data = self._extract_rsids_from_pdf(pdf_path)
 
-            # Create SNP records
+            # Create SNP records with coordinates when available
             snps = []
-            for rsid in rsids:
+            for data in snp_data:
+                rsid = data["rsid"]
+
+                # Extract all non-rsid fields for the record
+                record_kwargs = {k: v for k, v in data.items() if k != "rsid"}
+
                 snps.append(
                     self.create_snp_record(
                         rsid=rsid,
                         category="identity",
                         panel_specific_name="Eurogentest NGS 2014",
+                        **record_kwargs,
                     )
                 )
 
@@ -76,9 +82,9 @@ class EurogentestParser(BaseSNPScraper):
             logger.error(f"Error parsing Eurogentest panel: {e}")
             raise
 
-    def _extract_rsids_from_pdf(self, pdf_path: Path) -> list[str]:
+    def _extract_rsids_from_pdf(self, pdf_path: Path) -> list[dict[str, Any]]:
         """
-        Extract rsIDs from the Eurogentest PDF.
+        Extract rsIDs with chromosome information from the Eurogentest PDF.
 
         The PDF contains rsIDs in a table format with chromosome info.
         Pattern: chr.+rs[0-9]* (chromosome info followed by rsID)
@@ -87,9 +93,9 @@ class EurogentestParser(BaseSNPScraper):
             pdf_path: Path to the PDF file
 
         Returns:
-            List of unique rsIDs
+            List of dictionaries with rsID and coordinate information
         """
-        rsids = []
+        snp_records = []
 
         try:
             with pdfplumber.open(pdf_path) as pdf:
@@ -107,14 +113,10 @@ class EurogentestParser(BaseSNPScraper):
                         # Look for lines with chromosome info and rsID
                         # Pattern: chr followed by position info and rsID
                         if re.search(r"chr.+rs\d+", line, re.IGNORECASE):
-                            # Extract rsID from line
-                            # Split by whitespace and look for rsID pattern
-                            parts = line.split()
-                            for part in parts:
-                                if re.match(r"^rs\d+$", part, re.IGNORECASE):
-                                    rsid = self.clean_rsid(part)
-                                    if self.validate_rsid(rsid):
-                                        rsids.append(rsid)
+                            # Extract both chromosome and rsID information
+                            snp_record = self._parse_eurogentest_line(line)
+                            if snp_record:
+                                snp_records.append(snp_record)
 
                         # Also check for standalone rsIDs
                         elif re.match(r"^rs\d+", line, re.IGNORECASE):
@@ -122,18 +124,69 @@ class EurogentestParser(BaseSNPScraper):
                             if rsid_match:
                                 rsid = self.clean_rsid(rsid_match.group(1))
                                 if self.validate_rsid(rsid):
-                                    rsids.append(rsid)
+                                    snp_records.append({"rsid": rsid})
 
-            # Remove duplicates while preserving order
+            # Remove duplicates based on rsID while preserving order
             seen = set()
-            unique_rsids = []
-            for rsid in rsids:
+            unique_records = []
+            for record in snp_records:
+                rsid = record["rsid"]
                 if rsid not in seen:
                     seen.add(rsid)
-                    unique_rsids.append(rsid)
+                    unique_records.append(record)
 
-            return unique_rsids
+            with_coords = sum(1 for r in unique_records if "chromosome" in r)
+            logger.info(
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with chromosome info)"
+            )
+            return unique_records
 
         except Exception as e:
             logger.error(f"Error extracting rsIDs from PDF: {e}")
             raise
+
+    def _parse_eurogentest_line(self, line: str) -> dict[str, Any] | None:
+        """
+        Parse a line from Eurogentest PDF with chromosome and rsID information.
+
+        Expected pattern: chr followed by position info and rsID
+        Examples:
+        - "chr1 123456789 rs1234567"
+        - "1:123456789 rs1234567"
+
+        Args:
+            line: Text line from PDF
+
+        Returns:
+            Dictionary with parsed SNP information, or None if parsing fails
+        """
+        try:
+            # Extract rsID first
+            rsid_match = re.search(r"\b(rs\d+)\b", line)
+            if not rsid_match:
+                return None
+
+            rsid = self.clean_rsid(rsid_match.group(1))
+            if not self.validate_rsid(rsid):
+                return None
+
+            record = {"rsid": rsid}
+
+            # Extract chromosome information
+            # Look for chr pattern followed by chromosome number/letter
+            chr_match = re.search(r"chr\s*([0-9XYM]+)", line, re.IGNORECASE)
+            if chr_match:
+                chromosome = chr_match.group(1)
+                record["chromosome"] = self.clean_chromosome(chromosome)
+            else:
+                # Look for standalone chromosome notation
+                chr_match = re.search(r"\b([0-9]+|X|Y|M|MT)\s*:", line, re.IGNORECASE)
+                if chr_match:
+                    chromosome = chr_match.group(1)
+                    record["chromosome"] = self.clean_chromosome(chromosome)
+
+            return record
+
+        except Exception as e:
+            logger.debug(f"Failed to parse line: {e}")
+            return None

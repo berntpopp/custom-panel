@@ -42,17 +42,23 @@ class NimaGenHISTParser(BaseSNPScraper):
             with PanelDownloader() as downloader:
                 pdf_path = downloader.download(self.url, "pdf", "requests")
 
-            # Extract rsIDs from PDF
-            rsids = self._extract_rsids_from_pdf(pdf_path)
+            # Extract rsIDs and coordinates from PDF
+            snp_data = self._extract_rsids_from_pdf(pdf_path)
 
-            # Create SNP records
+            # Create SNP records with coordinates when available
             snps = []
-            for rsid in rsids:
+            for data in snp_data:
+                rsid = data["rsid"]
+
+                # Extract all non-rsid fields for the record
+                record_kwargs = {k: v for k, v in data.items() if k != "rsid"}
+
                 snps.append(
                     self.create_snp_record(
                         rsid=rsid,
                         category="identity",
                         panel_specific_name="NimaGen Human Identification and Sample Tracking Kit",
+                        **record_kwargs,
                     )
                 )
 
@@ -78,9 +84,9 @@ class NimaGenHISTParser(BaseSNPScraper):
             logger.error(f"Error parsing NimaGen HIST panel: {e}")
             raise
 
-    def _extract_rsids_from_pdf(self, pdf_path: Path) -> list[str]:
+    def _extract_rsids_from_pdf(self, pdf_path: Path) -> list[dict[str, Any]]:
         """
-        Extract rsIDs from the NimaGen HIST PDF.
+        Extract rsIDs with genomic coordinates from the NimaGen HIST PDF.
 
         The PDF contains a table with columns:
         # dbSNP Chr# Location HG38 Gene MAF 1000 genomes
@@ -89,9 +95,9 @@ class NimaGenHISTParser(BaseSNPScraper):
             pdf_path: Path to the PDF file
 
         Returns:
-            List of unique rsIDs
+            List of dictionaries with rsID and coordinate information
         """
-        rsids = []
+        snp_records = []
         target_table_found = False
 
         try:
@@ -104,8 +110,13 @@ class NimaGenHISTParser(BaseSNPScraper):
 
                     # Look for table headers indicating SNP data
                     if (
-                        ("dbSNP" in text and "Chr#" in text)
-                        or ("Location" in text and "HG38" in text)
+                        (
+                            "dbSNP" in text
+                            and "Chr#" in text
+                            and "Location" in text
+                            and "HG38" in text
+                        )
+                        or ("# dbSNP Chr# Location HG38" in text)
                         or (
                             "Human Identification" in text and "Sample Tracking" in text
                         )
@@ -120,31 +131,46 @@ class NimaGenHISTParser(BaseSNPScraper):
                                 continue
 
                             # Look for table with SNP data
+                            # Expected columns: # dbSNP Chr# Location HG38 Gene MAF 1000 genomes
                             for row_idx, row in enumerate(table):
                                 if not row:
                                     continue
 
                                 # Skip header rows - look for rows starting with numbers
-                                if row_idx == 0 or not row[0]:
+                                if row_idx == 0:
+                                    # Check if this looks like our target header
+                                    header_text = " ".join(
+                                        str(cell) for cell in row if cell
+                                    )
+                                    if (
+                                        "dbSNP" in header_text
+                                        and "Chr#" in header_text
+                                        and "Location" in header_text
+                                    ):
+                                        logger.info(
+                                            f"Found HIST coordinate table header: {header_text}"
+                                        )
                                     continue
 
                                 # Check if first column looks like a row number
+                                if not row[0]:
+                                    continue
+
                                 try:
                                     int(str(row[0]).strip())
                                 except (ValueError, AttributeError):
                                     continue
 
-                                # Look for rsID in the row (typically second column)
-                                for cell in row[
-                                    1:4
-                                ]:  # Check first few columns after row number
-                                    if cell and isinstance(cell, str):
-                                        rsid_match = re.search(r"\b(rs\d+)\b", cell)
-                                        if rsid_match:
-                                            rsid = rsid_match.group(1)
-                                            if self.validate_rsid(rsid):
-                                                rsids.append(rsid)
-                                                break
+                                # Parse the full row for genomic information
+                                snp_record = self._parse_hist_table_row(row)
+                                if snp_record:
+                                    snp_records.append(snp_record)
+                                else:
+                                    # Debug failed parsing
+                                    row_text = [
+                                        str(cell) for cell in row[:6]
+                                    ]  # First 6 columns
+                                    logger.debug(f"Failed to parse row: {row_text}")
 
                         # Also try text extraction for this page
                         lines = text.split("\n")
@@ -153,7 +179,7 @@ class NimaGenHISTParser(BaseSNPScraper):
                             rsid_matches = re.findall(r"\b(rs\d+)\b", line)
                             for rsid in rsid_matches:
                                 if self.validate_rsid(rsid):
-                                    rsids.append(rsid)
+                                    snp_records.append({"rsid": rsid})
 
             # If we didn't find the specific table, try extracting from entire document
             if not target_table_found:
@@ -167,21 +193,78 @@ class NimaGenHISTParser(BaseSNPScraper):
                             rsid_matches = re.findall(r"\b(rs\d+)\b", text)
                             for rsid in rsid_matches:
                                 if self.validate_rsid(rsid):
-                                    rsids.append(rsid)
+                                    snp_records.append({"rsid": rsid})
 
-            # Remove duplicates while preserving order
+            # Remove duplicates based on rsID while preserving order
             seen = set()
-            unique_rsids = []
-            for rsid in rsids:
+            unique_records = []
+            for record in snp_records:
+                rsid = record["rsid"]
                 if rsid not in seen:
                     seen.add(rsid)
-                    unique_rsids.append(rsid)
+                    unique_records.append(record)
 
+            with_coords = sum(1 for r in unique_records if "chromosome" in r)
             logger.info(
-                f"Extracted {len(unique_rsids)} unique rsIDs from NimaGen HIST PDF"
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates) from NimaGen HIST PDF"
             )
-            return unique_rsids
+            return unique_records
 
         except Exception as e:
             logger.error(f"Error extracting rsIDs from PDF: {e}")
             raise
+
+    def _parse_hist_table_row(self, row: list) -> dict[str, Any] | None:
+        """
+        Parse a single row from the NimaGen HIST table.
+
+        Expected format: # dbSNP Chr# Location HG38 Gene MAF 1000 genomes
+        Example: 1 rs1410592 1 179551371 NPHS2 , AXDND1 G 0.4123
+
+        Args:
+            row: Table row as list of cells
+
+        Returns:
+            Dictionary with parsed SNP information, or None if parsing fails
+        """
+        try:
+            if len(row) < 6:  # Need at least 6 columns for basic info
+                return None
+
+            # Extract data from expected positions
+            rsid = str(row[1]).strip() if row[1] else ""
+            chromosome = str(row[2]).strip() if row[2] else ""
+            position_hg38 = str(row[3]).strip() if row[3] else ""
+            gene = str(row[4]).strip() if row[4] else ""
+
+            # Validate rsID
+            if not self.validate_rsid(rsid):
+                return None
+
+            record = {"rsid": rsid}
+
+            # Add chromosome if available
+            if chromosome:
+                record["chromosome"] = self.clean_chromosome(chromosome)
+
+            # Parse HG38 position (plain integer format)
+            if position_hg38 and position_hg38.isdigit():
+                try:
+                    position = int(position_hg38)
+                    record["position"] = position
+                    record["assembly"] = "GRCh38"
+                except ValueError:
+                    logger.debug(f"Could not parse position: {position_hg38}")
+
+            # Add gene information (handle comma-separated genes)
+            if gene:
+                # Clean up gene names - remove extra spaces and handle comma separation
+                genes = [g.strip() for g in gene.split(",") if g.strip()]
+                if genes:
+                    record["gene"] = genes[0] if len(genes) == 1 else genes
+
+            return record
+
+        except Exception as e:
+            logger.debug(f"Failed to parse table row: {e}")
+            return None
