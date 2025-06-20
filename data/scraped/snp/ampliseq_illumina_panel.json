@@ -1,0 +1,62 @@
+{
+  "panel_name": "ampliseq_illumina_panel",
+  "source_url": "https://support.illumina.com/content/dam/illumina/gcs/assembled-assets/marketing-literature/ampliseq-sample-id-panel-app-note-m-gl-01513/ampliseq-sample-id-panel-app-note-m-gl-01513.pdf",
+  "description": "Illumina AmpliSeq Sample ID Panel - Amplicon-based sample tracking",
+  "snps": [
+    {
+      "rsid": "rs2269355",
+      "source": "Illumina_AmpliSeq_SampleID",
+      "category": "identity",
+      "panel_specific_name": "Illumina AmpliSeq Sample ID Panel"
+    },
+    {
+      "rsid": "rs321198",
+      "source": "Illumina_AmpliSeq_SampleID",
+      "category": "identity",
+      "panel_specific_name": "Illumina AmpliSeq Sample ID Panel"
+    },
+    {
+      "rsid": "rs338882",
+      "source": "Illumina_AmpliSeq_SampleID",
+      "category": "identity",
+      "panel_specific_name": "Illumina AmpliSeq Sample ID Panel"
+    },
+    {
+      "rsid": "rs3780962",
+      "source": "Illumina_AmpliSeq_SampleID",
+      "category": "identity",
+      "panel_specific_name": "Illumina AmpliSeq Sample ID Panel"
+    },
+    {
+      "rsid": "rs6444724",
+      "source": "Illumina_AmpliSeq_SampleID",
+      "category": "identity",
+      "panel_specific_name": "Illumina AmpliSeq Sample ID Panel"
+    },
+    {
+      "rsid": "rs6811238",
+      "source": "Illumina_AmpliSeq_SampleID",
+      "category": "identity",
+      "panel_specific_name": "Illumina AmpliSeq Sample ID Panel"
+    },
+    {
+      "rsid": "rs987640",
+      "source": "Illumina_AmpliSeq_SampleID",
+      "category": "identity",
+      "panel_specific_name": "Illumina AmpliSeq Sample ID Panel"
+    },
+    {
+      "rsid": "rs9951171",
+      "source": "Illumina_AmpliSeq_SampleID",
+      "category": "identity",
+      "panel_specific_name": "Illumina AmpliSeq Sample ID Panel"
+    }
+  ],
+  "metadata": {
+    "vendor": "Illumina",
+    "technology": "AmpliSeq amplicon sequencing",
+    "source_url": "https://support.illumina.com/content/dam/illumina/gcs/assembled-assets/marketing-literature/ampliseq-sample-id-panel-app-note-m-gl-01513/ampliseq-sample-id-panel-app-note-m-gl-01513.pdf",
+    "snp_count": 8
+  },
+  "retrieval_date": "2025-06-20"
+}

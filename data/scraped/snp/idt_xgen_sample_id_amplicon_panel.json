@@ -1,0 +1,590 @@
+{
+  "panel_name": "idt_xgen_sample_id_amplicon_panel",
+  "source_url": "https://www.idtdna.com/pages/products/next-generation-sequencing/workflow/xgen-ngs-amplicon-sequencing/predesigned-amplicon-panels/sample-id-amp-panel",
+  "description": "IDT xGen Sample ID Amplicon Panel - PCR-based sample tracking",
+  "snps": [
+    {
+      "rsid": "rs10003909",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1009639",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs10194657",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs10203363",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs10265207",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1037256",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs10373",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1043388",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1048303",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs10498027",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1052706",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs10749482",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs11080572",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1131824",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs11544800",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs11702425",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1348689",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1381532",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1394205",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1410592",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1560221",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs17109674",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs17548783",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1771455",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs17715450",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs1800504",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2013162",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2028373",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs203849",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2070203",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2076356",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2076584",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2076652",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2163009",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs222842",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2228611",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2229144",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2229267",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2229546",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2234358",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2248069",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2249057",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2251969",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2256135",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2275271",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2277207",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2285475",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2285479",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2287016",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2293682",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2296408",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2296409",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2297995",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2298628",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2306875",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2673794",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2736982",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2819561",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs2942",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs30169",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs3088052",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs309557",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs3124768",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs3312",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs3738985",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs3762171",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs3808554",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs3825994",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs386594666",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs386601843",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs386602523",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs386607686",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4148973",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4577",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4577050",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4608",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4617548",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4669",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4675",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4735258",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4820268",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs4938",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs497692",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs5910",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs60637",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs6163",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs6824722",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs698621",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs699374",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs7161192",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs7300444",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs7859201",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs805701",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs897477",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs9305079",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    },
+    {
+      "rsid": "rs9695",
+      "source": "IDT_xGen_SampleID_Amplicon",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Sample ID Amplicon Panel"
+    }
+  ],
+  "metadata": {
+    "vendor": "Integrated DNA Technologies",
+    "technology": "Amplicon sequencing",
+    "source_url": "https://www.idtdna.com/pages/products/next-generation-sequencing/workflow/xgen-ngs-amplicon-sequencing/predesigned-amplicon-panels/sample-id-amp-panel",
+    "snp_count": 96
+  },
+  "retrieval_date": "2025-06-20"
+}

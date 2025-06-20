@@ -547,3 +547,138 @@ scrapers:
     parser_module: "parse_natera"
     parser_class: "NateraParser"
     output_path: "data/scraped/natera.json"
+
+# SNP Panel Scrapers Configuration
+snp_scrapers:
+  # Pengelly et al. (2013) identity SNP panel from PDF
+  pengelly_panel:
+    enabled: true
+    url: "https://genomemedicine.biomedcentral.com/counter/pdf/10.1186/gm492.pdf"
+    parser_module: "parse_pengelly"
+    parser_class: "PengellyParser"
+    output_path: "data/scraped/snp/pengelly_panel.json"
+    name: "Pengelly_Panel"
+  
+  # Eurogentest NGS guidelines panel from PDF
+  eurogentest_ngs_panel:
+    enabled: true
+    url: "https://www.college-genetics.be/assets/recommendations/fr/guidelines/EuroGentest%20NGS_2014.pdf"
+    parser_module: "parse_eurogentest"
+    parser_class: "EurogentestParser"
+    output_path: "data/scraped/snp/eurogentest_ngs_panel.json"
+    name: "Eurogentest_Panel"
+  
+  # IDT xGen Sample ID Amplicon Panel from HTML
+  idt_xgen_sample_id_amplicon_panel:
+    enabled: true  # Re-enabled with fallback to requests method
+    url: "https://www.idtdna.com/pages/products/next-generation-sequencing/workflow/xgen-ngs-amplicon-sequencing/predesigned-amplicon-panels/sample-id-amp-panel"
+    parser_module: "parse_idt_amplicon"
+    parser_class: "IDTAmpliconParser"
+    output_path: "data/scraped/snp/idt_xgen_sample_id_amplicon_panel.json"
+    name: "IDT_xGen_SampleID_Amplicon"
+  
+  # IDT xGen Human ID Hybridization Panel from targets list
+  idt_xgen_human_id_hybridization_panel:
+    enabled: true
+    url: "https://sfvideo.blob.core.windows.net/sitefinity/docs/default-source/supplementary-product-info/xgen-human-id-hyb-panel-targetsfbea8d1532796e2eaa53ff00001c1b3c.list?sfvrsn=3693e307_2&download=true"
+    parser_module: "parse_idt_hybridization"
+    parser_class: "IDTHybridizationParser"
+    output_path: "data/scraped/snp/idt_xgen_human_id_hybridization_panel.json"
+    name: "IDT_xGen_Human_ID_Hybridization"
+  
+  # Illumina AmpliSeq Sample ID Panel from PDF
+  ampliseq_illumina_panel:
+    enabled: true
+    url: "https://support.illumina.com/content/dam/illumina/gcs/assembled-assets/marketing-literature/ampliseq-sample-id-panel-app-note-m-gl-01513/ampliseq-sample-id-panel-app-note-m-gl-01513.pdf"
+    parser_module: "parse_ampliseq"
+    parser_class: "AmpliseqParser"
+    output_path: "data/scraped/snp/ampliseq_illumina_panel.json"
+    name: "Illumina_AmpliSeq_SampleID"
+  
+  # NimaGen Human DNA Sample Identification Kit (HEST) from PDF
+  nimagen_hest_panel:
+    enabled: true
+    url: "https://www.nimagen.com/gfx/HEST/NimaGen_folder%20EasySeq%20Human%20DNA%20Sample%20Identification%20Kits%20v1-1.pdf"
+    parser_module: "parse_nimagen_hest"
+    parser_class: "NimaGenHESTParser"
+    output_path: "data/scraped/snp/nimagen_hest_panel.json"
+    name: "NimaGen_HEST_Kit"
+  
+  # NimaGen Human Identification and Sample Tracking Kit from PDF
+  nimagen_hist_panel:
+    enabled: true
+    url: "https://www.nimagen.com/gfx/brands/NGS%20Flyers%20and%20Folders/HEST%20Brochure.pdf"
+    parser_module: "parse_nimagen_hist"
+    parser_class: "NimaGenHISTParser"
+    output_path: "data/scraped/snp/nimagen_hist_panel.json"
+    name: "NimaGen_HIST_Kit"
+
+#=======================================================
+# SNP PROCESSING CONFIGURATION
+#=======================================================
+snp_processing:
+  # Master switch to enable or disable all SNP processing
+  enabled: true
+
+  # --- Identity & Ethnicity SNPs ---
+  # These are simple rsID lists used for sample tracking and ancestry checks.
+  identity_and_ethnicity:
+    enabled: true
+    panels:
+      # Data from PDF/HTML is hard to maintain, so we will convert them
+      # to simple text files and reference those.
+      - name: "Pengelly_Panel"
+        file_path: "data/snp/identity/pengelly_2013.txt"
+        parser: "simple_rsid"
+      - name: "Eurogentest_Panel"
+        file_path: "data/snp/identity/eurogentest_2014.txt"
+        parser: "simple_rsid"
+      - name: "IDT_xGen_SampleID"
+        file_path: "data/snp/identity/idt_xgen_sampleid.txt"
+        parser: "simple_rsid"
+      - name: "Illumina_AmpliSeq_SampleID"
+        file_path: "data/snp/identity/illumina_ampliseq.txt"
+        parser: "simple_rsid"
+      - name: "Ethnicity_AISNPs"
+        file_path: "data/snp/ethnicity/ethnicity_snps.xlsx"
+        parser: "excel_rsid"
+        rsid_column: "rs_id"
+        source_column: "group"
+
+  # --- Polygenic Risk Score (PRS) SNPs ---
+  # SNPs used in risk score calculations. These files have more complex formats.
+  prs:
+    enabled: true
+    panels:
+      - name: "BCAC_313_PRS"
+        # The URL is ephemeral. We will assume the user downloads it.
+        file_path: "data/snp/prs/BCAC_313_PRS.csv"
+        parser: "bcac_prs"
+        # Column mappings for the parser
+        rsid_column: "hm_rsid"
+        chr_column: "hm_chr"
+        pos_column: "hm_pos"
+        effect_allele_column: "effect_allele"
+        # ... other relevant PRS columns (effect_weight, etc.)
+
+  # --- Deep Intronic ClinVar SNPs ---
+  # This analysis depends on the final gene panel.
+  deep_intronic_clinvar:
+    enabled: true
+    # ClinVar VCF file path (user must provide this)
+    vcf_path: null # To be set in config.local.yml
+    cache_dir: ".cache/clinvar"
+    cache_expiry_days: 30
+    # Distance in bp from exon boundaries to define "deep intronic"
+    intronic_padding: 50 
+
+  # --- Manually Added SNPs ---
+  # For adding specific SNPs for any reason (e.g., PGx).
+  manual_snps:
+    enabled: true
+    lists:
+      - name: "PGx_CYP2C19"
+        file_path: "data/snp/manual/pgx_cyp2c19.csv"
+        parser: "manual_csv"
+        rsid_column: "rsID"
+        details_column: "Drug"

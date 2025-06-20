@@ -1,0 +1,219 @@
+{
+  "panel_name": "nimagen_hist_panel",
+  "source_url": "https://www.nimagen.com/gfx/brands/NGS%20Flyers%20and%20Folders/HEST%20Brochure.pdf",
+  "description": "NimaGen Human Identification and Sample Tracking Kit - 34 SNP panel",
+  "snps": [
+    {
+      "rsid": "rs10203363",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs1026128",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs1037256",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs10373",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs10883099",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs11158685",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs1292053",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs1381532",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs1410592",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs1536928",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs1572983",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs1805034",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs2073787",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs2159132",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs2229546",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs2296241",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs2819561",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs309557",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs3826616",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs4148973",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs4577050",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs4617548",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs4688963",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs4735258",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs4870723",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs495680",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs577993",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs5930933",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs6568050",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs7300444",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs7465584",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs760482",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs9532292",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    },
+    {
+      "rsid": "rs9962023",
+      "source": "NimaGen_HIST_Kit",
+      "category": "identity",
+      "panel_specific_name": "NimaGen Human Identification and Sample Tracking Kit"
+    }
+  ],
+  "metadata": {
+    "vendor": "NimaGen",
+    "kit_name": "Human Identification and Sample Tracking Kit",
+    "technology": "NGS-based sample tracking",
+    "source_url": "https://www.nimagen.com/gfx/brands/NGS%20Flyers%20and%20Folders/HEST%20Brochure.pdf",
+    "snp_count": 34
+  },
+  "retrieval_date": "2025-06-20"
+}

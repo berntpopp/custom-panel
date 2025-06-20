@@ -1,0 +1,98 @@
+{
+  "panel_name": "eurogentest_ngs_panel",
+  "source_url": "https://www.college-genetics.be/assets/recommendations/fr/guidelines/EuroGentest%20NGS_2014.pdf",
+  "description": "Eurogentest NGS Guidelines (2014) - Identity SNP panel",
+  "snps": [
+    {
+      "rsid": "rs10748087",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs11130795",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs12682834",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs1393978",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs2583136",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs2988039",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs37535",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs4411641",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs6074704",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs6512586",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs6666954",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs6841061",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs8045964",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    },
+    {
+      "rsid": "rs9388856",
+      "source": "Eurogentest_Panel",
+      "category": "identity",
+      "panel_specific_name": "Eurogentest NGS 2014"
+    }
+  ],
+  "metadata": {
+    "publication": "Eurogentest Guidelines 2014",
+    "organization": "European Society of Human Genetics",
+    "source_url": "https://www.college-genetics.be/assets/recommendations/fr/guidelines/EuroGentest%20NGS_2014.pdf",
+    "snp_count": 14
+  },
+  "retrieval_date": "2025-06-20"
+}

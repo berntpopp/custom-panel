@@ -1,0 +1,440 @@
+{
+  "panel_name": "idt_xgen_human_id_hybridization_panel",
+  "source_url": "https://sfvideo.blob.core.windows.net/sitefinity/docs/default-source/supplementary-product-info/xgen-human-id-hyb-panel-targetsfbea8d1532796e2eaa53ff00001c1b3c.list?sfvrsn=3693e307_2&download=true",
+  "description": "IDT xGen Human ID Hybridization Panel - Capture-based sample tracking",
+  "snps": [
+    {
+      "rsid": "rs1004357",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs10092491",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs10185531",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs10488710",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1058083",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs10773760",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs10776839",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1109037",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1155419",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1283661",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1293288",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1294331",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs12997453",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs13182883",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs13218440",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1480320",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1498553",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1523537",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1557004",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs159606",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1736442",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs17497475",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1785745",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1821380",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs1872575",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs214955",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs2192512",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs2267708",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs2269355",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs2342747",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs2386626",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs2548612",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs279844",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs2813838",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs285890",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs321198",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs338882",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs367311",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs3780962",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs430046",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs4530059",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs4606077",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs4607417",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs464663",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs550840",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs560681",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs576261",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs6444724",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs6535964",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs6811238",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs6955448",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs7041158",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs7151786",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs7164801",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs7230112",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs7278737",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs740598",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs7520386",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs7532151",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs7652776",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs776284",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs7907658",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs8078417",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs8103778",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs8105430",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs8415",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs9456955",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs955665",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs9866013",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs987640",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    },
+    {
+      "rsid": "rs9951171",
+      "source": "IDT_xGen_Human_ID_Hybridization",
+      "category": "identity",
+      "panel_specific_name": "IDT xGen Human ID Hybridization Panel"
+    }
+  ],
+  "metadata": {
+    "vendor": "Integrated DNA Technologies",
+    "technology": "Hybridization capture",
+    "source_url": "https://sfvideo.blob.core.windows.net/sitefinity/docs/default-source/supplementary-product-info/xgen-human-id-hyb-panel-targetsfbea8d1532796e2eaa53ff00001c1b3c.list?sfvrsn=3693e307_2&download=true",
+    "snp_count": 71
+  },
+  "retrieval_date": "2025-06-20"
+}
