@@ -673,8 +673,10 @@ snp_processing:
   # This analysis depends on the final gene panel.
   deep_intronic_clinvar:
     enabled: true
-    # ClinVar VCF file path (user must provide this)
-    vcf_path: null # To be set in config.local.yml
+    # ClinVar VCF download URL (automatically downloaded if vcf_path not provided)
+    vcf_url: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz"
+    # ClinVar VCF file path (optional - will auto-download if not provided)
+    vcf_path: null # Optional: set in config.local.yml to use local file
     cache_dir: ".cache/clinvar"
     cache_expiry_days: 30
     # Distance in bp from exon boundaries to define "deep intronic"

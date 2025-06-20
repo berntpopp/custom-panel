@@ -29,6 +29,7 @@ from ..sources.g03_commercial_panels import fetch_commercial_panels_data
 from ..sources.g04_cosmic_germline import fetch_cosmic_germline_data
 from ..sources.g05_clingen import fetch_clingen_data
 from ..sources.g06_gencc import fetch_gencc_data
+from ..sources_snp.clinvar_snps_vectorized import fetch_clinvar_snps
 from ..sources_snp.ethnicity_snps import fetch_ethnicity_snps
 from ..sources_snp.identity_snps import fetch_identity_snps
 from ..sources_snp.manual_snps import fetch_manual_snps
@@ -125,6 +126,10 @@ class Pipeline:
         progress.update(task, description="Processing SNPs...")
         self._process_snps()
 
+        # Step 7: Process deep intronic ClinVar SNPs for final gene panel
+        progress.update(task, description="Processing deep intronic ClinVar SNPs...")
+        self._process_deep_intronic_clinvar(annotated_df)
+
         progress.remove_task(task)
         return annotated_df, self.transcript_data
 
@@ -152,6 +157,9 @@ class Pipeline:
 
         # Step 6: Process SNPs
         self._process_snps()
+
+        # Step 7: Process deep intronic ClinVar SNPs for final gene panel
+        self._process_deep_intronic_clinvar(annotated_df)
 
         return annotated_df, self.transcript_data
 
@@ -447,7 +455,7 @@ class Pipeline:
 
         logger.info("Starting SNP processing...")
 
-        # Define SNP source functions
+        # Define SNP source functions (excluding ClinVar which is processed separately)
         snp_source_functions = {
             "identity_and_ethnicity": fetch_identity_snps,
             "ethnicity": fetch_ethnicity_snps,
@@ -465,8 +473,16 @@ class Pipeline:
                     snp_df = fetch_function(self.config_manager.to_dict())
 
                     if snp_df is not None and not snp_df.empty:
-                        # Annotate SNPs with genomic coordinates
-                        annotated_snp_df = self.snp_annotator.annotate_snps(snp_df)
+                        # Check if SNPs already have coordinate information (e.g., from ClinVar VCF)
+                        has_coordinates = all(col in snp_df.columns for col in ['hg38_chr', 'hg38_pos'])
+
+                        if has_coordinates:
+                            # SNPs already annotated (e.g., ClinVar with VCF coordinates)
+                            logger.info(f"Using pre-annotated coordinates for {len(snp_df)} {snp_type} SNPs")
+                            annotated_snp_df = snp_df
+                        else:
+                            # Annotate SNPs with genomic coordinates via Ensembl
+                            annotated_snp_df = self.snp_annotator.annotate_snps(snp_df)
 
                         # Store SNP data
                         self.snp_data[snp_type] = annotated_snp_df
@@ -499,6 +515,43 @@ class Pipeline:
             )
         else:
             logger.info("No SNPs were processed")
+
+    def _process_deep_intronic_clinvar(self, annotated_df: pd.DataFrame) -> None:
+        """Process deep intronic ClinVar SNPs for the final gene panel."""
+        clinvar_config = self.config_manager.to_dict().get("snp_processing", {}).get("deep_intronic_clinvar", {})
+
+        if not clinvar_config.get("enabled", False):
+            logger.info("Deep intronic ClinVar SNPs processing is disabled")
+            return
+
+        try:
+            console.print("Fetching deep intronic ClinVar SNPs for gene panel...")
+
+            # Pass the final annotated gene panel to ClinVar function for filtering
+            # Also pass the ensembl_client for exon coordinate fetching
+            ensembl_client = getattr(self.annotator, 'ensembl_client', None)
+            clinvar_snps = fetch_clinvar_snps(
+                self.config_manager.to_dict(),
+                gene_panel=annotated_df,
+                ensembl_client=ensembl_client
+            )
+
+            if clinvar_snps is not None and not clinvar_snps.empty:
+                # Store ClinVar SNP data
+                self.snp_data["deep_intronic_clinvar"] = clinvar_snps
+
+                # Save ClinVar SNP data
+                self.output_manager.save_snp_data(clinvar_snps, "deep_intronic_clinvar")
+
+                console.print(f"[green]✓ Deep intronic ClinVar: {len(clinvar_snps)} SNPs[/green]")
+                logger.info(f"Successfully processed {len(clinvar_snps)} deep intronic ClinVar SNPs for gene panel")
+            else:
+                console.print("[yellow]⚠ Deep intronic ClinVar: No SNPs found in gene panel regions[/yellow]")
+                logger.info("No deep intronic ClinVar SNPs found in gene panel regions")
+
+        except Exception as e:
+            console.print(f"[red]✗ Deep intronic ClinVar: {e}[/red]")
+            logger.exception("Error processing deep intronic ClinVar SNPs")
 
     def get_run_summary(self) -> dict[str, Any]:
         """Get summary of the pipeline run."""
