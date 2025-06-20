@@ -176,6 +176,7 @@ def _generate_pipeline_outputs(
         config=config_manager.to_dict(),
         output_dir=final_output_dir,
         transcript_data=transcript_data,
+        snp_data=pipeline.snp_data,  # Pass SNP data from pipeline
     )
 
     # Save run summary

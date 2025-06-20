@@ -58,7 +58,11 @@ class ReportGenerator:
         )
 
     def render(
-        self, df: pd.DataFrame, config: dict[str, Any], output_path: Path
+        self,
+        df: pd.DataFrame,
+        config: dict[str, Any],
+        output_path: Path,
+        snp_data: dict[str, pd.DataFrame] | None = None,
     ) -> None:
         """
         Render the HTML report and save it to a file.
@@ -67,6 +71,7 @@ class ReportGenerator:
             df: Final annotated DataFrame
             config: Configuration dictionary
             output_path: Path where the HTML report will be saved
+            snp_data: Optional SNP data dictionary by type
 
         Raises:
             FileNotFoundError: If the template file is not found
@@ -74,7 +79,7 @@ class ReportGenerator:
         """
         try:
             template = self.env.get_template("report.html.j2")
-            context = self._prepare_context(df, config)
+            context = self._prepare_context(df, config, snp_data)
             html_content = template.render(context)
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -88,7 +93,10 @@ class ReportGenerator:
             raise
 
     def _prepare_context(
-        self, df: pd.DataFrame, config: dict[str, Any]
+        self,
+        df: pd.DataFrame,
+        config: dict[str, Any],
+        snp_data: dict[str, pd.DataFrame] | None = None,
     ) -> dict[str, Any]:
         """
         Prepare template context from DataFrame and configuration.
@@ -96,6 +104,7 @@ class ReportGenerator:
         Args:
             df: Final annotated DataFrame
             config: Configuration dictionary
+            snp_data: Optional SNP data dictionary by type
 
         Returns:
             Dictionary containing template variables
@@ -114,6 +123,13 @@ class ReportGenerator:
         table_data, available_columns, default_visible = self._prepare_table_data(df)
         chart_data = self._prepare_chart_data(df, source_stats)
 
+        # Prepare SNP data if available
+        snp_stats = {}
+        snp_table_data = {}
+        if snp_data:
+            snp_stats = self._calculate_snp_statistics(snp_data)
+            snp_table_data = self._prepare_snp_table_data(snp_data)
+
         # Combine all context data
         context = {
             "generation_date": datetime.now().strftime("%B %d, %Y at %I:%M %p"),
@@ -125,6 +141,10 @@ class ReportGenerator:
             "chart_data": json.dumps(chart_data),
             "available_columns": json.dumps(available_columns),
             "default_visible": json.dumps(default_visible),
+            # SNP data
+            "has_snp_data": bool(snp_data),
+            "snp_stats": snp_stats,
+            "snp_table_data": json.dumps(snp_table_data),
         }
 
         return context
@@ -354,3 +374,91 @@ class ReportGenerator:
                         transcript_sizes.append(coverage)
 
         return transcript_sizes
+
+    def _calculate_snp_statistics(
+        self, snp_data: dict[str, pd.DataFrame]
+    ) -> dict[str, Any]:
+        """Calculate SNP summary statistics for the report."""
+        total_snps = 0
+        snp_type_counts = {}
+        annotated_snps = 0
+
+        for snp_type, snp_df in snp_data.items():
+            if snp_df.empty:
+                continue
+
+            snp_count = len(snp_df)
+            total_snps += snp_count
+            snp_type_counts[snp_type] = snp_count
+
+            # Count annotated SNPs (those with genomic coordinates)
+            coord_columns = ["hg38_chromosome", "hg38_start", "hg38_end"]
+            if all(col in snp_df.columns for col in coord_columns):
+                annotated_count = snp_df.dropna(subset=coord_columns).shape[0]
+                annotated_snps += annotated_count
+
+        return {
+            "total_snps": total_snps,
+            "snp_types": len(snp_type_counts),
+            "snp_type_counts": snp_type_counts,
+            "annotated_snps": annotated_snps,
+            "annotation_rate": f"{(annotated_snps / total_snps * 100):.1f}%"
+            if total_snps > 0
+            else "0.0%",
+        }
+
+    def _prepare_snp_table_data(
+        self, snp_data: dict[str, pd.DataFrame]
+    ) -> dict[str, Any]:
+        """Prepare SNP data for interactive tables in the HTML report."""
+        snp_tables = {}
+
+        # Combine all SNPs for master table
+        all_snps = []
+        for snp_type, snp_df in snp_data.items():
+            if not snp_df.empty:
+                snp_df_copy = snp_df.copy()
+                snp_df_copy["snp_type"] = snp_type
+                all_snps.append(snp_df_copy)
+
+        if all_snps:
+            master_snp_df = pd.concat(all_snps, ignore_index=True)
+            snp_tables["all_snps"] = self._convert_snp_df_to_table_data(master_snp_df)
+
+            # Individual SNP type tables
+            for snp_type, snp_df in snp_data.items():
+                if not snp_df.empty:
+                    snp_tables[f"snps_{snp_type}"] = self._convert_snp_df_to_table_data(
+                        snp_df
+                    )
+
+        return snp_tables
+
+    def _convert_snp_df_to_table_data(self, df: pd.DataFrame) -> list[dict[str, Any]]:
+        """Convert SNP DataFrame to list of dictionaries for HTML table display."""
+        # Select relevant columns for display
+        display_columns = ["snp", "source", "category"]
+        if "snp_type" in df.columns:
+            display_columns.append("snp_type")
+        if "hg38_chromosome" in df.columns:
+            display_columns.extend(["hg38_chromosome", "hg38_start", "hg38_end"])
+        if "hg19_chromosome" in df.columns:
+            display_columns.extend(["hg19_chromosome", "hg19_start", "hg19_end"])
+
+        # Filter to existing columns
+        existing_columns = [col for col in display_columns if col in df.columns]
+
+        # Convert to list of dictionaries
+        table_data = []
+        for _, row in df.iterrows():
+            row_data = {}
+            for col in existing_columns:
+                value = row.get(col)
+                # Convert to string for JSON serialization, handle NaN
+                if pd.isna(value):
+                    row_data[col] = ""
+                else:
+                    row_data[col] = str(value)
+            table_data.append(row_data)
+
+        return table_data

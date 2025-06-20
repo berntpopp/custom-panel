@@ -348,6 +348,80 @@
                     </thead>
                 </table>
             </div>
+
+            {% if has_snp_data %}
+            <!-- SNP Analysis Section -->
+            <div class="section">
+                <h2>SNP Analysis</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ "{:,}".format(snp_stats.total_snps) }}</div>
+                        <div class="stat-label">Total SNPs</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ snp_stats.snp_types }}</div>
+                        <div class="stat-label">SNP Categories</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ "{:,}".format(snp_stats.annotated_snps) }}</div>
+                        <div class="stat-label">With Coordinates</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ snp_stats.annotation_rate }}</div>
+                        <div class="stat-label">Annotation Rate</div>
+                    </div>
+                </div>
+
+                <!-- SNP Type Breakdown -->
+                <div style="margin-top: 20px;">
+                    <h3 style="color: #495057; margin-bottom: 15px;">SNP Categories</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                        {% for snp_type, count in snp_stats.snp_type_counts.items() %}
+                        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 600; color: #495057;">{{ snp_type.replace('_', ' ').title() }}</span>
+                                <span style="color: #6c757d; font-size: 0.9em;">{{ "{:,}".format(count) }} SNPs</span>
+                            </div>
+                            <div style="margin-top: 8px;">
+                                <div style="background: #e9ecef; border-radius: 3px; height: 8px; overflow: hidden;">
+                                    <div style="background: #28a745; width: {{ (count / snp_stats.total_snps * 100)|round(1) }}%; height: 100%;"></div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 8px; color: #6c757d; font-size: 0.85em;">
+                                {{ "{:.1f}%".format(count / snp_stats.total_snps * 100) }} of total
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- SNP Data Tables -->
+                <div style="margin-top: 30px;">
+                    <h3 style="color: #495057; margin-bottom: 15px;">SNP Data Tables</h3>
+                    
+                    <!-- Tab Navigation -->
+                    <div class="snp-tabs" style="margin-bottom: 20px;">
+                        <div style="border-bottom: 2px solid #e9ecef;">
+                            <div style="display: flex; gap: 0;">
+                                <button class="snp-tab-button active" data-table="all_snps" style="padding: 10px 20px; border: none; background: #667eea; color: white; cursor: pointer; border-radius: 6px 6px 0 0; font-weight: 500;">
+                                    All SNPs ({{ "{:,}".format(snp_stats.total_snps) }})
+                                </button>
+                                {% for snp_type, count in snp_stats.snp_type_counts.items() %}
+                                <button class="snp-tab-button" data-table="snps_{{ snp_type }}" style="padding: 10px 20px; border: none; background: #f8f9fa; color: #495057; cursor: pointer; border-radius: 6px 6px 0 0; margin-left: 2px; font-weight: 500;">
+                                    {{ snp_type.replace('_', ' ').title() }} ({{ "{:,}".format(count) }})
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SNP Tables Container -->
+                    <div id="snpTablesContainer">
+                        <!-- Tables will be dynamically generated here -->
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -358,6 +432,14 @@
             var chartData = {{ chart_data|safe }};
             var availableColumns = {{ available_columns|safe }};
             var defaultVisible = {{ default_visible|safe }};
+
+            {% if has_snp_data %}
+            // SNP data
+            var snpTableData = {{ snp_table_data|safe }};
+            
+            // Initialize SNP tables
+            initializeSNPTables(snpTableData);
+            {% endif %}
 
             // Create interactive charts
             createCharts(chartData);
@@ -770,6 +852,163 @@
 
             return { labels: labels, data: histogram };
         }
+
+        {% if has_snp_data %}
+        function initializeSNPTables(snpTableData) {
+            var currentTable = null;
+            var snpTables = {};
+
+            // SNP column configuration
+            var snpColumnConfig = {
+                'snp': {
+                    title: 'SNP ID',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var url = 'https://www.ncbi.nlm.nih.gov/snp/' + data;
+                            return '<a href="' + url + '" target="_blank" class="gene-link" title="View SNP in dbSNP">' + data + '</a>';
+                        }
+                        return data;
+                    }
+                },
+                'source': { title: 'Source' },
+                'category': { title: 'Category' },
+                'snp_type': { title: 'SNP Type' },
+                'hg38_chromosome': { title: 'Chr (hg38)' },
+                'hg38_start': {
+                    title: 'Position (hg38)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null && data !== "") {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'hg38_end': {
+                    title: 'End (hg38)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null && data !== "") {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'hg38_allele_string': { title: 'Alleles (hg38)' },
+                'hg19_chromosome': { title: 'Chr (hg19)' },
+                'hg19_start': {
+                    title: 'Position (hg19)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null && data !== "") {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'hg19_end': {
+                    title: 'End (hg19)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null && data !== "") {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'hg19_allele_string': { title: 'Alleles (hg19)' }
+            };
+
+            // Create tables for each SNP type
+            Object.keys(snpTableData).forEach(function(tableKey) {
+                var tableData = snpTableData[tableKey];
+                if (tableData && tableData.length > 0) {
+                    var tableId = 'snpTable_' + tableKey;
+                    var containerDiv = '<div id="' + tableId + '_container" class="snp-table-container" style="display: none;">' +
+                                      '<table id="' + tableId + '" class="display" style="width:100%"><thead><tr></tr></thead></table>' +
+                                      '</div>';
+                    $('#snpTablesContainer').append(containerDiv);
+
+                    // Get available columns from first row
+                    var availableColumns = Object.keys(tableData[0] || {});
+                    var columns = availableColumns.map(function(col) {
+                        var config = snpColumnConfig[col] || { title: col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) };
+                        return {
+                            data: col,
+                            title: config.title,
+                            render: config.render || null
+                        };
+                    });
+
+                    // Initialize DataTable
+                    var table = $('#' + tableId).DataTable({
+                        data: tableData,
+                        columns: columns,
+                        pageLength: 25,
+                        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+                        order: [[0, 'asc']],
+                        responsive: true,
+                        autoWidth: false,
+                        scrollX: true,
+                        processing: true,
+                        language: {
+                            processing: "Loading SNP data...",
+                            search: "Search SNPs:",
+                            searchPlaceholder: "rsID, chromosome, position, etc.",
+                            lengthMenu: "Show _MENU_ SNPs per page",
+                            info: "Showing _START_ to _END_ of _TOTAL_ SNPs",
+                            infoEmpty: "Showing 0 to 0 of 0 SNPs",
+                            infoFiltered: "(filtered from _MAX_ total SNPs)",
+                            paginate: {
+                                first: "First",
+                                last: "Last",
+                                next: "Next",
+                                previous: "Previous"
+                            }
+                        }
+                    });
+
+                    snpTables[tableKey] = table;
+                }
+            });
+
+            // Show first table by default
+            var firstTableKey = Object.keys(snpTableData)[0];
+            if (firstTableKey) {
+                showSNPTable(firstTableKey, snpTables);
+                currentTable = firstTableKey;
+            }
+
+            // Tab click handlers
+            $('.snp-tab-button').on('click', function() {
+                var tableKey = $(this).data('table');
+                
+                // Update tab styling
+                $('.snp-tab-button').css({
+                    'background': '#f8f9fa',
+                    'color': '#495057'
+                });
+                $(this).css({
+                    'background': '#667eea',
+                    'color': 'white'
+                });
+
+                // Show corresponding table
+                showSNPTable(tableKey, snpTables);
+                currentTable = tableKey;
+            });
+
+            function showSNPTable(tableKey, tables) {
+                // Hide all tables
+                $('.snp-table-container').hide();
+                
+                // Show selected table
+                var tableId = 'snpTable_' + tableKey;
+                $('#' + tableId + '_container').show();
+                
+                // Redraw table to fix column sizing
+                if (tables[tableKey]) {
+                    tables[tableKey].columns.adjust().draw();
+                }
+            }
+        }
+        {% endif %}
     </script>
 </body>
 </html>

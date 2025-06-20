@@ -5,6 +5,7 @@ This module contains parsers for identity and ethnicity SNP files
 used for sample tracking and ancestry checks.
 """
 
+import json
 import logging
 import re
 from pathlib import Path
@@ -413,6 +414,75 @@ class TSVListParser(BaseSNPParser):
             raise ValueError(f"Failed to parse TSV/List file: {e}") from e
 
 
+class ScrapedJSONParser(BaseSNPParser):
+    """
+    Parser for scraped JSON files from SNP scrapers.
+
+    This parser handles JSON files that contain SNP data in the format
+    output by the custom SNP scrapers (pengelly, eurogentest, etc.).
+    """
+
+    def parse(self) -> pd.DataFrame:
+        """
+        Parse a scraped JSON file for rsIDs and metadata.
+
+        Returns:
+            DataFrame with columns: rsid, source, category, plus any additional metadata
+        """
+        self.validate_file_exists()
+
+        logger.info(f"Parsing scraped JSON file: {self.file_path}")
+
+        try:
+            # Read JSON file
+            with open(self.file_path, encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Extract SNPs from the JSON structure
+            snps = data.get("snps", [])
+
+            if not snps:
+                logger.warning(f"No SNPs found in JSON file {self.file_path}")
+                return pd.DataFrame(columns=["rsid", "source", "category"])
+
+            # Convert to DataFrame
+            df = pd.DataFrame(snps)
+
+            # Ensure required columns exist
+            if "rsid" not in df.columns:
+                raise ValueError(
+                    f"Required 'rsid' column not found in {self.file_path}"
+                )
+
+            # Rename 'snp' column to 'rsid' if it exists
+            if "snp" in df.columns and "rsid" not in df.columns:
+                df = df.rename(columns={"snp": "rsid"})
+
+            # Set default values for missing columns
+            if "source" not in df.columns:
+                df["source"] = self.name
+            if "category" not in df.columns:
+                df["category"] = "identity"
+
+            # Keep only non-null rsIDs
+            df = df.dropna(subset=["rsid"])
+
+            if df.empty:
+                logger.warning(f"No valid rsIDs found in JSON file {self.file_path}")
+                return pd.DataFrame(columns=["rsid", "source", "category"])
+
+            logger.info(
+                f"Successfully parsed {len(df)} SNPs from scraped JSON {self.file_path}"
+            )
+
+            # Validate and standardize output
+            return self.validate_output_format(df)
+
+        except Exception as e:
+            logger.error(f"Error parsing scraped JSON file {self.file_path}: {e}")
+            raise ValueError(f"Failed to parse scraped JSON file: {e}") from e
+
+
 def create_identity_parser(file_path: Path, config: dict[str, Any]) -> BaseSNPParser:
     """
     Factory function to create the appropriate identity parser based on configuration.
@@ -439,5 +509,7 @@ def create_identity_parser(file_path: Path, config: dict[str, Any]) -> BaseSNPPa
         return HTMLRSIDParser(file_path, config)
     elif parser_type == "tsv_list":
         return TSVListParser(file_path, config)
+    elif parser_type == "scraped_json":
+        return ScrapedJSONParser(file_path, config)
     else:
         raise ValueError(f"Unsupported identity parser type: {parser_type}")

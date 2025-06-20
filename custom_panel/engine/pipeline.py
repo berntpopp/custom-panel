@@ -19,6 +19,7 @@ from ..core.output_manager import OutputManager
 from ..core.utils import normalize_count
 from ..engine.annotator import GeneAnnotator
 from ..engine.merger import PanelMerger
+from ..engine.snp_annotator import SNPAnnotator
 from ..sources.a_incidental_findings import fetch_acmg_incidental_data
 from ..sources.b_manual_curation import fetch_manual_curation_data
 from ..sources.g00_inhouse_panels import fetch_inhouse_panels_data
@@ -28,6 +29,10 @@ from ..sources.g03_commercial_panels import fetch_commercial_panels_data
 from ..sources.g04_cosmic_germline import fetch_cosmic_germline_data
 from ..sources.g05_clingen import fetch_clingen_data
 from ..sources.g06_gencc import fetch_gencc_data
+from ..sources_snp.ethnicity_snps import fetch_ethnicity_snps
+from ..sources_snp.identity_snps import fetch_identity_snps
+from ..sources_snp.manual_snps import fetch_manual_snps
+from ..sources_snp.prs_snps import fetch_prs_snps
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -51,7 +56,9 @@ class Pipeline:
         self.output_manager = OutputManager(config, self.output_dir_path)
         self.annotator = GeneAnnotator(config)
         self.merger = PanelMerger(config)
+        self.snp_annotator = SNPAnnotator(config)
         self.transcript_data: dict[str, Any] = {}
+        self.snp_data: dict[str, pd.DataFrame] = {}
 
     def run(self, show_progress: bool = True) -> tuple[pd.DataFrame, dict[str, Any]]:
         """
@@ -114,6 +121,10 @@ class Pipeline:
         progress.update(task, description="Annotating final gene list...")
         annotated_df = self._annotate_and_save(master_df)
 
+        # Step 6: Process SNPs if enabled
+        progress.update(task, description="Processing SNPs...")
+        self._process_snps()
+
         progress.remove_task(task)
         return annotated_df, self.transcript_data
 
@@ -138,6 +149,9 @@ class Pipeline:
 
         # Step 5: Annotate
         annotated_df = self._annotate_and_save(master_df)
+
+        # Step 6: Process SNPs
+        self._process_snps()
 
         return annotated_df, self.transcript_data
 
@@ -422,6 +436,69 @@ class Pipeline:
         self.output_manager.save_annotated_data(annotated_df, annotation_summary)
 
         return annotated_df
+
+    def _process_snps(self) -> None:
+        """Process SNPs if enabled."""
+        snp_config = self.config_manager.to_dict().get("snp_processing", {})
+
+        if not snp_config.get("enabled", False):
+            logger.info("SNP processing is disabled")
+            return
+
+        logger.info("Starting SNP processing...")
+
+        # Define SNP source functions
+        snp_source_functions = {
+            "identity_and_ethnicity": fetch_identity_snps,
+            "ethnicity": fetch_ethnicity_snps,
+            "prs": fetch_prs_snps,
+            "manual_snps": fetch_manual_snps,
+        }
+
+        # Fetch SNPs from all enabled sources
+        for snp_type, fetch_function in snp_source_functions.items():
+            snp_type_config = snp_config.get(snp_type, {})
+
+            if snp_type_config.get("enabled", False):
+                try:
+                    console.print(f"Fetching {snp_type} SNPs...")
+                    snp_df = fetch_function(self.config_manager.to_dict())
+
+                    if snp_df is not None and not snp_df.empty:
+                        # Annotate SNPs with genomic coordinates
+                        annotated_snp_df = self.snp_annotator.annotate_snps(snp_df)
+
+                        # Store SNP data
+                        self.snp_data[snp_type] = annotated_snp_df
+
+                        # Save SNP data using dedicated SNP save method
+                        self.output_manager.save_snp_data(annotated_snp_df, snp_type)
+
+                        console.print(
+                            f"[green]✓ {snp_type}: {len(annotated_snp_df)} SNPs[/green]"
+                        )
+                        logger.info(
+                            f"Successfully processed {len(annotated_snp_df)} {snp_type} SNPs"
+                        )
+                    else:
+                        console.print(f"[yellow]⚠ {snp_type}: No SNPs found[/yellow]")
+
+                except Exception as e:
+                    console.print(f"[red]✗ {snp_type}: {e}[/red]")
+                    logger.exception(f"Error processing {snp_type} SNPs")
+            else:
+                console.print(
+                    f"[yellow]Skipping disabled SNP type: {snp_type}[/yellow]"
+                )
+
+        # Log SNP processing summary
+        total_snps = sum(len(df) for df in self.snp_data.values())
+        if total_snps > 0:
+            logger.info(
+                f"SNP processing completed: {total_snps} total SNPs across {len(self.snp_data)} categories"
+            )
+        else:
+            logger.info("No SNPs were processed")
 
     def get_run_summary(self) -> dict[str, Any]:
         """Get summary of the pipeline run."""

@@ -33,6 +33,7 @@ def generate_outputs(
     config: dict[str, Any],
     output_dir: Path,
     transcript_data: dict[str, Any] | None = None,
+    snp_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """
     Generate all output files including Excel, CSV, BED files, and HTML report.
@@ -42,22 +43,26 @@ def generate_outputs(
         config: Configuration dictionary
         output_dir: Output directory path
         transcript_data: Optional transcript data for exon BED generation
+        snp_data: Optional SNP data dictionary by type
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     config_manager = ConfigManager(config)
 
-    # Generate data files in multiple formats
-    _generate_data_files(df, config_manager, output_dir)
+    # Generate data files in multiple formats (genes + SNPs)
+    _generate_data_files(df, config_manager, output_dir, snp_data)
 
-    # Generate BED files if enabled
-    _generate_bed_files(df, config_manager, output_dir, transcript_data)
+    # Generate BED files if enabled (genes + SNPs)
+    _generate_bed_files(df, config_manager, output_dir, transcript_data, snp_data)
 
-    # Generate HTML report if enabled
-    _generate_html_report_if_enabled(df, config_manager, output_dir)
+    # Generate HTML report if enabled (genes + SNPs)
+    _generate_html_report_if_enabled(df, config_manager, output_dir, snp_data)
 
 
 def _generate_data_files(
-    df: pd.DataFrame, config_manager: ConfigManager, output_dir: Path
+    df: pd.DataFrame,
+    config_manager: ConfigManager,
+    output_dir: Path,
+    snp_data: dict[str, pd.DataFrame] | None = None,
 ) -> dict[str, Path]:
     """
     Generate data files in multiple formats using the format strategy pattern.
@@ -66,6 +71,7 @@ def _generate_data_files(
         df: DataFrame to save
         config_manager: Configuration manager instance
         output_dir: Output directory
+        snp_data: Optional SNP data dictionary by type
 
     Returns:
         Dictionary mapping format names to file paths
@@ -73,13 +79,75 @@ def _generate_data_files(
     formats = config_manager.get_output_formats()
     saver = DataFrameSaver()
 
-    return saver.save_multiple_formats(
+    # Generate gene panel files
+    gene_files = saver.save_multiple_formats(
         df=df,
         base_path=output_dir,
         filename_base="master_panel",
         formats=formats,
         index=False,
+        snp_data=snp_data,  # Pass SNP data for multi-sheet Excel
     )
+
+    # Generate individual SNP files if SNP data exists
+    if snp_data:
+        _generate_snp_data_files(snp_data, saver, formats, output_dir)
+
+    return gene_files
+
+
+def _generate_snp_data_files(
+    snp_data: dict[str, pd.DataFrame],
+    saver: DataFrameSaver,
+    formats: list[str],
+    output_dir: Path,
+) -> None:
+    """
+    Generate individual SNP data files for each SNP type.
+
+    Args:
+        snp_data: Dictionary of SNP DataFrames by type
+        saver: DataFrameSaver instance
+        formats: List of output formats
+        output_dir: Output directory
+    """
+    # Combine all SNPs into a master SNP table
+    all_snps = []
+    for snp_type, snp_df in snp_data.items():
+        if not snp_df.empty:
+            # Add SNP type column for identification
+            snp_df_copy = snp_df.copy()
+            snp_df_copy["snp_type"] = snp_type
+            all_snps.append(snp_df_copy)
+
+    if all_snps:
+        master_snp_df = pd.concat(all_snps, ignore_index=True)
+
+        # Generate master SNP files
+        console.print(
+            f"[blue]Generating master SNP files with {len(master_snp_df)} SNPs...[/blue]"
+        )
+        saver.save_multiple_formats(
+            df=master_snp_df,
+            base_path=output_dir,
+            filename_base="master_snps",
+            formats=formats,
+            index=False,
+        )
+
+        # Generate individual SNP type files
+        for snp_type, snp_df in snp_data.items():
+            if not snp_df.empty:
+                console.print(
+                    f"[blue]Generating {snp_type} SNP files with {len(snp_df)} SNPs...[/blue]"
+                )
+                saver.save_multiple_formats(
+                    df=snp_df,
+                    base_path=output_dir,
+                    filename_base=f"snps_{snp_type}",
+                    formats=formats,
+                    index=False,
+                )
 
 
 def _generate_bed_files(
@@ -87,6 +155,7 @@ def _generate_bed_files(
     config_manager: ConfigManager,
     output_dir: Path,
     transcript_data: dict[str, Any] | None,
+    snp_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """
     Generate BED files if enabled in configuration.
@@ -96,6 +165,7 @@ def _generate_bed_files(
         config_manager: Configuration manager instance
         output_dir: Output directory
         transcript_data: Optional transcript data for exon BED generation
+        snp_data: Optional SNP data dictionary by type
     """
     # Generate germline BED file
     if config_manager.is_bed_enabled("germline") and "include" in df.columns:
@@ -106,9 +176,72 @@ def _generate_bed_files(
     if config_manager.is_bed_enabled("exons") and "include" in df.columns:
         _generate_exon_bed_files(df, config_manager, output_dir, transcript_data)
 
+    # Generate SNP BED files if SNP data exists
+    if snp_data:
+        _generate_snp_bed_files(snp_data, output_dir)
+
+
+def _generate_snp_bed_files(
+    snp_data: dict[str, pd.DataFrame],
+    output_dir: Path,
+) -> None:
+    """
+    Generate BED files for SNP data.
+
+    Args:
+        snp_data: Dictionary of SNP DataFrames by type
+        output_dir: Output directory
+    """
+    for snp_type, snp_df in snp_data.items():
+        if snp_df.empty:
+            continue
+
+        # Check if SNP data has coordinate information
+        coord_columns = ["hg38_chromosome", "hg38_start", "hg38_end"]
+        if not all(col in snp_df.columns for col in coord_columns):
+            console.print(
+                f"[yellow]Skipping BED file for {snp_type} SNPs - missing coordinate data[/yellow]"
+            )
+            continue
+
+        # Filter out SNPs without coordinates
+        bed_data = snp_df.dropna(subset=coord_columns)
+        if bed_data.empty:
+            console.print(
+                f"[yellow]No {snp_type} SNPs have coordinate data for BED file[/yellow]"
+            )
+            continue
+
+        # Create BED format DataFrame
+        bed_df = pd.DataFrame(
+            {
+                "chrom": "chr" + bed_data["hg38_chromosome"].astype(str),
+                "chromStart": bed_data["hg38_start"].astype(int) - 1,  # BED is 0-based
+                "chromEnd": bed_data["hg38_end"].astype(int),
+                "name": bed_data["snp"]
+                if "snp" in bed_data.columns
+                else bed_data.index,
+                "score": 1000,  # Default score
+                "strand": ".",  # Unknown strand for SNPs
+            }
+        )
+
+        # Sort by chromosome and position
+        bed_df = bed_df.sort_values(["chrom", "chromStart"])
+
+        # Save BED file
+        bed_path = output_dir / f"snps_{snp_type}.bed"
+        bed_df.to_csv(bed_path, sep="\t", header=False, index=False)
+        console.print(
+            f"[green]Generated {bed_path.name} with {len(bed_df)} SNPs[/green]"
+        )
+
 
 def _generate_html_report_if_enabled(
-    df: pd.DataFrame, config_manager: ConfigManager, output_dir: Path
+    df: pd.DataFrame,
+    config_manager: ConfigManager,
+    output_dir: Path,
+    snp_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """
     Generate HTML report if enabled in configuration.
@@ -117,19 +250,23 @@ def _generate_html_report_if_enabled(
         df: DataFrame with gene data
         config_manager: Configuration manager instance
         output_dir: Output directory
+        snp_data: Optional SNP data dictionary by type
     """
     if config_manager.is_html_enabled():
         html_path = output_dir / "panel_report.html"
-        _generate_html_report(df, config_manager.to_dict(), html_path)
+        _generate_html_report(df, config_manager.to_dict(), html_path, snp_data)
 
 
 def _generate_html_report(
-    df: pd.DataFrame, config: dict[str, Any], output_path: Path
+    df: pd.DataFrame,
+    config: dict[str, Any],
+    output_path: Path,
+    snp_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """Generate HTML report using the ReportGenerator."""
     try:
         report_generator = ReportGenerator()
-        report_generator.render(df, config, output_path)
+        report_generator.render(df, config, output_path, snp_data)
     except Exception as e:
         logger.error(f"Failed to generate HTML report: {e}")
         console.print(f"[red]Failed to generate HTML report: {e}[/red]")

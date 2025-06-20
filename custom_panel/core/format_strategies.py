@@ -103,13 +103,64 @@ class ExcelStrategy(FormatStrategy):
         index = kwargs.get("index", False)
         engine = kwargs.get("engine", "openpyxl")
         sheet_name = kwargs.get("sheet_name", "Sheet1")
+        snp_data = kwargs.get("snp_data")
 
         try:
-            df.to_excel(path, index=index, engine=engine, sheet_name=sheet_name)
-            logger.debug(f"Saved {len(df)} records to Excel: {path}")
+            # Check if this is a multi-sheet Excel file with SNP data
+            if snp_data and isinstance(snp_data, dict):
+                self._save_multi_sheet_excel(df, path, snp_data, index, engine)
+            else:
+                # Single sheet Excel
+                df.to_excel(path, index=index, engine=engine, sheet_name=sheet_name)
+                logger.debug(f"Saved {len(df)} records to Excel: {path}")
         except Exception as e:
             logger.error(f"Failed to save Excel file {path}: {e}")
             raise
+
+    def _save_multi_sheet_excel(
+        self,
+        gene_df: pd.DataFrame,
+        path: Path,
+        snp_data: dict[str, pd.DataFrame],
+        index: bool,
+        engine: str,
+    ) -> None:
+        """Save multi-sheet Excel with genes and SNPs."""
+        from rich.console import Console
+
+        console = Console()
+
+        with pd.ExcelWriter(path, engine=engine) as writer:
+            # Save gene panel as first sheet
+            gene_df.to_excel(writer, sheet_name="Gene_Panel", index=index)
+            logger.debug(f"Saved {len(gene_df)} genes to Gene_Panel sheet")
+
+            # Combine all SNPs for master SNP sheet
+            all_snps = []
+            for snp_type, snp_df in snp_data.items():
+                if not snp_df.empty:
+                    snp_df_copy = snp_df.copy()
+                    snp_df_copy["snp_type"] = snp_type
+                    all_snps.append(snp_df_copy)
+
+            if all_snps:
+                master_snp_df = pd.concat(all_snps, ignore_index=True)
+                master_snp_df.to_excel(writer, sheet_name="All_SNPs", index=index)
+                logger.debug(f"Saved {len(master_snp_df)} SNPs to All_SNPs sheet")
+                console.print(
+                    f"[blue]Added All_SNPs sheet with {len(master_snp_df)} SNPs[/blue]"
+                )
+
+                # Add individual SNP type sheets
+                for snp_type, snp_df in snp_data.items():
+                    if not snp_df.empty:
+                        # Create valid sheet name (Excel sheet names can't be longer than 31 chars)
+                        sheet_name = f"SNPs_{snp_type}"[:31]
+                        snp_df.to_excel(writer, sheet_name=sheet_name, index=index)
+                        logger.debug(f"Saved {len(snp_df)} SNPs to {sheet_name} sheet")
+                        console.print(
+                            f"[blue]Added {sheet_name} sheet with {len(snp_df)} SNPs[/blue]"
+                        )
 
     def get_extension(self) -> str:
         return "xlsx"

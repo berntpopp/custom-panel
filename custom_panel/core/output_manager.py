@@ -178,8 +178,10 @@ class OutputManager:
 
         try:
             # Save the data - skip validation for data with different schema
-            if step in ["scored_data", "annotated_data"]:
-                # Scored and annotated data have different schema, save directly
+            if step in ["scored_data", "annotated_data"] or (
+                metadata and metadata.get("data_type") == "snp"
+            ):
+                # Scored, annotated, and SNP data have different schema, save directly
                 self._save_data_direct(data, file_path, file_format)
             else:
                 # Use standard validation for other data types
@@ -205,6 +207,19 @@ class OutputManager:
 
         return self.save_intermediate_data(
             data, "raw_data", f"source_{source_name}", {"source": source_name}
+        )
+
+    def save_snp_data(self, data: pd.DataFrame, snp_type: str) -> Path | None:
+        """Save SNP data with appropriate handling for different schema."""
+        if not self.intermediate_config.get("include_raw_data", True):
+            return None
+
+        # SNP data has a different schema than gene data, so we bypass validation
+        return self.save_intermediate_data(
+            data,
+            "raw_data",
+            f"SNP_{snp_type}",
+            {"snp_type": snp_type, "data_type": "snp"},
         )
 
     def save_standardized_data(
