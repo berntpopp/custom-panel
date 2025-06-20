@@ -25,13 +25,13 @@ def fetch_manual_snps(config: dict[str, Any]) -> pd.DataFrame | None:
         DataFrame with manual SNPs or None if disabled/failed
     """
     snp_config = config.get("snp_processing", {})
-    
+
     if not snp_config.get("enabled", False):
         logger.info("SNP processing is disabled")
         return None
 
     manual_config = snp_config.get("manual_snps", {})
-    
+
     if not manual_config.get("enabled", False):
         logger.info("Manual SNPs are disabled")
         return None
@@ -54,13 +54,9 @@ def fetch_manual_snps(config: dict[str, Any]) -> pd.DataFrame | None:
                     f"✓ {list_config.get('name', 'Unknown')}: {len(list_df)} SNPs"
                 )
             else:
-                logger.warning(
-                    f"⚠ {list_config.get('name', 'Unknown')}: No SNPs found"
-                )
+                logger.warning(f"⚠ {list_config.get('name', 'Unknown')}: No SNPs found")
         except Exception as e:
-            logger.error(
-                f"✗ {list_config.get('name', 'Unknown')}: {e}"
-            )
+            logger.error(f"✗ {list_config.get('name', 'Unknown')}: {e}")
 
     if not all_snps:
         logger.warning("No manual SNPs were successfully fetched")
@@ -68,12 +64,12 @@ def fetch_manual_snps(config: dict[str, Any]) -> pd.DataFrame | None:
 
     # Combine all lists
     combined_df = pd.concat(all_snps, ignore_index=True)
-    
+
     # Remove duplicates based on rsID, keeping first occurrence
     initial_count = len(combined_df)
     combined_df = combined_df.drop_duplicates(subset=["rsid"], keep="first")
     final_count = len(combined_df)
-    
+
     if initial_count != final_count:
         logger.info(
             f"Removed {initial_count - final_count} duplicate rsIDs from manual lists"
@@ -98,7 +94,7 @@ def _fetch_single_manual_list(list_config: dict[str, Any]) -> pd.DataFrame | Non
     """
     name = list_config.get("name", "Unknown")
     file_path = list_config.get("file_path")
-    
+
     if not file_path:
         raise ValueError(f"No file_path specified for manual list {name}")
 
@@ -110,7 +106,7 @@ def _fetch_single_manual_list(list_config: dict[str, Any]) -> pd.DataFrame | Non
     parser_type = list_config.get("parser", "manual_csv")
     rsid_column = list_config.get("rsid_column", "rsID")
     details_column = list_config.get("details_column")
-    
+
     try:
         if parser_type == "manual_csv":
             df = _parse_manual_csv(file_path, rsid_column, details_column, name)
@@ -118,25 +114,24 @@ def _fetch_single_manual_list(list_config: dict[str, Any]) -> pd.DataFrame | Non
             df = _parse_manual_tsv(file_path, rsid_column, details_column, name)
         elif parser_type == "manual_excel":
             sheet_name = list_config.get("sheet_name", 0)
-            df = _parse_manual_excel(file_path, rsid_column, details_column, name, sheet_name)
+            df = _parse_manual_excel(
+                file_path, rsid_column, details_column, name, sheet_name
+            )
         else:
             raise ValueError(f"Unsupported manual parser type: {parser_type}")
-        
+
         if df.empty:
             logger.warning(f"Manual list {name} contains no valid SNPs")
             return None
-            
+
         return df
-        
+
     except Exception as e:
         raise Exception(f"Failed to parse manual list {name}: {e}") from e
 
 
 def _parse_manual_csv(
-    file_path: Path, 
-    rsid_column: str, 
-    details_column: str | None,
-    name: str
+    file_path: Path, rsid_column: str, details_column: str | None, name: str
 ) -> pd.DataFrame:
     """Parse manual CSV file."""
     df = pd.read_csv(file_path)
@@ -144,10 +139,7 @@ def _parse_manual_csv(
 
 
 def _parse_manual_tsv(
-    file_path: Path, 
-    rsid_column: str, 
-    details_column: str | None,
-    name: str
+    file_path: Path, rsid_column: str, details_column: str | None, name: str
 ) -> pd.DataFrame:
     """Parse manual TSV file."""
     df = pd.read_csv(file_path, sep="\t")
@@ -155,11 +147,11 @@ def _parse_manual_tsv(
 
 
 def _parse_manual_excel(
-    file_path: Path, 
-    rsid_column: str, 
+    file_path: Path,
+    rsid_column: str,
     details_column: str | None,
     name: str,
-    sheet_name: str | int = 0
+    sheet_name: str | int = 0,
 ) -> pd.DataFrame:
     """Parse manual Excel file."""
     df = pd.read_excel(file_path, sheet_name=sheet_name)
@@ -167,20 +159,17 @@ def _parse_manual_excel(
 
 
 def _process_manual_dataframe(
-    df: pd.DataFrame,
-    rsid_column: str,
-    details_column: str | None,
-    name: str
+    df: pd.DataFrame, rsid_column: str, details_column: str | None, name: str
 ) -> pd.DataFrame:
     """
     Process a manual DataFrame to extract SNPs.
-    
+
     Args:
         df: Input DataFrame
         rsid_column: Column containing rsIDs
         details_column: Optional column with additional details
         name: Name of the manual list
-        
+
     Returns:
         Processed DataFrame with standardized format
     """
@@ -190,20 +179,16 @@ def _process_manual_dataframe(
             f"Required rsID column '{rsid_column}' not found. "
             f"Available columns: {list(df.columns)}"
         )
-    
+
     # Extract rsIDs
     rsids = df[rsid_column].dropna().tolist()
-    
+
     if not rsids:
         raise ValueError(f"No valid rsIDs found in column '{rsid_column}'")
-    
+
     # Create result DataFrame
-    result_df = pd.DataFrame({
-        "rsid": rsids,
-        "source": name,
-        "category": "manual"
-    })
-    
+    result_df = pd.DataFrame({"rsid": rsids, "source": name, "category": "manual"})
+
     # Add details column if specified and available
     if details_column and details_column in df.columns:
         details = df[details_column].dropna().tolist()
@@ -213,44 +198,44 @@ def _process_manual_dataframe(
             logger.warning(
                 f"Details column '{details_column}' length doesn't match rsID column"
             )
-    
+
     # Standardize rsID format
     result_df["rsid"] = result_df["rsid"].apply(_standardize_rsid)
-    
+
     # Remove any rows with empty rsids
     result_df = result_df.dropna(subset=["rsid"])
     result_df = result_df[result_df["rsid"].str.strip() != ""]
-    
+
     return result_df
 
 
 def _standardize_rsid(rsid: str | None) -> str | None:
     """
     Standardize rsID format to ensure it starts with 'rs'.
-    
+
     Args:
         rsid: Raw rsID string
-        
+
     Returns:
         Standardized rsID or None if invalid
     """
     if not rsid or pd.isna(rsid):
         return None
-        
+
     rsid = str(rsid).strip()
-    
+
     # Handle empty strings
     if not rsid:
         return None
-        
+
     # If it already starts with 'rs', return as-is
     if rsid.lower().startswith("rs"):
         return rsid
-    
+
     # If it's just numbers, add 'rs' prefix
     if rsid.isdigit():
         return f"rs{rsid}"
-    
+
     # For other formats, return as-is
     return rsid
 

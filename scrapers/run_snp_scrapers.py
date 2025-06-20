@@ -84,7 +84,7 @@ def get_parser_class(parser_module: str, parser_class: str) -> type:
         parent_dir = str(Path(__file__).parent.parent)
         if parent_dir not in sys.path:
             sys.path.append(parent_dir)
-        
+
         module = importlib.import_module(f"scrapers.snp_parsers.{parser_module}")
         parser_cls = getattr(module, parser_class)
 
@@ -111,13 +111,10 @@ def create_output_json(panel_data: dict[str, Any], output_path: str | Path) -> N
     """
     # Add retrieval date
     panel_data["retrieval_date"] = datetime.now().strftime("%Y-%m-%d")
-    
+
     # Ensure SNPs are sorted by rsID
     if "snps" in panel_data:
-        panel_data["snps"] = sorted(
-            panel_data["snps"], 
-            key=lambda x: x.get("rsid", "")
-        )
+        panel_data["snps"] = sorted(panel_data["snps"], key=lambda x: x.get("rsid", ""))
 
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)

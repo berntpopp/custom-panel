@@ -4,11 +4,11 @@ Abstract base class for all SNP panel scrapers.
 This module defines the BaseSNPScraper class that all individual SNP scrapers must inherit from.
 """
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List
-import re
 import logging
-from pathlib import Path
+import re
+from abc import ABC, abstractmethod
+from typing import Any
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -33,12 +33,14 @@ class BaseSNPScraper(ABC):
         self.url = url
         self.config = config or {}
         self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+        )
 
     @abstractmethod
-    def parse(self) -> Dict[str, Any]:
+    def parse(self) -> dict[str, Any]:
         """
         Parse the target URL and extract SNP data.
 
@@ -66,13 +68,14 @@ class BaseSNPScraper(ABC):
             Page content as string
         """
         url = url or self.url
-        
+
         if use_selenium:
             # Import here to avoid dependency if not needed
             from custom_panel.sources_snp.downloader import PanelDownloader
+
             with PanelDownloader() as downloader:
                 file_path = downloader.download(url, "html", "selenium")
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     return f.read()
         else:
             response = self.session.get(url, timeout=30)
@@ -94,16 +97,16 @@ class BaseSNPScraper(ABC):
 
         # Remove whitespace
         rsid = rsid.strip()
-        
+
         # Ensure rs prefix is lowercase
         if rsid.upper().startswith("RS"):
             rsid = "rs" + rsid[2:]
-        
+
         # Remove any non-alphanumeric characters after the rsID
-        match = re.match(r'(rs\d+)', rsid)
+        match = re.match(r"(rs\d+)", rsid)
         if match:
             return match.group(1)
-        
+
         return rsid
 
     def validate_rsid(self, rsid: str) -> bool:
@@ -120,9 +123,9 @@ class BaseSNPScraper(ABC):
             return False
 
         # Must match pattern rs followed by digits
-        return bool(re.match(r'^rs\d+$', rsid))
+        return bool(re.match(r"^rs\d+$", rsid))
 
-    def extract_rsids_from_text(self, text: str) -> List[str]:
+    def extract_rsids_from_text(self, text: str) -> list[str]:
         """
         Extract all valid rsIDs from a text string.
 
@@ -133,9 +136,9 @@ class BaseSNPScraper(ABC):
             List of unique, validated rsIDs
         """
         # Find all potential rsIDs
-        pattern = r'\b(rs\d+)\b'
+        pattern = r"\b(rs\d+)\b"
         matches = re.findall(pattern, text, re.IGNORECASE)
-        
+
         # Clean and validate
         rsids = []
         seen = set()
@@ -144,12 +147,12 @@ class BaseSNPScraper(ABC):
             if self.validate_rsid(rsid) and rsid not in seen:
                 seen.add(rsid)
                 rsids.append(rsid)
-        
+
         return rsids
 
-    def parse_table_for_rsids(self, soup: BeautifulSoup, 
-                             table_selector: str = None,
-                             rsid_column: str = None) -> List[str]:
+    def parse_table_for_rsids(
+        self, soup: BeautifulSoup, table_selector: str = None, rsid_column: str = None
+    ) -> list[str]:
         """
         Extract rsIDs from HTML tables.
 
@@ -162,24 +165,26 @@ class BaseSNPScraper(ABC):
             List of rsIDs found in tables
         """
         rsids = []
-        
+
         # Find tables
         if table_selector:
             tables = soup.select(table_selector)
         else:
-            tables = soup.find_all('table')
-        
+            tables = soup.find_all("table")
+
         for table in tables:
             try:
                 # Convert to pandas DataFrame
-                import pandas as pd
                 from io import StringIO
+
+                import pandas as pd
+
                 df_list = pd.read_html(StringIO(str(table)))
                 if not df_list:
                     continue
-                    
+
                 df = df_list[0]
-                
+
                 # Look for rsID column
                 if rsid_column and rsid_column in df.columns:
                     col_data = df[rsid_column].dropna().astype(str)
@@ -191,14 +196,14 @@ class BaseSNPScraper(ABC):
                         col_data = df[col].dropna().astype(str)
                         for value in col_data:
                             rsids.extend(self.extract_rsids_from_text(value))
-                            
+
             except Exception as e:
                 logger.warning(f"Failed to parse table: {e}")
                 continue
-        
+
         return list(set(rsids))  # Return unique rsIDs
 
-    def create_snp_record(self, rsid: str, **kwargs) -> Dict[str, Any]:
+    def create_snp_record(self, rsid: str, **kwargs) -> dict[str, Any]:
         """
         Create a standardized SNP record.
 
@@ -209,9 +214,6 @@ class BaseSNPScraper(ABC):
         Returns:
             Standardized SNP record dictionary
         """
-        record = {
-            "rsid": rsid,
-            "source": self.config.get("name", "unknown")
-        }
+        record = {"rsid": rsid, "source": self.config.get("name", "unknown")}
         record.update(kwargs)
         return record

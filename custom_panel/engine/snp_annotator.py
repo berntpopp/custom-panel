@@ -67,7 +67,7 @@ class SNPAnnotator:
     def annotate_snps(self, snps_df: pd.DataFrame) -> pd.DataFrame:
         """
         Annotate SNPs DataFrame with genomic coordinates in parallel.
-        
+
         This method replicates the R script pattern:
         ```r
         mutate(hg19 = snp_position_from_rs(snp, reference = "hg19"),
@@ -94,11 +94,17 @@ class SNPAnnotator:
 
         # Get unique rsIDs to annotate
         unique_rsids = snps_df["snp"].dropna().unique().tolist()
-        logger.info(f"Annotating {len(unique_rsids)} unique rsIDs with hg19 and hg38 coordinates")
+        logger.info(
+            f"Annotating {len(unique_rsids)} unique rsIDs with hg19 and hg38 coordinates"
+        )
 
         # Process rsIDs in batches using parallel execution for both assemblies
-        hg38_annotations = self._get_snp_annotations_parallel(unique_rsids, assembly="GRCh38")
-        hg19_annotations = self._get_snp_annotations_parallel(unique_rsids, assembly="GRCh37")
+        hg38_annotations = self._get_snp_annotations_parallel(
+            unique_rsids, assembly="GRCh38"
+        )
+        hg19_annotations = self._get_snp_annotations_parallel(
+            unique_rsids, assembly="GRCh37"
+        )
 
         # Add coordinate annotations to the original DataFrame
         annotated_df = self._add_coordinate_annotations_to_dataframe(
@@ -167,7 +173,9 @@ class SNPAnnotator:
 
         return annotations
 
-    def _process_single_batch(self, batch: list[str], assembly: str = "GRCh38") -> dict[str, dict[str, Any]]:
+    def _process_single_batch(
+        self, batch: list[str], assembly: str = "GRCh38"
+    ) -> dict[str, dict[str, Any]]:
         """
         Process a single batch of rsIDs.
 
@@ -185,16 +193,22 @@ class SNPAnnotator:
             try:
                 coords = self.ensembl_client.rsid_to_coordinates(rsid, self.species)
                 if coords:
-                    annotations[rsid] = self._build_snp_annotation(rsid, coords, assembly)
+                    annotations[rsid] = self._build_snp_annotation(
+                        rsid, coords, assembly
+                    )
                 else:
                     annotations[rsid] = self._build_empty_snp_annotation(rsid)
             except Exception as e:
-                logger.warning(f"Failed to get coordinates for {rsid} ({assembly}): {e}")
+                logger.warning(
+                    f"Failed to get coordinates for {rsid} ({assembly}): {e}"
+                )
                 annotations[rsid] = self._build_empty_snp_annotation(rsid)
 
         return annotations
 
-    def _process_individual_rsids(self, rsids: list[str], assembly: str = "GRCh38") -> dict[str, dict[str, Any]]:
+    def _process_individual_rsids(
+        self, rsids: list[str], assembly: str = "GRCh38"
+    ) -> dict[str, dict[str, Any]]:
         """
         Process individual rsIDs when batch processing fails.
 
@@ -205,14 +219,18 @@ class SNPAnnotator:
         Returns:
             Dictionary mapping rsIDs to annotation data
         """
-        logger.info(f"Processing {len(rsids)} rsIDs individually in parallel for {assembly}")
+        logger.info(
+            f"Processing {len(rsids)} rsIDs individually in parallel for {assembly}"
+        )
 
         annotations = {}
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit individual rsID jobs
             future_to_rsid = {
-                executor.submit(self._get_individual_snp_annotation, rsid, assembly): rsid
+                executor.submit(
+                    self._get_individual_snp_annotation, rsid, assembly
+                ): rsid
                 for rsid in rsids
             }
 
@@ -223,12 +241,16 @@ class SNPAnnotator:
                     annotation = future.result()
                     annotations[rsid] = annotation
                 except Exception as e:
-                    logger.warning(f"Failed to get annotation for {rsid} ({assembly}): {e}")
+                    logger.warning(
+                        f"Failed to get annotation for {rsid} ({assembly}): {e}"
+                    )
                     annotations[rsid] = self._build_empty_snp_annotation(rsid)
 
         return annotations
 
-    def _get_individual_snp_annotation(self, rsid: str, assembly: str = "GRCh38") -> dict[str, Any]:
+    def _get_individual_snp_annotation(
+        self, rsid: str, assembly: str = "GRCh38"
+    ) -> dict[str, Any]:
         """Get annotation for a single rsID."""
         try:
             coords = self.ensembl_client.rsid_to_coordinates(rsid, self.species)
@@ -285,15 +307,15 @@ class SNPAnnotator:
         }
 
     def _add_coordinate_annotations_to_dataframe(
-        self, 
-        snps_df: pd.DataFrame, 
-        hg38_annotations: dict[str, dict[str, Any]], 
-        hg19_annotations: dict[str, dict[str, Any]]
+        self,
+        snps_df: pd.DataFrame,
+        hg38_annotations: dict[str, dict[str, Any]],
+        hg19_annotations: dict[str, dict[str, Any]],
     ) -> pd.DataFrame:
         """
         Add coordinate annotations to SNPs DataFrame.
-        
-        This method replicates the R script pattern of adding hg19_ and hg38_ 
+
+        This method replicates the R script pattern of adding hg19_ and hg38_
         prefixed columns for coordinates from both genome assemblies.
 
         Args:
@@ -305,30 +327,34 @@ class SNPAnnotator:
             DataFrame with coordinate annotations added
         """
         result_df = snps_df.copy()
-        
+
         # Add hg38 coordinates with hg38_ prefix
         for snp in result_df["snp"]:
             hg38_coords = hg38_annotations.get(snp, {})
             hg19_coords = hg19_annotations.get(snp, {})
-            
+
             # Get the index for this SNP (handle potential duplicates)
             snp_indices = result_df[result_df["snp"] == snp].index
-            
+
             for idx in snp_indices:
                 # Add hg38 coordinates
                 result_df.loc[idx, "hg38_chromosome"] = hg38_coords.get("chromosome")
                 result_df.loc[idx, "hg38_start"] = hg38_coords.get("start")
                 result_df.loc[idx, "hg38_end"] = hg38_coords.get("end")
                 result_df.loc[idx, "hg38_strand"] = hg38_coords.get("strand")
-                result_df.loc[idx, "hg38_allele_string"] = hg38_coords.get("allele_string")
-                
+                result_df.loc[idx, "hg38_allele_string"] = hg38_coords.get(
+                    "allele_string"
+                )
+
                 # Add hg19 coordinates
                 result_df.loc[idx, "hg19_chromosome"] = hg19_coords.get("chromosome")
                 result_df.loc[idx, "hg19_start"] = hg19_coords.get("start")
                 result_df.loc[idx, "hg19_end"] = hg19_coords.get("end")
                 result_df.loc[idx, "hg19_strand"] = hg19_coords.get("strand")
-                result_df.loc[idx, "hg19_allele_string"] = hg19_coords.get("allele_string")
-        
+                result_df.loc[idx, "hg19_allele_string"] = hg19_coords.get(
+                    "allele_string"
+                )
+
         return result_df
 
     def _create_annotation_dataframe(
@@ -352,7 +378,7 @@ class SNPAnnotator:
         # Ensure consistent column order
         column_order = [
             "rsid",
-            "chromosome", 
+            "chromosome",
             "start",
             "end",
             "strand",
@@ -375,12 +401,12 @@ class SNPAnnotator:
                 "source",
                 "category",
                 "hg38_chromosome",
-                "hg38_start", 
+                "hg38_start",
                 "hg38_end",
                 "hg38_strand",
                 "hg38_allele_string",
                 "hg19_chromosome",
-                "hg19_start", 
+                "hg19_start",
                 "hg19_end",
                 "hg19_strand",
                 "hg19_allele_string",
@@ -403,7 +429,7 @@ class SNPAnnotator:
         total_snps = len(annotated_df)
         with_coordinates = annotated_df["chromosome"].notna().sum()
 
-        summary = {
+        summary: dict[str, Any] = {
             "total_snps": total_snps,
             "with_coordinates": int(with_coordinates),
             "with_coordinates_percent": (
@@ -415,12 +441,12 @@ class SNPAnnotator:
         # Chromosome distribution
         if "chromosome" in annotated_df.columns:
             chrom_counts = annotated_df["chromosome"].value_counts().to_dict()
-            summary["chromosome_distribution"] = dict(chrom_counts)
+            summary["chromosome_distribution"] = chrom_counts
 
         # Assembly information
         if "assembly" in annotated_df.columns:
             assembly_counts = annotated_df["assembly"].value_counts().to_dict()
-            summary["assembly_distribution"] = dict(assembly_counts)
+            summary["assembly_distribution"] = assembly_counts
 
         return summary
 

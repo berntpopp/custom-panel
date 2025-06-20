@@ -27,13 +27,13 @@ def fetch_identity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
         DataFrame with identity/ethnicity SNPs or None if disabled/failed
     """
     snp_config = config.get("snp_processing", {})
-    
+
     if not snp_config.get("enabled", False):
         logger.info("SNP processing is disabled")
         return None
 
     identity_config = snp_config.get("identity_and_ethnicity", {})
-    
+
     if not identity_config.get("enabled", False):
         logger.info("Identity and ethnicity SNPs are disabled")
         return None
@@ -60,9 +60,7 @@ def fetch_identity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
                     f"⚠ {panel_config.get('name', 'Unknown')}: No SNPs found"
                 )
         except Exception as e:
-            logger.error(
-                f"✗ {panel_config.get('name', 'Unknown')}: {e}"
-            )
+            logger.error(f"✗ {panel_config.get('name', 'Unknown')}: {e}")
 
     if not all_snps:
         logger.warning("No identity/ethnicity SNPs were successfully fetched")
@@ -70,11 +68,13 @@ def fetch_identity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
 
     # Combine all panels and apply R-script-like aggregation
     combined_df = pd.concat(all_snps, ignore_index=True)
-    
+
     # Group by rsID and merge sources with "; " separator (matching R implementation)
     identity_snps_panel = _aggregate_snps_by_rsid(combined_df)
 
-    logger.info(f"Successfully fetched {len(identity_snps_panel)} unique identity/ethnicity SNPs")
+    logger.info(
+        f"Successfully fetched {len(identity_snps_panel)} unique identity/ethnicity SNPs"
+    )
     return identity_snps_panel
 
 
@@ -93,7 +93,7 @@ def _fetch_single_identity_panel(panel_config: dict[str, Any]) -> pd.DataFrame |
     """
     name = panel_config.get("name", "Unknown")
     file_path = panel_config.get("file_path")
-    
+
     if not file_path:
         raise ValueError(f"No file_path specified for panel {name}")
 
@@ -105,13 +105,13 @@ def _fetch_single_identity_panel(panel_config: dict[str, Any]) -> pd.DataFrame |
     try:
         parser = create_identity_parser(file_path, panel_config)
         df = parser.parse()
-        
+
         if df.empty:
             logger.warning(f"Panel {name} contains no valid SNPs")
             return None
-            
+
         return df
-        
+
     except Exception as e:
         raise Exception(f"Failed to parse panel {name}: {e}") from e
 
@@ -119,7 +119,7 @@ def _fetch_single_identity_panel(panel_config: dict[str, Any]) -> pd.DataFrame |
 def _aggregate_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
     """
     Aggregate SNPs by rsID, merging sources with "; " separator.
-    
+
     This function replicates the R script pattern:
     ```r
     group_by(snp) %>%
@@ -135,16 +135,22 @@ def _aggregate_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
     # Rename rsid to snp to match R script column names
     if "rsid" in df.columns:
         df = df.rename(columns={"rsid": "snp"})
-    
+
     # Group by snp and aggregate sources (matching R script)
-    aggregated = df.groupby("snp").agg({
-        "source": lambda x: "; ".join(x.dropna().astype(str).unique()),
-        "category": "first"  # Keep first category
-    }).reset_index()
-    
+    aggregated = (
+        df.groupby("snp")
+        .agg(
+            {
+                "source": lambda x: "; ".join(x.dropna().astype(str).unique()),
+                "category": "first",  # Keep first category
+            }
+        )
+        .reset_index()
+    )
+
     # Sort by snp (matching R script: arrange(snp))
     aggregated = aggregated.sort_values("snp").reset_index(drop=True)
-    
+
     return aggregated
 
 
