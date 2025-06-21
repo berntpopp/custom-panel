@@ -457,7 +457,7 @@ class Pipeline:
 
         # Define SNP source functions (excluding ClinVar which is processed separately)
         snp_source_functions = {
-            "identity_and_ethnicity": fetch_identity_snps,
+            "identity": fetch_identity_snps,
             "ethnicity": fetch_ethnicity_snps,
             "prs": fetch_prs_snps,
             "manual_snps": fetch_manual_snps,

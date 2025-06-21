@@ -33,25 +33,24 @@ def fetch_ethnicity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
         logger.info("SNP processing is disabled")
         return None
 
-    identity_config = snp_config.get("identity_and_ethnicity", {})
+    ethnicity_config = snp_config.get("ethnicity", {})
 
-    if not identity_config.get("enabled", False):
-        logger.info("Identity and ethnicity SNPs are disabled")
+    if not ethnicity_config.get("enabled", False):
+        logger.info("Ethnicity SNPs are disabled")
         return None
 
-    # Look for ethnicity-specific panels (those with parser: "excel_rsid")
-    panels = identity_config.get("panels", [])
-    ethnicity_panels = [p for p in panels if p.get("parser") == "excel_rsid"]
+    # Get ethnicity panels from configuration
+    panels = ethnicity_config.get("panels", [])
 
-    if not ethnicity_panels:
-        logger.info("No ethnicity panels (excel_rsid type) configured")
+    if not panels:
+        logger.warning("No ethnicity panels configured")
         return None
 
-    logger.info(f"Fetching ethnicity SNPs from {len(ethnicity_panels)} Excel panels")
+    logger.info(f"Fetching ethnicity SNPs from {len(panels)} panels")
 
     all_snps = []
 
-    for panel_config in ethnicity_panels:
+    for panel_config in panels:
         try:
             panel_df = _fetch_single_ethnicity_panel(panel_config)
             if panel_df is not None and not panel_df.empty:

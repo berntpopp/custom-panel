@@ -1,8 +1,8 @@
 """
-Identity and ethnicity SNPs source fetcher.
+Identity SNPs source fetcher.
 
-This module fetches identity and ethnicity SNPs from configured panel files.
-These SNPs are typically used for sample tracking and ancestry checks.
+This module fetches identity SNPs from configured panel files.
+These SNPs are typically used for sample tracking and identification.
 """
 
 import logging
@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 
 def fetch_identity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
     """
-    Fetch identity and ethnicity SNPs from configured panels.
+    Fetch identity SNPs from configured panels.
 
     Args:
         config: Configuration dictionary
 
     Returns:
-        DataFrame with identity/ethnicity SNPs or None if disabled/failed
+        DataFrame with identity SNPs or None if disabled/failed
     """
     snp_config = config.get("snp_processing", {})
 
@@ -32,18 +32,18 @@ def fetch_identity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
         logger.info("SNP processing is disabled")
         return None
 
-    identity_config = snp_config.get("identity_and_ethnicity", {})
+    identity_config = snp_config.get("identity", {})
 
     if not identity_config.get("enabled", False):
-        logger.info("Identity and ethnicity SNPs are disabled")
+        logger.info("Identity SNPs are disabled")
         return None
 
     panels = identity_config.get("panels", [])
     if not panels:
-        logger.warning("No identity/ethnicity panels configured")
+        logger.warning("No identity panels configured")
         return None
 
-    logger.info(f"Fetching identity/ethnicity SNPs from {len(panels)} panels")
+    logger.info(f"Fetching identity SNPs from {len(panels)} panels")
 
     all_snps = []
 
@@ -63,7 +63,7 @@ def fetch_identity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
             logger.error(f"✗ {panel_config.get('name', 'Unknown')}: {e}")
 
     if not all_snps:
-        logger.warning("No identity/ethnicity SNPs were successfully fetched")
+        logger.warning("No identity SNPs were successfully fetched")
         return None
 
     # Combine all panels and apply R-script-like aggregation
@@ -73,14 +73,14 @@ def fetch_identity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
     identity_snps_panel = _aggregate_snps_by_rsid(combined_df)
 
     logger.info(
-        f"Successfully fetched {len(identity_snps_panel)} unique identity/ethnicity SNPs"
+        f"Successfully fetched {len(identity_snps_panel)} unique identity SNPs"
     )
     return identity_snps_panel
 
 
 def _fetch_single_identity_panel(panel_config: dict[str, Any]) -> pd.DataFrame | None:
     """
-    Fetch SNPs from a single identity/ethnicity panel.
+    Fetch SNPs from a single identity panel.
 
     Args:
         panel_config: Configuration for a single panel

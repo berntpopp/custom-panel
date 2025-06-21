@@ -620,9 +620,9 @@ snp_processing:
   # Master switch to enable or disable all SNP processing
   enabled: true
 
-  # --- Identity & Ethnicity SNPs ---
-  # These are simple rsID lists used for sample tracking and ancestry checks.
-  identity_and_ethnicity:
+  # --- Identity SNPs ---
+  # These are simple rsID lists used for sample tracking and identification.
+  identity:
     enabled: true
     panels:
       # Use scraped JSON files directly from the SNP scrapers
@@ -647,6 +647,12 @@ snp_processing:
       - name: "NimaGen_HIST"
         file_path: "data/scraped/snp/nimagen_hist_panel.json"
         parser: "scraped_json"
+
+  # --- Ethnicity SNPs ---
+  # These are SNPs used for ancestry and population analysis.
+  ethnicity:
+    enabled: true
+    panels:
       - name: "Ethnicity_AISNPs"
         file_path: "data/snp/ethnicity/ethnicity_snps.xlsx"
         parser: "excel_rsid"
