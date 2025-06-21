@@ -123,7 +123,7 @@ class ExcelStrategy(FormatStrategy):
         path: Path,
         snp_data: dict[str, pd.DataFrame],
         index: bool,
-        engine: str,
+        engine: Any,
     ) -> None:
         """Save multi-sheet Excel with genes and SNPs."""
         from rich.console import Console
