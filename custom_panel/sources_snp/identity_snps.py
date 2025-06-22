@@ -72,9 +72,7 @@ def fetch_identity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
     # Group by rsID and merge sources with "; " separator (matching R implementation)
     identity_snps_panel = _aggregate_snps_by_rsid(combined_df)
 
-    logger.info(
-        f"Successfully fetched {len(identity_snps_panel)} unique identity SNPs"
-    )
+    logger.info(f"Successfully fetched {len(identity_snps_panel)} unique identity SNPs")
     return identity_snps_panel
 
 

@@ -212,15 +212,38 @@ def _generate_snp_bed_files(
             )
             continue
 
+        # Filter out rows with invalid coordinate data
+        valid_coords = (
+            bed_data["hg38_chromosome"].notna()
+            & bed_data["hg38_start"].notna()
+            & bed_data["hg38_end"].notna()
+            & (bed_data["hg38_chromosome"] != "")
+            & (bed_data["hg38_start"] != "")
+            & (bed_data["hg38_end"] != "")
+        )
+
+        bed_data_clean = bed_data[valid_coords].copy()
+
+        if bed_data_clean.empty:
+            console.print(
+                f"[yellow]No {snp_type} SNPs have valid coordinate data for BED file[/yellow]"
+            )
+            continue
+
         # Create BED format DataFrame
         bed_df = pd.DataFrame(
             {
-                "chrom": "chr" + bed_data["hg38_chromosome"].astype(str),
-                "chromStart": bed_data["hg38_start"].astype(int) - 1,  # BED is 0-based
-                "chromEnd": bed_data["hg38_end"].astype(int),
-                "name": bed_data["snp"]
-                if "snp" in bed_data.columns
-                else bed_data.index,
+                "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
+                "chromStart": pd.to_numeric(
+                    bed_data_clean["hg38_start"], errors="coerce"
+                ).astype(int)
+                - 1,  # BED is 0-based
+                "chromEnd": pd.to_numeric(
+                    bed_data_clean["hg38_end"], errors="coerce"
+                ).astype(int),
+                "name": bed_data_clean["snp"]
+                if "snp" in bed_data_clean.columns
+                else bed_data_clean.index,
                 "score": 1000,  # Default score
                 "strand": ".",  # Unknown strand for SNPs
             }

@@ -473,15 +473,20 @@ class Pipeline:
                     snp_df = fetch_function(self.config_manager.to_dict())
 
                     if snp_df is not None and not snp_df.empty:
-                        # Check if SNPs already have coordinate information (e.g., from ClinVar VCF)
-                        has_coordinates = all(
+                        # Check if SNPs already have coordinate information (e.g., from ClinVar VCF or PRS files)
+                        has_hg38_coordinates = all(
                             col in snp_df.columns for col in ["hg38_chr", "hg38_pos"]
                         )
+                        has_hg19_coordinates = all(
+                            col in snp_df.columns for col in ["hg19_chr", "hg19_pos"]
+                        )
+                        has_coordinates = has_hg38_coordinates or has_hg19_coordinates
 
                         if has_coordinates:
-                            # SNPs already annotated (e.g., ClinVar with VCF coordinates)
+                            # SNPs already annotated (e.g., ClinVar with VCF coordinates, PRS with genomic positions)
+                            coord_type = "hg38" if has_hg38_coordinates else "hg19"
                             logger.info(
-                                f"Using pre-annotated coordinates for {len(snp_df)} {snp_type} SNPs"
+                                f"Using pre-annotated {coord_type} coordinates for {len(snp_df)} {snp_type} SNPs"
                             )
                             annotated_snp_df = snp_df
                         else:

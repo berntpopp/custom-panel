@@ -666,14 +666,42 @@ snp_processing:
     panels:
       - name: "BCAC_313_PRS"
         # The URL is ephemeral. We will assume the user downloads it.
-        file_path: "data/snp/prs/BCAC_313_PRS.csv"
-        parser: "bcac_prs"
-        # Column mappings for the parser
-        rsid_column: "hm_rsid"
-        chr_column: "hm_chr"
-        pos_column: "hm_pos"
-        effect_allele_column: "effect_allele"
-        # ... other relevant PRS columns (effect_weight, etc.)
+        file_path: "data/snp/prs/BCAC_313_PRS.prs"
+        parser: "bcac_313_prs"
+        # Genome build for coordinates (BCAC uses hg19/GRCh37)
+        genome_build: "hg19"
+        # Column mappings for the actual BCAC format
+        chr_column: "Chromosome"
+        pos_column: "Position"
+        ref_allele_column: "Reference_Allele"
+        effect_allele_column: "Effect_Allele"
+        effect_freq_column: "Effect_Allele_Frequency"
+        log_odds_ratio_column: "Log_Odds_Ratio"
+        # Note: For complete functionality, coordinate liftover from hg19 to hg38
+        # would be needed. This can be implemented using pyliftover or similar tools.
+
+      # --- PGS Catalog API-based fetching (recommended) ---
+      # Automatically fetch and parse PGS scores from PGS Catalog API
+      - name: "PGS_Catalog_Breast_Cancer"
+        # No file_path needed - fetched via API
+        parser: "pgs_catalog_fetcher"
+        # PGS IDs to fetch (breast cancer related scores)
+        pgs_ids:
+          - "PGS000004"  # Mavaddat et al. (2015) breast cancer PRS
+          - "PGS000147"  # Zhang et al. (2020) breast cancer PRS
+          - "PGS000873"  # Khera et al. (2018) breast cancer PRS
+        # Preferred genome build (GRCh38 or GRCh37)
+        genome_build: "GRCh38"
+        # Cache settings
+        cache_dir: ".cache/pgs_catalog"
+        cache_ttl_days: 7
+
+      # --- PGS Catalog local file parsing (alternative) ---
+      # For parsing locally downloaded PGS Catalog harmonized files
+      # - name: "PGS000064_Local"
+      #   file_path: "data/snp/prs/PGS000064_GRCh38_scoring.txt.gz"
+      #   parser: "pgs_catalog"
+      #   genome_build: "GRCh38"
 
   # --- Deep Intronic ClinVar SNPs ---
   # This analysis depends on the final gene panel.
