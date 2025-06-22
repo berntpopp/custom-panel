@@ -1,9 +1,141 @@
 """
-Polygenic Risk Score (PRS) SNPs source fetcher.
+Polygenic Risk Score (PRS) SNPs source fetcher and aggregator.
 
-This module fetches PRS SNPs from configured panel files.
-These SNPs are used in risk score calculations and typically
-contain additional metadata like effect alleles and weights.
+This module handles the complete PRS acquisition pipeline from multiple sources
+with support for dual genome builds, coordinate systems, and metadata preservation.
+
+## PRS Acquisition Pipeline
+
+### 1. Source Configuration
+PRS sources are configured in the SNP processing configuration:
+```yaml
+snp_processing:
+  prs:
+    enabled: true
+    sources:
+      - name: "BCAC_313_PRS"
+        parser: "bcac_313"
+        file_path: "data/snp/prs/BCAC_313_PRS.prs"
+        enhance_with_ensembl: true
+      - name: "PGS_Catalog_Breast_Cancer"
+        parser: "pgs_catalog_fetcher"
+        pgs_ids: ["PGS000873", "PGS000004"]
+        genome_build: "GRCh38"
+```
+
+### 2. Multi-Source Processing
+The pipeline processes multiple PRS sources in parallel:
+- **BCAC files**: Local files with original research data
+- **PGS Catalog**: API-downloaded harmonized scoring files
+- **Custom formats**: Extensible parser system for new formats
+
+### 3. Dual Genome Build Support
+Each source can provide coordinates for multiple genome builds:
+- **hg19/GRCh37**: Legacy build support
+- **hg38/GRCh38**: Modern harmonized coordinates
+- **Cross-build mapping**: Ensembl API integration for coordinate conversion
+
+### 4. Aggregation Strategy
+SNPs from different sources are aggregated using intelligent merging:
+```python
+# Group by variant identifier (rsID or coordinate-based)
+grouped = df.groupby('snp')
+
+# Preserve metadata from all sources
+agg_rules = {
+    'source': lambda x: "; ".join(x.unique()),  # Combine sources
+    'chromosome': get_first_valid_coord,        # Best coordinate
+    'position': get_first_valid_coord,          # Best position
+    'effect_allele': 'first',                   # Effect allele
+    'effect_weight': 'first',                   # PRS weight
+}
+```
+
+## Data Quality and Validation
+
+### Input Validation
+- **File existence**: Validates all configured file paths
+- **Format detection**: Automatic parser selection based on file format
+- **Column validation**: Ensures required columns are present
+
+### Data Cleaning
+- **Invalid entry filtering**: Removes malformed variant identifiers
+- **Coordinate validation**: Validates chromosome and position values
+- **Allele normalization**: Standardizes allele representations
+
+### Quality Metrics
+- **Coverage reporting**: Tracks variants successfully parsed
+- **Build coverage**: Reports coordinate availability by genome build
+- **Source overlap**: Identifies variants present in multiple sources
+
+## Coordinate System Management
+
+### Multi-Build Coordinate Handling
+```python
+# Both genome builds supported simultaneously
+hg38_columns = ['hg38_chromosome', 'hg38_start', 'hg38_end', 'hg38_strand']
+hg19_columns = ['hg19_chromosome', 'hg19_start', 'hg19_end', 'hg19_strand']
+
+# Coordinate preference hierarchy
+coordinate_preference = [
+    ('hm_chr', 'hm_pos'),      # Harmonized coordinates (preferred)
+    ('chr_name', 'chr_position'), # Original coordinates (fallback)
+]
+```
+
+### Cross-Build Validation
+- **Consistency checks**: Validates coordinates across builds when both available
+- **Lift-over validation**: Ensures coordinate conversions are accurate
+- **Build-specific metadata**: Preserves allele strings and strand information per build
+
+## Performance and Scalability
+
+### Efficient Processing
+- **Lazy loading**: Sources loaded on-demand
+- **Parallel processing**: Multiple sources processed concurrently
+- **Memory optimization**: Large datasets processed in chunks
+
+### Caching Strategy
+- **File caching**: Downloaded PGS files cached with TTL
+- **API caching**: Ensembl API responses cached to reduce load
+- **Result caching**: Processed aggregations cached for reuse
+
+### Error Recovery
+- **Source isolation**: Failures in one source don't affect others
+- **Partial results**: Returns available data even if some sources fail
+- **Detailed logging**: Comprehensive error reporting for debugging
+
+## Output Format
+
+### Standardized Schema
+All PRS SNPs follow a consistent output schema:
+```python
+required_columns = [
+    'snp',           # Variant identifier (rsID or chr:pos:ref:alt)
+    'rsid',          # rsID when available
+    'source',        # Source name(s)
+    'category',      # Always 'prs'
+    'chromosome',    # Primary chromosome
+    'position',      # Primary position
+]
+
+optional_columns = [
+    'effect_allele',        # Effect allele for PRS
+    'other_allele',         # Reference/other allele
+    'effect_weight',        # PRS weight/beta coefficient
+    'hg38_chromosome',      # hg38 coordinates
+    'hg38_start', 'hg38_end', 'hg38_strand',
+    'hg19_chromosome',      # hg19 coordinates
+    'hg19_start', 'hg19_end', 'hg19_strand',
+    'pgs_id', 'pgs_name',   # PGS Catalog metadata
+]
+```
+
+### Metadata Preservation
+- **Source tracking**: All source names preserved
+- **Build information**: Genome build specified per coordinate set
+- **PRS metadata**: Effect sizes, frequencies, and statistical measures
+- **Provenance**: Original file paths and processing timestamps
 """
 
 import logging
@@ -101,14 +233,20 @@ def _fetch_single_prs_panel(panel_config: dict[str, Any]) -> pd.DataFrame | None
         Exception: If panel fetching fails
     """
     name = panel_config.get("name", "Unknown")
-    file_path = panel_config.get("file_path")
+    parser_type = panel_config.get("parser", "bcac_prs")
 
-    if not file_path:
-        raise ValueError(f"No file_path specified for panel {name}")
+    # For PGS Catalog fetcher, no file path is needed (downloads via API)
+    if parser_type == "pgs_catalog_fetcher":
+        file_path = Path(".")  # Dummy path - fetcher doesn't use it
+    else:
+        file_path = Path(panel_config.get("file_path", ""))
 
-    file_path = Path(file_path)
-    if not file_path.exists():
-        raise FileNotFoundError(f"Panel file not found: {file_path}")
+        if not file_path:
+            raise ValueError(f"No file_path specified for panel {name}")
+
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"Panel file not found: {file_path}")
 
     # Create the appropriate parser
     try:
@@ -142,6 +280,66 @@ def _aggregate_prs_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
     if "rsid" in df.columns:
         df = df.rename(columns={"rsid": "snp"})
 
+    # Clean up DataFrame for aggregation
+    if "snp" in df.columns:
+        # Ensure 'snp' column contains scalar string values
+        df["snp"] = df["snp"].astype(str)
+
+        # Remove any duplicate columns that might cause issues first
+        df = df.loc[:, ~df.columns.duplicated()]
+
+        # Filter out problematic entries before aggregation
+        initial_count = len(df)
+        invalid_snp_patterns = ["liftover", "<NA>", "nan", "null", ""]
+
+        # Create mask for valid SNP identifiers
+        valid_mask = pd.Series([True] * len(df), index=df.index)
+
+        # Get the snp column as a Series to ensure proper .str access
+        snp_series = df["snp"]
+
+        for pattern in invalid_snp_patterns:
+            try:
+                pattern_mask = snp_series.str.match(
+                    f"^{pattern}$", case=False, na=False
+                )
+                if pattern_mask.any():
+                    logger.info(
+                        f"Filtering out {pattern_mask.sum()} entries with SNP ID '{pattern}'"
+                    )
+                    valid_mask = valid_mask & ~pattern_mask
+            except AttributeError as e:
+                logger.warning(
+                    f"Could not apply string pattern matching for '{pattern}': {e}"
+                )
+                # Fallback to exact string comparison
+                pattern_mask = snp_series == pattern
+                if pattern_mask.any():
+                    logger.info(
+                        f"Filtering out {pattern_mask.sum()} entries with exact SNP ID '{pattern}'"
+                    )
+                    valid_mask = valid_mask & ~pattern_mask
+
+        # Also filter out entries where SNP is NaN or empty after string conversion
+        null_mask = snp_series.isna() | (snp_series == "nan") | (snp_series == "")
+        if null_mask.any():
+            logger.info(
+                f"Filtering out {null_mask.sum()} entries with null/empty SNP IDs"
+            )
+            valid_mask = valid_mask & ~null_mask
+
+        # Apply the filter
+        df = df[valid_mask].reset_index(drop=True)
+        filtered_count = initial_count - len(df)
+
+        if filtered_count > 0:
+            logger.info(
+                f"Filtered out {filtered_count} problematic entries before aggregation"
+            )
+
+        # Reset index to ensure clean structure
+        df = df.reset_index(drop=True)
+
     # Define aggregation rules for different column types
     agg_rules: dict[str, Any] = {
         "source": lambda x: "; ".join(x.dropna().astype(str).unique()),
@@ -159,11 +357,64 @@ def _aggregate_prs_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
         "se",
         "pvalue",
         "freq",
+        "reference_allele",
+        "other_allele",
+        "effect_allele_frequency",
+        "log_odds_ratio",
+        "odds_ratio",
+        "alpha",
+        "genome_build",
     ]
 
-    for col in prs_metadata_cols:
+    # Add coordinate columns for both genome builds
+    coordinate_cols = [
+        "hg38_chromosome",
+        "hg38_chr",
+        "hg38_start",
+        "hg38_pos",
+        "hg38_end",
+        "hg38_strand",
+        "hg38_allele_string",
+        "hg19_chromosome",
+        "hg19_chr",
+        "hg19_start",
+        "hg19_pos",
+        "hg19_end",
+        "hg19_strand",
+        "hg19_allele_string",
+    ]
+
+    # Add PGS-specific metadata columns
+    pgs_metadata_cols = [
+        "pgs_id",
+        "pgs_name",
+        "trait_reported",
+        "trait_mapped",
+        "variants_number",
+        "weight_type",
+    ]
+
+    # Combine all metadata columns
+    all_metadata_cols = prs_metadata_cols + coordinate_cols + pgs_metadata_cols
+
+    # Define custom aggregation function for coordinates
+    def get_first_valid_coord(series: pd.Series[Any]) -> Any:
+        """Get first non-empty, non-null value from series."""
+        valid_values = series.dropna()
+        if len(valid_values) == 0:
+            return ""
+        # Filter out empty strings
+        non_empty = valid_values[valid_values != ""]
+        if len(non_empty) == 0:
+            return ""
+        return non_empty.iloc[0]
+
+    for col in all_metadata_cols:
         if col in df.columns:
-            agg_rules[col] = "first"  # Keep first non-null value
+            if col in coordinate_cols:
+                agg_rules[col] = get_first_valid_coord
+            else:
+                agg_rules[col] = "first"  # Keep first non-null value
 
     # Group by snp and aggregate
     aggregated = df.groupby("snp").agg(agg_rules).reset_index()
