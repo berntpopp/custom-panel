@@ -197,3 +197,7 @@ results/
 # Local configuration files containing sensitive tokens/keys
 config.local.yml
 *.local.yml
+
+# claude fodler and md file
+.claude/
+CLAUDE.md
