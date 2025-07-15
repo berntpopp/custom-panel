@@ -619,6 +619,25 @@ snp_scrapers:
 snp_processing:
   # Master switch to enable or disable all SNP processing
   enabled: true
+  
+  # SNP harmonization settings
+  harmonization:
+    enabled: true
+    gnomad_api:
+      base_url: "https://gnomad.broadinstitute.org/api"
+      rate_limit: 5  # requests per second
+      timeout: 30
+      retry_attempts: 3
+    caching:
+      enabled: true
+      cache_dir: ".cache/gnomad"
+      ttl_days: 30
+    rsid_resolution:
+      enabled: true
+      fallback_to_coordinates: true
+    coordinate_lifting:
+      enabled: true
+      validate_liftover: true
 
   # --- Identity SNPs ---
   # These are simple rsID lists used for sample tracking and identification.
@@ -714,7 +733,9 @@ snp_processing:
     cache_dir: ".cache/clinvar"
     cache_expiry_days: 30
     # Distance in bp from exon boundaries to define "deep intronic"
-    intronic_padding: 50 
+    intronic_padding: 50
+    # Maximum indel size in bp to include (filters out large CNVs and structural variants)
+    max_indel_size: 50 
 
   # --- Manually Added SNPs ---
   # For adding specific SNPs for any reason (e.g., PGx).

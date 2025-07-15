@@ -7,14 +7,16 @@ These SNPs are typically added for specific purposes like pharmacogenomics (PGx)
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_manual_snps(config: dict[str, Any]) -> pd.DataFrame | None:
+def fetch_manual_snps(
+    config: dict[str, Any], harmonizer: Optional[Any] = None
+) -> pd.DataFrame | None:
     """
     Fetch manually curated SNPs from configured lists.
 
@@ -74,6 +76,26 @@ def fetch_manual_snps(config: dict[str, Any]) -> pd.DataFrame | None:
         logger.info(
             f"Removed {initial_count - final_count} duplicate rsIDs from manual lists"
         )
+
+    # Apply harmonization if harmonizer is provided
+    if harmonizer is not None:
+        try:
+            logger.info(f"Harmonizing {len(combined_df)} manual SNPs")
+            harmonized_manual_snps = harmonizer.harmonize_snp_batch(combined_df)
+
+            if not harmonized_manual_snps.empty:
+                logger.info(
+                    f"Successfully harmonized {len(harmonized_manual_snps)} manual SNPs"
+                )
+                return harmonized_manual_snps
+            else:
+                logger.warning(
+                    "Harmonization resulted in empty DataFrame, returning original data"
+                )
+
+        except Exception as e:
+            logger.error(f"Error during manual SNP harmonization: {e}")
+            logger.info("Continuing with non-harmonized data")
 
     logger.info(f"Successfully fetched {final_count} unique manual SNPs")
     return combined_df

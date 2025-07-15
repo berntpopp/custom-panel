@@ -15,7 +15,10 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from ..core.config_manager import ConfigManager
+from ..core.ensembl_client import EnsemblClient
+from ..core.gnomad_client import GnomADClient
 from ..core.output_manager import OutputManager
+from ..core.snp_harmonizer import SNPHarmonizer
 from ..core.utils import normalize_count
 from ..engine.annotator import GeneAnnotator
 from ..engine.merger import PanelMerger
@@ -455,6 +458,47 @@ class Pipeline:
 
         logger.info("Starting SNP processing...")
 
+        # Initialize SNP harmonizer if enabled
+        harmonizer = None
+        harmonization_config = snp_config.get("harmonization", {})
+
+        if harmonization_config.get("enabled", False):
+            try:
+                logger.info("Initializing SNP harmonization system...")
+
+                # Initialize gnomAD client
+                gnomad_config = harmonization_config.get("gnomad_api", {})
+                cache_config = harmonization_config.get("caching", {})
+
+                gnomad_client = GnomADClient(
+                    base_url=gnomad_config.get(
+                        "base_url", "https://gnomad.broadinstitute.org/api"
+                    ),
+                    rate_limit=gnomad_config.get("rate_limit", 5),
+                    timeout=gnomad_config.get("timeout", 30),
+                    retry_attempts=gnomad_config.get("retry_attempts", 3),
+                    cache_dir=cache_config.get("cache_dir", ".cache/gnomad"),
+                    cache_ttl_days=cache_config.get("ttl_days", 30),
+                )
+
+                # Initialize Ensembl client for batch variation API
+                ensembl_config = harmonization_config.get("ensembl_api", {})
+                ensembl_client = EnsemblClient(
+                    timeout=ensembl_config.get("timeout", 30),
+                    max_retries=ensembl_config.get("max_retries", 3),
+                    retry_delay=ensembl_config.get("retry_delay", 1.0),
+                )
+
+                # Initialize harmonizer
+                harmonizer = SNPHarmonizer(
+                    gnomad_client, ensembl_client, harmonization_config
+                )
+                logger.info("SNP harmonization system initialized successfully")
+
+            except Exception as e:
+                logger.error(f"Failed to initialize SNP harmonization system: {e}")
+                logger.info("Continuing without harmonization...")
+
         # Define SNP source functions (excluding ClinVar which is processed separately)
         snp_source_functions = {
             "identity": fetch_identity_snps,
@@ -470,7 +514,7 @@ class Pipeline:
             if snp_type_config.get("enabled", False):
                 try:
                     console.print(f"Fetching {snp_type} SNPs...")
-                    snp_df = fetch_function(self.config_manager.to_dict())
+                    snp_df = fetch_function(self.config_manager.to_dict(), harmonizer)
 
                     if snp_df is not None and not snp_df.empty:
                         # Check if SNPs already have coordinate information (e.g., from ClinVar VCF or PRS files)
@@ -541,12 +585,56 @@ class Pipeline:
             console.print("Fetching deep intronic ClinVar SNPs for gene panel...")
 
             # Pass the final annotated gene panel to ClinVar function for filtering
-            # Also pass the ensembl_client for exon coordinate fetching
+            # Also pass the ensembl_client for exon coordinate fetching and harmonizer
             ensembl_client = getattr(self.annotator, "ensembl_client", None)
+
+            # Use same harmonizer as other SNP sources
+            harmonizer = None
+            harmonization_config = (
+                self.config_manager.to_dict()
+                .get("snp_processing", {})
+                .get("harmonization", {})
+            )
+
+            if harmonization_config.get("enabled", False):
+                try:
+                    # Initialize gnomAD client for ClinVar processing
+                    gnomad_config = harmonization_config.get("gnomad_api", {})
+                    cache_config = harmonization_config.get("caching", {})
+
+                    gnomad_client = GnomADClient(
+                        base_url=gnomad_config.get(
+                            "base_url", "https://gnomad.broadinstitute.org/api"
+                        ),
+                        rate_limit=gnomad_config.get("rate_limit", 5),
+                        timeout=gnomad_config.get("timeout", 30),
+                        retry_attempts=gnomad_config.get("retry_attempts", 3),
+                        cache_dir=cache_config.get("cache_dir", ".cache/gnomad"),
+                        cache_ttl_days=cache_config.get("ttl_days", 30),
+                    )
+
+                    # Initialize Ensembl client for batch variation API
+                    ensembl_config = harmonization_config.get("ensembl_api", {})
+                    ensembl_client_harmonizer = EnsemblClient(
+                        timeout=ensembl_config.get("timeout", 30),
+                        max_retries=ensembl_config.get("max_retries", 3),
+                        retry_delay=ensembl_config.get("retry_delay", 1.0),
+                    )
+
+                    harmonizer = SNPHarmonizer(
+                        gnomad_client, ensembl_client_harmonizer, harmonization_config
+                    )
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to initialize harmonizer for ClinVar processing: {e}"
+                    )
+
             clinvar_snps = fetch_clinvar_snps(
                 self.config_manager.to_dict(),
                 gene_panel=annotated_df,
                 ensembl_client=ensembl_client,
+                harmonizer=harmonizer,
             )
 
             if clinvar_snps is not None and not clinvar_snps.empty:

@@ -29,6 +29,7 @@ def fetch_clinvar_snps(
     config: dict[str, Any],
     gene_panel: Optional[pd.DataFrame] = None,
     ensembl_client: Optional[EnsemblClient] = None,
+    harmonizer: Optional[Any] = None,
 ) -> pd.DataFrame:
     """
     Fetch deep intronic ClinVar SNPs for the final gene panel using vectorized operations.
@@ -131,9 +132,22 @@ def fetch_clinvar_snps(
 
         logger.info(f"Found {len(pathogenic_variants)} pathogenic ClinVar variants")
 
+        # Filter out large CNVs and structural variants (keep only small indels up to 50bp)
+        size_filtered_variants = _filter_variant_size(
+            pathogenic_variants, clinvar_config
+        )
+
+        if size_filtered_variants.empty:
+            logger.warning("No variants found after size filtering")
+            return pd.DataFrame()
+
+        logger.info(
+            f"Found {len(size_filtered_variants)} variants after size filtering (removed large CNVs)"
+        )
+
         # Filter variants to only those within gene panel regions using vectorized operations
         panel_filtered_variants = _filter_variants_by_gene_panel_vectorized(
-            pathogenic_variants, panel_genes, clinvar_config
+            size_filtered_variants, panel_genes, clinvar_config
         )
 
         if panel_filtered_variants.empty:
@@ -158,7 +172,7 @@ def fetch_clinvar_snps(
         )
 
         # Convert to standardized SNP format
-        snp_formatted = _convert_to_snp_format(deep_intronic_variants)
+        snp_formatted = _convert_to_snp_format(deep_intronic_variants, harmonizer)
 
         logger.info(f"Successfully processed {len(snp_formatted)} ClinVar SNPs")
         return snp_formatted
@@ -726,12 +740,77 @@ def _filter_pathogenic_variants(variants_df: pd.DataFrame) -> pd.DataFrame:
     return filtered_df
 
 
-def _convert_to_snp_format(variants_df: pd.DataFrame) -> pd.DataFrame:
+def _filter_variant_size(
+    variants_df: pd.DataFrame, config: dict[str, Any]
+) -> pd.DataFrame:
     """
-    Convert ClinVar variants to standardized SNP format matching other SNP sources.
+    Filter variants by size to exclude large CNVs and structural variants.
 
     Args:
         variants_df: DataFrame with ClinVar variants
+        config: ClinVar configuration dictionary
+
+    Returns:
+        Filtered DataFrame with variants <= max_indel_size
+    """
+    if variants_df.empty:
+        return variants_df
+
+    # Get maximum indel size from config (default 50bp)
+    max_indel_size = config.get("max_indel_size", 50)
+
+    logger.info(f"Filtering variants by size (max indel size: {max_indel_size}bp)")
+
+    # Calculate variant size as the maximum of ref and alt allele lengths
+    ref_lengths = variants_df["ref_allele"].astype(str).str.len()
+    alt_lengths = variants_df["alt_allele"].astype(str).str.len()
+
+    # For indels, the size is the absolute difference between ref and alt lengths
+    # For SNVs, both lengths are 1, so difference is 0
+    variant_sizes = np.maximum(ref_lengths, alt_lengths)
+
+    # Filter variants by size
+    size_mask = variant_sizes <= max_indel_size
+
+    # Log some statistics about filtered variants
+    large_variants_count = (~size_mask).sum()
+    large_variants_examples = variants_df[~size_mask].head(3)
+
+    if large_variants_count > 0:
+        logger.info(
+            f"Filtering out {large_variants_count} large variants (>{max_indel_size}bp)"
+        )
+
+        # Log examples of filtered variants
+        for _, variant in large_variants_examples.iterrows():
+            ref_len = len(str(variant["ref_allele"]))
+            alt_len = len(str(variant["alt_allele"]))
+            max_len = max(ref_len, alt_len)
+            logger.debug(
+                f"Filtered large variant: {variant['chromosome']}:{variant['position']} "
+                f"(ref={ref_len}bp, alt={alt_len}bp, max={max_len}bp) "
+                f"- {variant.get('geneinfo', 'Unknown gene')}"
+            )
+
+    filtered_df = variants_df[size_mask].copy()
+
+    logger.info(
+        f"Kept {len(filtered_df)} variants after size filtering "
+        f"(removed {large_variants_count} large variants)"
+    )
+
+    return filtered_df
+
+
+def _convert_to_snp_format(
+    variants_df: pd.DataFrame, harmonizer: Optional[Any] = None
+) -> pd.DataFrame:
+    """
+    Convert ClinVar variants to standardized SNP format with harmonization.
+
+    Args:
+        variants_df: DataFrame with ClinVar variants
+        harmonizer: Optional SNP harmonizer for ID resolution and coordinate liftover
 
     Returns:
         DataFrame in standardized SNP format compatible with HTML reporting
@@ -742,17 +821,6 @@ def _convert_to_snp_format(variants_df: pd.DataFrame) -> pd.DataFrame:
     # Extract gene symbols from GENEINFO field
     variants_df["gene_symbol"] = variants_df["geneinfo"].apply(_extract_gene_symbol)
 
-    # Create unique IDs for variants without rsIDs first
-    rsids = variants_df["rsid"].copy()
-    missing_rsid_mask = rsids.isna()
-    if missing_rsid_mask.any():
-        rsids.loc[missing_rsid_mask] = (
-            "clinvar_"
-            + variants_df.loc[missing_rsid_mask, "chromosome"].astype(str)
-            + "_"
-            + variants_df.loc[missing_rsid_mask, "position"].astype(str)
-        )
-
     # Create allele string format (ref/alt)
     allele_strings = (
         variants_df["ref_allele"].astype(str)
@@ -760,21 +828,21 @@ def _convert_to_snp_format(variants_df: pd.DataFrame) -> pd.DataFrame:
         + variants_df["alt_allele"].astype(str)
     )
 
-    # Create standardized SNP data matching the expected format for HTML report
+    # Create initial SNP data with hg38 coordinates from VCF
     snp_data = pd.DataFrame(
         {
             # Standard SNP identification columns
-            "snp": rsids,  # This is the main identifier column
+            "snp": variants_df["rsid"],  # Use rsID from VCF when available
             "source": "ClinVar",
-            "category": "deep_intronic_clinvar",  # This is crucial for HTML display
-            "snp_type": "deep_intronic_clinvar",  # This matches other SNP types
-            # hg38 coordinate columns (matching other SNPs format)
+            "category": "deep_intronic_clinvar",
+            "snp_type": "deep_intronic_clinvar",
+            # hg38 coordinate columns (from VCF)
             "hg38_chromosome": variants_df["chromosome"].apply(_standardize_chromosome),
             "hg38_start": variants_df["position"],
             "hg38_end": variants_df["position"],  # SNVs have same start/end
             "hg38_strand": 1,  # Default positive strand
             "hg38_allele_string": allele_strings,
-            # hg19 coordinate columns (empty for ClinVar as it's GRCh38)
+            # hg19 coordinate columns (will be populated by harmonizer)
             "hg19_chromosome": "",
             "hg19_start": "",
             "hg19_end": "",
@@ -794,6 +862,61 @@ def _convert_to_snp_format(variants_df: pd.DataFrame) -> pd.DataFrame:
             "source_file": "ClinVar VCF",
         }
     )
+
+    # Apply harmonization if harmonizer is provided
+    if harmonizer is not None:
+        try:
+            logger.info(f"Harmonizing {len(snp_data)} ClinVar SNPs")
+
+            # Handle missing rsIDs by creating coordinate-based IDs for harmonization
+            missing_rsid_mask = snp_data["snp"].isna()
+            if missing_rsid_mask.any():
+                # Create temporary coordinate-based IDs for harmonization
+                coord_ids = (
+                    snp_data.loc[missing_rsid_mask, "hg38_chromosome"].astype(str)
+                    + ":"
+                    + snp_data.loc[missing_rsid_mask, "hg38_start"].astype(str)
+                    + ":"
+                    + variants_df.loc[missing_rsid_mask, "ref_allele"].astype(str)
+                    + ":"
+                    + variants_df.loc[missing_rsid_mask, "alt_allele"].astype(str)
+                )
+                snp_data.loc[missing_rsid_mask, "snp"] = coord_ids
+
+            # Harmonize the SNPs
+            harmonized_snp_data = harmonizer.harmonize_snp_batch(snp_data)
+
+            if not harmonized_snp_data.empty:
+                logger.info(
+                    f"Successfully harmonized {len(harmonized_snp_data)} ClinVar SNPs"
+                )
+                return harmonized_snp_data
+            else:
+                logger.warning(
+                    "Harmonization resulted in empty DataFrame, returning original data"
+                )
+
+        except Exception as e:
+            logger.error(f"Error during ClinVar SNP harmonization: {e}")
+            logger.info("Continuing with non-harmonized data")
+
+    # If no harmonizer or harmonization failed, ensure consistent format
+    # For variants without rsIDs, use coordinate-based format (NO clinvar_chr_pos)
+    missing_rsid_mask = snp_data["snp"].isna()
+    if missing_rsid_mask.any():
+        coordinate_ids = (
+            snp_data.loc[missing_rsid_mask, "hg38_chromosome"].astype(str)
+            + ":"
+            + snp_data.loc[missing_rsid_mask, "hg38_start"].astype(str)
+            + ":"
+            + variants_df.loc[missing_rsid_mask, "ref_allele"].astype(str)
+            + ":"
+            + variants_df.loc[missing_rsid_mask, "alt_allele"].astype(str)
+        )
+        snp_data.loc[missing_rsid_mask, "snp"] = coordinate_ids
+        logger.info(
+            f"Created coordinate-based IDs for {missing_rsid_mask.sum()} ClinVar variants without rsIDs"
+        )
 
     return snp_data
 

@@ -699,6 +699,228 @@ class EnsemblClient:
 
         return exons
 
+    def get_variations_batch(
+        self, rsids: list[str], species: str = "homo_sapiens", batch_size: int = 25
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Get variation information for multiple rsIDs using batched requests.
+
+        This method automatically splits large requests into smaller batches
+        to stay under the Ensembl API limit of 200 items per request.
+
+        Args:
+            rsids: List of rsID strings (e.g., ["rs123456", "rs789012"])
+            species: Species name (default: "homo_sapiens")
+            batch_size: Maximum number of rsIDs per batch (default: 25)
+
+        Returns:
+            Dictionary mapping rsID to variation information
+
+        Raises:
+            requests.RequestException: If request fails
+        """
+        if not rsids:
+            return {}
+
+        # Remove duplicates while preserving order
+        unique_rsids = list(dict.fromkeys(rsids))
+
+        # If we have fewer rsIDs than batch size, process in single batch
+        if len(unique_rsids) <= batch_size:
+            return self._get_variations_single_batch(unique_rsids, species)
+
+        # Split into batches for large requests
+        logger.info(
+            f"🔍 Fetching variation data for {len(unique_rsids)} rsIDs from Ensembl in batches of {batch_size}",
+            extra={
+                "rsid_count": len(unique_rsids),
+                "species": species,
+                "batch_size": batch_size,
+            },
+        )
+
+        all_results = {}
+        batches = [
+            unique_rsids[i : i + batch_size]
+            for i in range(0, len(unique_rsids), batch_size)
+        ]
+
+        for batch_idx, batch_rsids in enumerate(batches):
+            logger.debug(
+                f"Processing batch {batch_idx + 1}/{len(batches)} with {len(batch_rsids)} rsIDs"
+            )
+
+            try:
+                batch_results = self._get_variations_single_batch(batch_rsids, species)
+                all_results.update(batch_results)
+
+                logger.debug(
+                    f"✅ Batch {batch_idx + 1}/{len(batches)} completed: {len(batch_results)} variations fetched"
+                )
+
+                # Add a small delay between batches to avoid overwhelming the API
+                if batch_idx < len(batches) - 1:  # Don't delay after the last batch
+                    time.sleep(0.5)  # 500ms delay between batches
+
+            except requests.RequestException as e:
+                error_msg = str(e)
+                is_timeout = (
+                    "timeout" in error_msg.lower() or "timed out" in error_msg.lower()
+                )
+
+                if is_timeout:
+                    logger.warning(
+                        f"⏱️ Batch {batch_idx + 1}/{len(batches)} timed out with {len(batch_rsids)} rsIDs. "
+                        f"Consider reducing batch size further.",
+                        extra={
+                            "batch_rsids": batch_rsids,
+                            "species": species,
+                            "timeout_error": True,
+                        },
+                    )
+                else:
+                    logger.error(
+                        f"❌ Batch {batch_idx + 1}/{len(batches)} failed: {error_msg}",
+                        extra={
+                            "batch_rsids": batch_rsids,
+                            "species": species,
+                        },
+                    )
+                # Continue with other batches even if one fails
+                continue
+
+        logger.info(
+            f"✅ Successfully fetched {len(all_results)} variations from {len(batches)} batches",
+            extra={
+                "requested_count": len(unique_rsids),
+                "returned_count": len(all_results),
+                "batch_count": len(batches),
+            },
+        )
+
+        return all_results
+
+    def _get_variations_single_batch(
+        self, rsids: list[str], species: str = "homo_sapiens"
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Get variation information for a single batch of rsIDs.
+
+        Args:
+            rsids: List of rsID strings (max 200)
+            species: Species name (default: "homo_sapiens")
+
+        Returns:
+            Dictionary mapping rsID to variation information
+
+        Raises:
+            requests.RequestException: If request fails
+        """
+        if not rsids:
+            return {}
+
+        if len(rsids) > 200:
+            logger.warning(
+                f"Batch size {len(rsids)} exceeds Ensembl API limit of 200. "
+                f"Consider using get_variations_batch() instead."
+            )
+
+        url = f"variation/{species}/"
+        data = {"ids": rsids}
+
+        try:
+            # Use longer timeout for batch variation requests as they take more time
+            timeout_override = 90 if len(rsids) > 10 else None
+            response = self._make_request(
+                url, method="POST", data=data, timeout_override=timeout_override
+            )
+
+            if isinstance(response, dict):
+                return response
+            else:
+                logger.warning(f"Unexpected response format: {type(response)}")
+                return {}
+
+        except requests.RequestException as e:
+            logger.error(
+                f"❌ Failed to fetch variations from Ensembl: {str(e)}",
+                extra={
+                    "rsid_count": len(rsids),
+                    "species": species,
+                },
+            )
+            raise
+
+    def extract_coordinates_from_variation(
+        self, variation_data: dict[str, Any], preferred_assembly: str = "GRCh38"
+    ) -> dict[str, Any] | None:
+        """
+        Extract coordinate information from Ensembl variation data.
+
+        Args:
+            variation_data: Variation data from Ensembl API
+            preferred_assembly: Preferred genome assembly (default: "GRCh38")
+
+        Returns:
+            Dictionary with coordinate information or None if not found
+        """
+        if not variation_data or "mappings" not in variation_data:
+            return None
+
+        mappings = variation_data["mappings"]
+        if not mappings:
+            return None
+
+        # Find mapping for preferred assembly
+        preferred_mapping = None
+        fallback_mapping = None
+
+        for mapping in mappings:
+            if mapping.get("assembly_name") == preferred_assembly:
+                preferred_mapping = mapping
+                break
+            elif mapping.get("coord_system") == "chromosome":
+                fallback_mapping = mapping
+
+        # Use preferred mapping or fallback to any chromosome mapping
+        selected_mapping = preferred_mapping or fallback_mapping
+
+        if not selected_mapping:
+            return None
+
+        # Extract coordinate information
+        try:
+            chromosome = selected_mapping["seq_region_name"]
+            start = selected_mapping["start"]
+            end = selected_mapping["end"]
+            strand = selected_mapping.get("strand", 1)
+            allele_string = selected_mapping.get("allele_string", "")
+            assembly = selected_mapping.get("assembly_name", preferred_assembly)
+
+            # Parse allele string to get ref and alt alleles
+            ref_allele = ""
+            alt_allele = ""
+            if allele_string and "/" in allele_string:
+                alleles = allele_string.split("/")
+                if len(alleles) >= 2:
+                    ref_allele = alleles[0]
+                    alt_allele = alleles[1]  # Take first alternative allele
+
+            return {
+                "chromosome": str(chromosome),
+                "start": int(start),
+                "end": int(end),
+                "strand": int(strand),
+                "ref_allele": ref_allele,
+                "alt_allele": alt_allele,
+                "allele_string": allele_string,
+                "assembly": assembly,
+            }
+
+        except (KeyError, ValueError, TypeError) as e:
+            logger.debug(f"Failed to extract coordinates from mapping: {e}")
+            return None
+
     def clear_cache(self) -> None:
         """Clear all cached results."""
         self.get_gene_coordinates.cache_clear()
