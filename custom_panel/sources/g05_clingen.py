@@ -13,18 +13,22 @@ from typing import Any
 import pandas as pd
 import requests
 
+from ..core.cache_manager import CacheManager
 from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 
 logger = logging.getLogger(__name__)
 
 
-def _fetch_clingen_genes_api(url: str) -> list[dict[str, Any]]:
+def _fetch_clingen_genes_api(
+    url: str, cache_manager: CacheManager | None = None
+) -> list[dict[str, Any]]:
     """
-    Fetch ClinGen genes from the ClinGen API.
+    Fetch ClinGen genes from the ClinGen API with caching support.
 
     Args:
         url: URL to the ClinGen API endpoint
+        cache_manager: Optional cache manager for caching responses
 
     Returns:
         List of gene records with classification information
@@ -33,6 +37,13 @@ def _fetch_clingen_genes_api(url: str) -> list[dict[str, Any]]:
         ValueError: If the expected data structure is not found
         requests.RequestException: If the API request fails
     """
+    # Check cache first if available
+    if cache_manager and cache_manager.enabled:
+        cached_data = cache_manager.get("clingen", url, "GET", None)
+        if cached_data is not None:
+            logger.info(f"Using cached ClinGen data from {url}")
+            return cached_data
+
     logger.info(f"Attempting to fetch ClinGen genes from API: {url}")
 
     # Make request with User-Agent header
@@ -91,6 +102,12 @@ def _fetch_clingen_genes_api(url: str) -> list[dict[str, Any]]:
         logger.info(
             f"Filtered out refuted genes: {len(filtered_genes)} remaining from {len(gene_data)} total"
         )
+
+        # Cache the processed data
+        if cache_manager and cache_manager.enabled:
+            cache_manager.set("clingen", url, "GET", None, filtered_genes)
+            logger.info("Cached ClinGen data for future use")
+
         return filtered_genes
 
     except (json.JSONDecodeError, KeyError, TypeError) as e:
@@ -99,7 +116,7 @@ def _fetch_clingen_genes_api(url: str) -> list[dict[str, Any]]:
 
 def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
     """
-    Fetch ClinGen gene validity data.
+    Fetch ClinGen gene validity data with caching support.
 
     Prioritizes live scraping from ClinGen website, with fallback to local file.
 
@@ -115,6 +132,14 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
     if not clingen_config.get("enabled", True):
         logger.info("ClinGen data source is disabled")
         return pd.DataFrame()
+
+    # Initialize cache manager
+    cache_config = config.get("performance", {})
+    cache_manager = CacheManager(
+        cache_dir=cache_config.get("cache_dir", ".cache"),
+        cache_ttl=cache_config.get("cache_ttl", 2592000),  # 30 days
+        enabled=cache_config.get("enable_caching", True),
+    )
 
     base_evidence_score = clingen_config.get("evidence_score", 1.2)
     classification_scores = clingen_config.get(
@@ -136,10 +161,10 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
     evidence_scores = []
     source_details = []
 
-    # Priority 1: Try to fetch from live API
+    # Priority 1: Try to fetch from live API with caching
     if url:
         try:
-            gene_records = _fetch_clingen_genes_api(url)
+            gene_records = _fetch_clingen_genes_api(url, cache_manager)
 
             # Extract gene symbols and classifications
             for record in gene_records:

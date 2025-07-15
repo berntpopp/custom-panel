@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 import requests
 
+from ..core.cache_manager import CacheManager
 from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 
@@ -17,24 +18,31 @@ logger = logging.getLogger(__name__)
 
 
 class PanelAppClient:
-    """Client for fetching data from PanelApp APIs."""
+    """Client for fetching data from PanelApp APIs with caching support."""
 
-    def __init__(self, timeout: int = 30, max_retries: int = 3):
+    def __init__(
+        self,
+        timeout: int = 30,
+        max_retries: int = 3,
+        cache_manager: CacheManager | None = None,
+    ):
         """
         Initialize the PanelApp client.
 
         Args:
             timeout: Request timeout in seconds
             max_retries: Maximum number of retry attempts
+            cache_manager: Optional cache manager for caching responses
         """
         self.timeout = timeout
         self.max_retries = max_retries
+        self.cache_manager = cache_manager
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "custom-panel/0.1.0"})
 
     def _make_request(self, url: str) -> dict[str, Any] | None:
         """
-        Make a request to PanelApp API with retry logic.
+        Make a request to PanelApp API with caching and retry logic.
 
         Args:
             url: API URL
@@ -42,11 +50,25 @@ class PanelAppClient:
         Returns:
             JSON response or None if failed
         """
+        # Check cache first if available
+        if self.cache_manager and self.cache_manager.enabled:
+            cached_data = self.cache_manager.get("panelapp", url, "GET", None)
+            if cached_data is not None:
+                logger.info(f"Using cached PanelApp data from {url}")
+                return cached_data
+
         for attempt in range(self.max_retries + 1):
             try:
                 response = self.session.get(url, timeout=self.timeout)
                 response.raise_for_status()
-                return response.json()
+                json_response = response.json()
+
+                # Cache the successful response
+                if self.cache_manager and self.cache_manager.enabled:
+                    self.cache_manager.set("panelapp", url, "GET", None, json_response)
+                    logger.info("Cached PanelApp response for future use")
+
+                return json_response
             except requests.RequestException as e:
                 if attempt == self.max_retries:
                     logger.error(
@@ -124,7 +146,7 @@ class PanelAppClient:
 
 def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
     """
-    Fetch gene panel data from PanelApp APIs.
+    Fetch gene panel data from PanelApp APIs with caching support.
 
     Args:
         config: Configuration dictionary
@@ -139,7 +161,15 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
         logger.info("PanelApp data source is disabled")
         return pd.DataFrame()
 
-    client = PanelAppClient()
+    # Initialize cache manager
+    cache_config = config.get("performance", {})
+    cache_manager = CacheManager(
+        cache_dir=cache_config.get("cache_dir", ".cache"),
+        cache_ttl=cache_config.get("cache_ttl", 2592000),  # 30 days
+        enabled=cache_config.get("enable_caching", True),
+    )
+
+    client = PanelAppClient(cache_manager=cache_manager)
     all_dataframes = []
 
     # Evidence level to score mapping

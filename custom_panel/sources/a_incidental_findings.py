@@ -15,6 +15,7 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup, Tag
 
+from ..core.cache_manager import CacheManager
 from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 
@@ -96,12 +97,15 @@ DEFAULT_ACMG_GENES = [
 ]
 
 
-def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
+def _scrape_acmg_genes_from_ncbi(
+    url: str, cache_manager: CacheManager | None = None
+) -> list[str]:
     """
-    Scrape ACMG genes from NCBI ClinVar website.
+    Scrape ACMG genes from NCBI ClinVar website with caching support.
 
     Args:
         url: URL to the NCBI ACMG page
+        cache_manager: Optional cache manager for caching responses
 
     Returns:
         List of cleaned gene symbols
@@ -110,6 +114,13 @@ def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
         ValueError: If the expected table structure is not found
         requests.RequestException: If the web request fails
     """
+    # Check cache first if available
+    if cache_manager and cache_manager.enabled:
+        cached_data = cache_manager.get("acmg", url, "GET", None)
+        if cached_data is not None:
+            logger.info(f"Using cached ACMG data from {url}")
+            return cached_data
+
     logger.info(f"Attempting to scrape ACMG genes from: {url}")
 
     # Make request with User-Agent header
@@ -206,12 +217,18 @@ def _scrape_acmg_genes_from_ncbi(url: str) -> list[str]:
 
     logger.info(f"Successfully scraped {len(cleaned_genes)} ACMG genes from NCBI")
     logger.debug(f"Extracted genes: {sorted(cleaned_genes)}")
+
+    # Cache the scraped data
+    if cache_manager and cache_manager.enabled:
+        cache_manager.set("acmg", url, "GET", None, cleaned_genes)
+        logger.info("Cached ACMG data for future use")
+
     return cleaned_genes
 
 
 def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
     """
-    Fetch ACMG incidental findings gene data.
+    Fetch ACMG incidental findings gene data with caching support.
 
     Prioritizes live scraping from NCBI, with fallbacks to file and default list.
 
@@ -228,6 +245,14 @@ def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
         logger.info("ACMG incidental findings data source is disabled")
         return pd.DataFrame()
 
+    # Initialize cache manager
+    cache_config = config.get("performance", {})
+    cache_manager = CacheManager(
+        cache_dir=cache_config.get("cache_dir", ".cache"),
+        cache_ttl=cache_config.get("cache_ttl", 2592000),  # 30 days
+        enabled=cache_config.get("enable_caching", True),
+    )
+
     evidence_score = acmg_config.get("evidence_score", 1.5)
     url = acmg_config.get("url")
     file_path = acmg_config.get("file_path")
@@ -236,10 +261,10 @@ def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
     genes = []
     source_details = []
 
-    # Priority 1: Try to scrape from live URL
+    # Priority 1: Try to scrape from live URL with caching
     if url:
         try:
-            genes = _scrape_acmg_genes_from_ncbi(url)
+            genes = _scrape_acmg_genes_from_ncbi(url, cache_manager)
             if genes:
                 logger.info(
                     f"Successfully fetched {len(genes)} ACMG genes from live URL: {url}"

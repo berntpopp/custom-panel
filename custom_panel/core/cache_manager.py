@@ -46,6 +46,10 @@ class CacheManager:
         # Create subdirectories for different cache types
         (self.cache_dir / "ensembl").mkdir(exist_ok=True)
         (self.cache_dir / "hgnc").mkdir(exist_ok=True)
+        (self.cache_dir / "clingen").mkdir(exist_ok=True)
+        (self.cache_dir / "gencc").mkdir(exist_ok=True)
+        (self.cache_dir / "acmg").mkdir(exist_ok=True)
+        (self.cache_dir / "panelapp").mkdir(exist_ok=True)
 
     def _generate_cache_key(
         self,

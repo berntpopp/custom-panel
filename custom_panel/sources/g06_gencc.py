@@ -13,6 +13,7 @@ from typing import Any
 import pandas as pd
 import requests
 
+from ..core.cache_manager import CacheManager
 from ..core.config_manager import ConfigManager
 from ..core.io import create_standard_dataframe
 
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
     """
-    Fetch GenCC gene-disease association data.
+    Fetch GenCC gene-disease association data with caching support.
 
     Prioritizes live download from GenCC website, with fallback to local file.
 
@@ -37,6 +38,14 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
     if not gencc_config.get("enabled", True):
         logger.info("TheGenCC data source is disabled")
         return pd.DataFrame()
+
+    # Initialize cache manager
+    cache_config = config.get("performance", {})
+    cache_manager = CacheManager(
+        cache_dir=cache_config.get("cache_dir", ".cache"),
+        cache_ttl=cache_config.get("cache_ttl", 2592000),  # 30 days
+        enabled=cache_config.get("enable_caching", True),
+    )
 
     base_evidence_score = gencc_config.get("evidence_score", 1.2)
     classification_scores = gencc_config.get(
@@ -60,30 +69,47 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
     df_source = None
     source_prefix = ""
 
-    # Priority 1: Try to download from live URL
+    # Priority 1: Try to download from live URL with caching
     if url:
-        try:
-            logger.info(f"Attempting to download GenCC data from: {url}")
+        # Check cache first
+        if cache_manager and cache_manager.enabled:
+            cached_data = cache_manager.get("gencc", url, "GET", None)
+            if cached_data is not None:
+                logger.info(f"Using cached GenCC data from {url}")
+                # Convert cached data back to DataFrame
+                df_source = pd.DataFrame(cached_data)
+                source_prefix = f"Cache:{url}|Date:{retrieval_date}"
 
-            # Make request with User-Agent header
-            headers = {
-                "User-Agent": "custom-panel/1.0 (Python scientific tool for gene panel curation)"
-            }
+        if df_source is None:
+            try:
+                logger.info(f"Attempting to download GenCC data from: {url}")
 
-            response = requests.get(url, headers=headers, timeout=60)
-            response.raise_for_status()
+                # Make request with User-Agent header
+                headers = {
+                    "User-Agent": "custom-panel/1.0 (Python scientific tool for gene panel curation)"
+                }
 
-            # Read Excel data directly from response content
-            df_source = pd.read_excel(BytesIO(response.content), engine="openpyxl")
-            source_prefix = f"URL:{url}|Date:{retrieval_date}"
+                response = requests.get(url, headers=headers, timeout=60)
+                response.raise_for_status()
 
-            logger.info(
-                f"Successfully downloaded GenCC data with {len(df_source)} records from live URL"
-            )
+                # Read Excel data directly from response content
+                df_source = pd.read_excel(BytesIO(response.content), engine="openpyxl")
+                source_prefix = f"URL:{url}|Date:{retrieval_date}"
 
-        except Exception as e:
-            logger.warning(f"Failed to download GenCC data from {url}: {e}")
-            logger.warning("Attempting to use fallback data source")
+                # Cache the downloaded data
+                if cache_manager and cache_manager.enabled:
+                    cache_manager.set(
+                        "gencc", url, "GET", None, df_source.to_dict("records")
+                    )
+                    logger.info("Cached GenCC data for future use")
+
+                logger.info(
+                    f"Successfully downloaded GenCC data with {len(df_source)} records from live URL"
+                )
+
+            except Exception as e:
+                logger.warning(f"Failed to download GenCC data from {url}: {e}")
+                logger.warning("Attempting to use fallback data source")
 
     # Priority 2: Fall back to local file if download failed
     if df_source is None and file_path:
