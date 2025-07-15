@@ -140,7 +140,7 @@ optional_columns = [
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -149,17 +149,19 @@ from ..parsers_snp.parsers_prs import create_prs_parser
 logger = logging.getLogger(__name__)
 
 
-def fetch_prs_snps(
-    config: dict[str, Any], harmonizer: Optional[Any] = None
-) -> pd.DataFrame | None:
+def fetch_prs_snps(config: dict[str, Any]) -> pd.DataFrame | None:
     """
     Fetch PRS SNPs from configured panels.
+
+    Returns raw, unharmonized SNP data. Harmonization is now handled
+    centrally in the Pipeline class for improved efficiency through
+    batch processing.
 
     Args:
         config: Configuration dictionary
 
     Returns:
-        DataFrame with PRS SNPs or None if disabled/failed
+        DataFrame with raw PRS SNPs or None if disabled/failed
     """
     snp_config = config.get("snp_processing", {})
 
@@ -216,26 +218,6 @@ def fetch_prs_snps(
 
     # Apply R-script-like aggregation but preserve PRS metadata
     prs_snps_panel = _aggregate_prs_snps_by_rsid(combined_df)
-
-    # Apply harmonization if harmonizer is provided
-    if harmonizer is not None:
-        try:
-            logger.info(f"Harmonizing {len(prs_snps_panel)} PRS SNPs")
-            harmonized_prs_snps = harmonizer.harmonize_snp_batch(prs_snps_panel)
-
-            if not harmonized_prs_snps.empty:
-                logger.info(
-                    f"Successfully harmonized {len(harmonized_prs_snps)} PRS SNPs"
-                )
-                return harmonized_prs_snps
-            else:
-                logger.warning(
-                    "Harmonization resulted in empty DataFrame, returning original data"
-                )
-
-        except Exception as e:
-            logger.error(f"Error during PRS SNP harmonization: {e}")
-            logger.info("Continuing with non-harmonized data")
 
     logger.info(f"Successfully fetched {len(prs_snps_panel)} unique PRS SNPs")
     return prs_snps_panel

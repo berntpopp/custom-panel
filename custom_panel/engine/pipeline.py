@@ -4,6 +4,12 @@ Improved pipeline orchestrator for the custom-panel tool.
 This module provides the main Pipeline class that encapsulates the entire
 data processing workflow from fetching sources to annotation with better
 modularization and use of DRY principles.
+
+The pipeline features a centralized SNP harmonization workflow that:
+- Fetches raw SNP data from all sources
+- Performs batch harmonization for efficiency
+- Optimizes coordinate resolution using Ensembl batch API
+- Uses gnomAD liftover only as a fallback for missing builds
 """
 
 import logging
@@ -22,7 +28,6 @@ from ..core.snp_harmonizer import SNPHarmonizer
 from ..core.utils import normalize_count
 from ..engine.annotator import GeneAnnotator
 from ..engine.merger import PanelMerger
-from ..engine.snp_annotator import SNPAnnotator
 from ..sources.a_incidental_findings import fetch_acmg_incidental_data
 from ..sources.b_manual_curation import fetch_manual_curation_data
 from ..sources.g00_inhouse_panels import fetch_inhouse_panels_data
@@ -60,9 +65,55 @@ class Pipeline:
         self.output_manager = OutputManager(config, self.output_dir_path)
         self.annotator = GeneAnnotator(config)
         self.merger = PanelMerger(config)
-        self.snp_annotator = SNPAnnotator(config)
+        self.snp_harmonizer: Optional[SNPHarmonizer] = None
         self.transcript_data: dict[str, Any] = {}
         self.snp_data: dict[str, pd.DataFrame] = {}
+
+        # Initialize SNP harmonizer once if SNP processing is enabled
+        snp_config = self.config_manager.to_dict().get("snp_processing", {})
+        if snp_config.get("enabled", False):
+            harmonization_config = snp_config.get("harmonization", {})
+            if harmonization_config.get("enabled", False):
+                self._initialize_snp_harmonizer(harmonization_config)
+
+    def _initialize_snp_harmonizer(self, harmonization_config: dict[str, Any]) -> None:
+        """Initialize SNP harmonizer with configured clients."""
+        try:
+            logger.info("Initializing centralized SNP harmonization system...")
+
+            # Initialize gnomAD client
+            gnomad_config = harmonization_config.get("gnomad_api", {})
+            cache_config = harmonization_config.get("caching", {})
+
+            gnomad_client = GnomADClient(
+                base_url=gnomad_config.get(
+                    "base_url", "https://gnomad.broadinstitute.org/api"
+                ),
+                rate_limit=gnomad_config.get("rate_limit", 5),
+                timeout=gnomad_config.get("timeout", 30),
+                retry_attempts=gnomad_config.get("retry_attempts", 3),
+                cache_dir=cache_config.get("cache_dir", ".cache/gnomad"),
+                cache_ttl_days=cache_config.get("ttl_days", 30),
+            )
+
+            # Initialize Ensembl client for batch variation API
+            ensembl_config = harmonization_config.get("ensembl_api", {})
+            ensembl_client = EnsemblClient(
+                timeout=ensembl_config.get("timeout", 30),
+                max_retries=ensembl_config.get("max_retries", 3),
+                retry_delay=ensembl_config.get("retry_delay", 1.0),
+            )
+
+            # Initialize harmonizer
+            self.snp_harmonizer = SNPHarmonizer(
+                gnomad_client, ensembl_client, harmonization_config
+            )
+            logger.info("Centralized SNP harmonization system initialized successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize SNP harmonization system: {e}")
+            logger.info("SNP processing will continue without harmonization...")
+            self.snp_harmonizer = None
 
     def run(self, show_progress: bool = True) -> tuple[pd.DataFrame, dict[str, Any]]:
         """
@@ -449,55 +500,29 @@ class Pipeline:
         return annotated_df
 
     def _process_snps(self) -> None:
-        """Process SNPs if enabled."""
+        """
+        Process SNPs using centralized harmonization workflow.
+
+        This method implements a unified SNP processing approach that:
+        1. Fetches raw SNP data from all enabled sources
+        2. Combines all data for batch harmonization
+        3. Applies centralized harmonization using SNPHarmonizer
+        4. Splits harmonized data back into type-specific datasets
+        5. Saves processed data for each SNP type
+
+        Benefits of centralized approach:
+        - Reduces redundant API calls through batch processing
+        - Optimizes coordinate resolution using Ensembl batch endpoint
+        - Uses gnomAD liftover only as fallback for missing genome builds
+        - Ensures consistent harmonization across all SNP sources
+        """
         snp_config = self.config_manager.to_dict().get("snp_processing", {})
 
         if not snp_config.get("enabled", False):
             logger.info("SNP processing is disabled")
             return
 
-        logger.info("Starting SNP processing...")
-
-        # Initialize SNP harmonizer if enabled
-        harmonizer = None
-        harmonization_config = snp_config.get("harmonization", {})
-
-        if harmonization_config.get("enabled", False):
-            try:
-                logger.info("Initializing SNP harmonization system...")
-
-                # Initialize gnomAD client
-                gnomad_config = harmonization_config.get("gnomad_api", {})
-                cache_config = harmonization_config.get("caching", {})
-
-                gnomad_client = GnomADClient(
-                    base_url=gnomad_config.get(
-                        "base_url", "https://gnomad.broadinstitute.org/api"
-                    ),
-                    rate_limit=gnomad_config.get("rate_limit", 5),
-                    timeout=gnomad_config.get("timeout", 30),
-                    retry_attempts=gnomad_config.get("retry_attempts", 3),
-                    cache_dir=cache_config.get("cache_dir", ".cache/gnomad"),
-                    cache_ttl_days=cache_config.get("ttl_days", 30),
-                )
-
-                # Initialize Ensembl client for batch variation API
-                ensembl_config = harmonization_config.get("ensembl_api", {})
-                ensembl_client = EnsemblClient(
-                    timeout=ensembl_config.get("timeout", 30),
-                    max_retries=ensembl_config.get("max_retries", 3),
-                    retry_delay=ensembl_config.get("retry_delay", 1.0),
-                )
-
-                # Initialize harmonizer
-                harmonizer = SNPHarmonizer(
-                    gnomad_client, ensembl_client, harmonization_config
-                )
-                logger.info("SNP harmonization system initialized successfully")
-
-            except Exception as e:
-                logger.error(f"Failed to initialize SNP harmonization system: {e}")
-                logger.info("Continuing without harmonization...")
+        logger.info("Starting centralized SNP processing...")
 
         # Define SNP source functions (excluding ClinVar which is processed separately)
         snp_source_functions = {
@@ -507,64 +532,108 @@ class Pipeline:
             "manual_snps": fetch_manual_snps,
         }
 
-        # Fetch SNPs from all enabled sources
+        # Step 1: Fetch raw data from all enabled sources
+        raw_snp_data = {}
         for snp_type, fetch_function in snp_source_functions.items():
             snp_type_config = snp_config.get(snp_type, {})
 
             if snp_type_config.get("enabled", False):
                 try:
                     console.print(f"Fetching {snp_type} SNPs...")
-                    snp_df = fetch_function(self.config_manager.to_dict(), harmonizer)
+                    # Call fetch function WITHOUT harmonizer parameter
+                    raw_df = fetch_function(self.config_manager.to_dict())
 
-                    if snp_df is not None and not snp_df.empty:
-                        # Check if SNPs already have coordinate information (e.g., from ClinVar VCF or PRS files)
-                        has_hg38_coordinates = all(
-                            col in snp_df.columns for col in ["hg38_chr", "hg38_pos"]
-                        )
-                        has_hg19_coordinates = all(
-                            col in snp_df.columns for col in ["hg19_chr", "hg19_pos"]
-                        )
-                        has_coordinates = has_hg38_coordinates or has_hg19_coordinates
-
-                        if has_coordinates:
-                            # SNPs already annotated (e.g., ClinVar with VCF coordinates, PRS with genomic positions)
-                            coord_type = "hg38" if has_hg38_coordinates else "hg19"
-                            logger.info(
-                                f"Using pre-annotated {coord_type} coordinates for {len(snp_df)} {snp_type} SNPs"
-                            )
-                            annotated_snp_df = snp_df
-                        else:
-                            # Annotate SNPs with genomic coordinates via Ensembl
-                            annotated_snp_df = self.snp_annotator.annotate_snps(snp_df)
-
-                        # Store SNP data
-                        self.snp_data[snp_type] = annotated_snp_df
-
-                        # Save SNP data using dedicated SNP save method
-                        self.output_manager.save_snp_data(annotated_snp_df, snp_type)
-
+                    if raw_df is not None and not raw_df.empty:
+                        # Add SNP type tracking column
+                        raw_df["snp_type"] = snp_type
+                        raw_snp_data[snp_type] = raw_df
                         console.print(
-                            f"[green]✓ {snp_type}: {len(annotated_snp_df)} SNPs[/green]"
+                            f"[green]✓ {snp_type}: {len(raw_df)} raw SNPs[/green]"
                         )
-                        logger.info(
-                            f"Successfully processed {len(annotated_snp_df)} {snp_type} SNPs"
-                        )
+                        logger.info(f"Fetched {len(raw_df)} raw {snp_type} SNPs")
                     else:
                         console.print(f"[yellow]⚠ {snp_type}: No SNPs found[/yellow]")
 
                 except Exception as e:
                     console.print(f"[red]✗ {snp_type}: {e}[/red]")
-                    logger.exception(f"Error processing {snp_type} SNPs")
+                    logger.exception(f"Error fetching {snp_type} SNPs")
             else:
                 console.print(
                     f"[yellow]Skipping disabled SNP type: {snp_type}[/yellow]"
+                )
+
+        # Step 2: Check if we have any data to process
+        if not raw_snp_data:
+            logger.info("No SNP data was fetched from any source")
+            return
+
+        # Step 3: Combine all raw data for batch harmonization
+        logger.info(
+            f"Combining {len(raw_snp_data)} SNP sources for batch harmonization..."
+        )
+        combined_raw_df = pd.concat(raw_snp_data.values(), ignore_index=True)
+        logger.info(f"Combined {len(combined_raw_df)} total SNPs for processing")
+
+        # Step 4: Apply batch harmonization if harmonizer is available
+        if self.snp_harmonizer is not None:
+            try:
+                logger.info("Applying centralized batch harmonization to all SNPs...")
+                harmonized_df = self.snp_harmonizer.harmonize_snp_batch(combined_raw_df)
+
+                if not harmonized_df.empty:
+                    logger.info(f"Successfully harmonized {len(harmonized_df)} SNPs")
+                else:
+                    logger.warning(
+                        "Harmonization returned empty DataFrame, using raw data"
+                    )
+                    harmonized_df = combined_raw_df
+
+            except Exception as e:
+                logger.error(f"Error during batch harmonization: {e}")
+                logger.info("Continuing with raw data...")
+                harmonized_df = combined_raw_df
+        else:
+            logger.info("No harmonizer available, using raw data")
+            harmonized_df = combined_raw_df
+
+        # Step 5: Split harmonized data back into type-specific datasets
+        for snp_type in raw_snp_data.keys():
+            try:
+                # Filter harmonized data by SNP type
+                type_specific_df = harmonized_df[
+                    harmonized_df["snp_type"] == snp_type
+                ].copy()
+
+                # Remove the tracking column
+                if "snp_type" in type_specific_df.columns:
+                    type_specific_df = type_specific_df.drop(columns=["snp_type"])
+
+                if not type_specific_df.empty:
+                    # Store processed SNP data
+                    self.snp_data[snp_type] = type_specific_df
+
+                    # Save SNP data using dedicated SNP save method
+                    self.output_manager.save_snp_data(type_specific_df, snp_type)
+
+                    console.print(
+                        f"[green]✓ {snp_type}: {len(type_specific_df)} processed SNPs[/green]"
+                    )
+                    logger.info(
+                        f"Successfully processed {len(type_specific_df)} {snp_type} SNPs"
+                    )
+                else:
+                    logger.warning(f"No processed SNPs for {snp_type}")
+
+            except Exception as e:
+                logger.error(
+                    f"Error processing {snp_type} SNPs after harmonization: {e}"
                 )
 
         # Log SNP processing summary
         total_snps = sum(len(df) for df in self.snp_data.values())
         if total_snps > 0:
             logger.info(
-                f"SNP processing completed: {total_snps} total SNPs across {len(self.snp_data)} categories"
+                f"Centralized SNP processing completed: {total_snps} total SNPs across {len(self.snp_data)} categories"
             )
         else:
             logger.info("No SNPs were processed")
@@ -588,53 +657,12 @@ class Pipeline:
             # Also pass the ensembl_client for exon coordinate fetching and harmonizer
             ensembl_client = getattr(self.annotator, "ensembl_client", None)
 
-            # Use same harmonizer as other SNP sources
-            harmonizer = None
-            harmonization_config = (
-                self.config_manager.to_dict()
-                .get("snp_processing", {})
-                .get("harmonization", {})
-            )
-
-            if harmonization_config.get("enabled", False):
-                try:
-                    # Initialize gnomAD client for ClinVar processing
-                    gnomad_config = harmonization_config.get("gnomad_api", {})
-                    cache_config = harmonization_config.get("caching", {})
-
-                    gnomad_client = GnomADClient(
-                        base_url=gnomad_config.get(
-                            "base_url", "https://gnomad.broadinstitute.org/api"
-                        ),
-                        rate_limit=gnomad_config.get("rate_limit", 5),
-                        timeout=gnomad_config.get("timeout", 30),
-                        retry_attempts=gnomad_config.get("retry_attempts", 3),
-                        cache_dir=cache_config.get("cache_dir", ".cache/gnomad"),
-                        cache_ttl_days=cache_config.get("ttl_days", 30),
-                    )
-
-                    # Initialize Ensembl client for batch variation API
-                    ensembl_config = harmonization_config.get("ensembl_api", {})
-                    ensembl_client_harmonizer = EnsemblClient(
-                        timeout=ensembl_config.get("timeout", 30),
-                        max_retries=ensembl_config.get("max_retries", 3),
-                        retry_delay=ensembl_config.get("retry_delay", 1.0),
-                    )
-
-                    harmonizer = SNPHarmonizer(
-                        gnomad_client, ensembl_client_harmonizer, harmonization_config
-                    )
-
-                except Exception as e:
-                    logger.error(
-                        f"Failed to initialize harmonizer for ClinVar processing: {e}"
-                    )
-
+            # Use centralized harmonizer for ClinVar processing
             clinvar_snps = fetch_clinvar_snps(
                 self.config_manager.to_dict(),
                 gene_panel=annotated_df,
                 ensembl_client=ensembl_client,
-                harmonizer=harmonizer,
+                harmonizer=self.snp_harmonizer,
             )
 
             if clinvar_snps is not None and not clinvar_snps.empty:

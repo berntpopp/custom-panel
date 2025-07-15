@@ -404,11 +404,16 @@ class SNPHarmonizer:
         coordinate_cache: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
-        Ensure SNP has both hg19 and hg38 coordinates.
+        Ensure SNP has both hg19 and hg38 coordinates using optimized resolution strategy.
+
+        Optimization strategy:
+        1. Use Ensembl batch variation API as primary method to get both builds
+        2. Use gnomAD liftover only as fallback for missing specific builds
+        3. Extract from coordinate-based SNP IDs as last resort
 
         Args:
             snp_info: SNP information dictionary
-            coordinate_cache: Pre-resolved coordinate cache
+            coordinate_cache: Pre-resolved coordinate cache from batch processing
 
         Returns:
             Updated SNP information with dual coordinates
@@ -421,29 +426,37 @@ class SNPHarmonizer:
             # Already have both, nothing to do
             return snp_info
 
-        # Try to liftover missing coordinates
-        if has_hg38 and not has_hg19:
-            # Liftover hg38 -> hg19
-            self._liftover_coordinates(snp_info, "hg38", "hg19")
-        elif has_hg19 and not has_hg38:
-            # Liftover hg19 -> hg38
-            self._liftover_coordinates(snp_info, "hg19", "hg38")
-        else:
-            # No coordinates available - try to resolve from rsID
-            current_id = snp_info.get("snp", "")
-            if current_id.startswith("rs") and current_id != "rs":
-                coordinates = self._resolve_coordinates_from_rsid(
-                    snp_info, coordinate_cache
+        # Primary resolution: Try to resolve from rsID using Ensembl batch API first
+        current_id = snp_info.get("snp", "")
+        if current_id.startswith("rs") and current_id != "rs":
+            coordinates_resolved = self._resolve_coordinates_from_rsid(
+                snp_info, coordinate_cache
+            )
+            if coordinates_resolved:
+                logger.debug(
+                    f"✅ Resolved coordinates from rsID: {current_id}",
+                    extra={"snp_id": current_id, "action": "coordinates_resolved"},
                 )
-                if coordinates:
-                    logger.debug(
-                        f"✅ Resolved coordinates from rsID: {current_id}",
-                        extra={"snp_id": current_id, "action": "coordinates_resolved"},
-                    )
-                    self.stats["coordinates_lifted"] += 1
+                self.stats["coordinates_lifted"] += 1
+                # Check if we now have both builds after resolution
+                has_hg19 = self._has_build_coordinates(snp_info, "hg19")
+                has_hg38 = self._has_build_coordinates(snp_info, "hg38")
+                if has_hg19 and has_hg38:
                     return snp_info
 
-            # Try to get coordinates from SNP ID if it's coordinate-based
+        # Fallback: Use gnomAD liftover only for missing specific builds
+        if has_hg38 and not has_hg19:
+            # Only use liftover if Ensembl didn't provide hg19 coordinates
+            self._liftover_coordinates(snp_info, "hg38", "hg19")
+        elif has_hg19 and not has_hg38:
+            # Only use liftover if Ensembl didn't provide hg38 coordinates
+            self._liftover_coordinates(snp_info, "hg19", "hg38")
+
+        # Last resort: Try to get coordinates from SNP ID if it's coordinate-based
+        if not (
+            self._has_build_coordinates(snp_info, "hg19")
+            or self._has_build_coordinates(snp_info, "hg38")
+        ):
             self._extract_coordinates_from_id(snp_info)
 
         return snp_info

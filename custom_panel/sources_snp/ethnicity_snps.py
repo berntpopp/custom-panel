@@ -7,27 +7,27 @@ handling the ethnicity_snps.xlsx file format used in the original R implementati
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_ethnicity_snps(
-    config: dict[str, Any], harmonizer: Optional[Any] = None
-) -> pd.DataFrame | None:
+def fetch_ethnicity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
     """
     Fetch ethnicity SNPs from configured ethnicity files.
 
     This function specifically handles the ethnicity_snps.xlsx format
-    from the original R implementation (V03_Ethnicity).
+    from the original R implementation (V03_Ethnicity). Returns raw,
+    unharmonized SNP data. Harmonization is handled centrally in the
+    Pipeline class for improved efficiency.
 
     Args:
         config: Configuration dictionary
 
     Returns:
-        DataFrame with ethnicity SNPs or None if disabled/failed
+        DataFrame with raw ethnicity SNPs or None if disabled/failed
     """
     snp_config = config.get("snp_processing", {})
 
@@ -76,28 +76,6 @@ def fetch_ethnicity_snps(
 
     # Group by rsID and merge sources with "; " separator (matching R implementation)
     ethnicity_snps_panel = _aggregate_snps_by_rsid(combined_df)
-
-    # Apply harmonization if harmonizer is provided
-    if harmonizer is not None:
-        try:
-            logger.info(f"Harmonizing {len(ethnicity_snps_panel)} ethnicity SNPs")
-            harmonized_ethnicity_snps = harmonizer.harmonize_snp_batch(
-                ethnicity_snps_panel
-            )
-
-            if not harmonized_ethnicity_snps.empty:
-                logger.info(
-                    f"Successfully harmonized {len(harmonized_ethnicity_snps)} ethnicity SNPs"
-                )
-                return harmonized_ethnicity_snps
-            else:
-                logger.warning(
-                    "Harmonization resulted in empty DataFrame, returning original data"
-                )
-
-        except Exception as e:
-            logger.error(f"Error during ethnicity SNP harmonization: {e}")
-            logger.info("Continuing with non-harmonized data")
 
     logger.info(
         f"Successfully fetched {len(ethnicity_snps_panel)} unique ethnicity SNPs"
