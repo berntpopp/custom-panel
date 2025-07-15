@@ -112,6 +112,8 @@ other_allele_col = "other_allele" or "hm_inferOtherAllele"  # Optional
 - **Garbage collection**: Explicit cleanup of large DataFrames
 """
 
+from __future__ import annotations
+
 import gzip
 import logging
 from pathlib import Path
