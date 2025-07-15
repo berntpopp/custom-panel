@@ -701,14 +701,18 @@ snp_processing:
 
       # --- PGS Catalog API-based fetching (recommended) ---
       # Automatically fetch and parse PGS scores from PGS Catalog API
-      - name: "PGS_Catalog_Breast_Cancer"
+      - name: "PGS_Catalog_Lipids_Cancer"
         # No file_path needed - fetched via API
         parser: "pgs_catalog_fetcher"
-        # PGS IDs to fetch (breast cancer related scores)
+        # PGS IDs to fetch (lipid metabolism and cancer risk scores)
         pgs_ids:
-          - "PGS000004"  # Mavaddat et al. (2015) breast cancer PRS
-          - "PGS000147"  # Zhang et al. (2020) breast cancer PRS
-          - "PGS000873"  # Khera et al. (2018) breast cancer PRS
+          - "PGS000765"  # Colorectal Cancer - 95 variants for cancer risk assessment
+          - "PGS000064"  # HDL cholesterol - 120 variants from established lipid loci
+          - "PGS000065"  # LDL cholesterol - 103 variants for lipid metabolism
+          - "PGS000066"  # Triglycerides - 101 variants for serum triglyceride levels
+          - "PGS004914"  # HDL cholesterol (multi-ancestry) - 223 variants, diverse populations
+          - "PGS004915"  # LDL cholesterol (multi-ancestry) - 223 variants, diverse populations
+          - "PGS004916"  # Triglycerides (multi-ancestry) - 223 variants, ~10% variance explained
         # Preferred genome build (GRCh38 or GRCh37)
         genome_build: "GRCh38"
         # Cache settings
