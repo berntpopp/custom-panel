@@ -29,7 +29,7 @@ from ..sources.g03_commercial_panels import fetch_commercial_panels_data
 from ..sources.g04_cosmic_germline import fetch_cosmic_germline_data
 from ..sources.g05_clingen import fetch_clingen_data
 from ..sources.g06_gencc import fetch_gencc_data
-from ..sources_snp.clinvar_snps_vectorized import fetch_clinvar_snps
+from ..sources_snp.clinvar_snps import fetch_clinvar_snps
 from ..sources_snp.ethnicity_snps import fetch_ethnicity_snps
 from ..sources_snp.identity_snps import fetch_identity_snps
 from ..sources_snp.manual_snps import fetch_manual_snps

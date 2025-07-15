@@ -1,36 +1,49 @@
 """
-ClinVar SNPs source for deep intronic variants.
+Highly optimized ClinVar SNPs source using vectorized operations and parallel processing.
 
 This module processes ClinVar VCF files to extract deep intronic variants
-that are within specified distance from gene panel exon boundaries.
+using efficient pandas operations and parallel processing.
 """
+
+from __future__ import annotations
 
 import gzip
 import logging
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+import numpy as np
 import pandas as pd
 import requests
+
+from ..core.cache_manager import CacheManager
+from ..core.ensembl_client import EnsemblClient
 
 logger = logging.getLogger(__name__)
 
 
 def fetch_clinvar_snps(
-    config: dict[str, Any], gene_panel: Optional[pd.DataFrame] = None
+    config: dict[str, Any],
+    gene_panel: Optional[pd.DataFrame] = None,
+    ensembl_client: Optional[EnsemblClient] = None,
 ) -> pd.DataFrame:
     """
-    Fetch deep intronic ClinVar SNPs for the final gene panel.
+    Fetch deep intronic ClinVar SNPs for the final gene panel using vectorized operations.
 
     Args:
         config: Configuration dictionary containing ClinVar settings
         gene_panel: DataFrame with final gene panel (must have coordinates)
+        ensembl_client: Optional Ensembl client for fetching exon data
 
     Returns:
-        DataFrame with ClinVar SNP data filtered to panel genes only
+        DataFrame with ClinVar SNP data filtered to deep intronic variants only
     """
-    logger.info("Starting ClinVar SNPs processing...")
+    logger.info(
+        "Starting optimized ClinVar SNPs processing with vectorized deep intronic filtering..."
+    )
 
     clinvar_config = config.get("snp_processing", {}).get("deep_intronic_clinvar", {})
 
@@ -49,33 +62,35 @@ def fetch_clinvar_snps(
     if "include_in_panel" in gene_panel.columns:
         panel_genes = gene_panel[gene_panel["include_in_panel"]].copy()
     else:
-        # If no include_in_panel column, assume all genes are included
         panel_genes = gene_panel.copy()
 
     if panel_genes.empty:
-        logger.warning("No genes included in panel - skipping ClinVar processing")
+        logger.warning("No genes marked for inclusion in panel")
         return pd.DataFrame()
 
-    # Filter out genes with missing coordinate data
-    genes_with_coords = panel_genes.dropna(
-        subset=["chromosome", "gene_start", "gene_end"]
-    )
-    missing_coords_count = len(panel_genes) - len(genes_with_coords)
+    logger.info(f"Processing ClinVar SNPs for {len(panel_genes)} genes")
 
-    if missing_coords_count > 0:
-        logger.info(
-            f"Excluding {missing_coords_count} genes with missing coordinate data from ClinVar filtering"
-        )
-
-    if genes_with_coords.empty:
+    # Check if panel genes have required coordinate columns
+    required_coords = ["chromosome", "gene_start", "gene_end"]
+    if not all(col in panel_genes.columns for col in required_coords):
         logger.warning(
-            "No genes with coordinate data available - skipping ClinVar processing"
+            f"Gene panel missing required coordinate columns {required_coords}"
         )
+        logger.warning(f"Available columns: {list(panel_genes.columns)}")
         return pd.DataFrame()
 
-    panel_genes = genes_with_coords
+    # Remove genes without coordinate data
+    panel_genes = panel_genes.dropna(subset=required_coords)
+    if panel_genes.empty:
+        logger.warning("No genes with valid coordinate data")
+        return pd.DataFrame()
 
-    logger.info(f"Processing ClinVar variants for {len(panel_genes)} panel genes")
+    # Create Ensembl client if not provided
+    if ensembl_client is None:
+        cache_manager = CacheManager(
+            cache_dir=str(Path(clinvar_config.get("cache_dir", ".cache/clinvar"))),
+        )
+        ensembl_client = EnsemblClient(cache_manager=cache_manager)
 
     # Get target chromosomes from panel genes to focus VCF processing
     target_chromosomes = set()
@@ -116,8 +131,8 @@ def fetch_clinvar_snps(
 
         logger.info(f"Found {len(pathogenic_variants)} pathogenic ClinVar variants")
 
-        # Filter variants to only those within gene panel regions
-        panel_filtered_variants = _filter_variants_by_gene_panel(
+        # Filter variants to only those within gene panel regions using vectorized operations
+        panel_filtered_variants = _filter_variants_by_gene_panel_vectorized(
             pathogenic_variants, panel_genes, clinvar_config
         )
 
@@ -129,32 +144,337 @@ def fetch_clinvar_snps(
             f"Found {len(panel_filtered_variants)} pathogenic variants within gene panel regions"
         )
 
-        # Apply deep intronic filtering
-        deep_intronic_variants = _filter_deep_intronic_variants(
-            panel_filtered_variants, panel_genes, clinvar_config
+        # Apply deep intronic filtering using exon coordinates
+        deep_intronic_variants = _filter_deep_intronic_vectorized(
+            panel_filtered_variants, panel_genes, ensembl_client, clinvar_config
         )
 
         if deep_intronic_variants.empty:
-            logger.warning("No deep intronic variants found in gene panel regions")
+            logger.warning("No deep intronic variants found after filtering")
             return pd.DataFrame()
 
         logger.info(
-            f"Found {len(deep_intronic_variants)} deep intronic variants in gene panel"
+            f"Found {len(deep_intronic_variants)} deep intronic ClinVar variants"
         )
 
         # Convert to standardized SNP format
-        snp_data = _convert_to_snp_format(deep_intronic_variants)
+        snp_formatted = _convert_to_snp_format(deep_intronic_variants)
 
-        logger.info(
-            f"Successfully processed {len(snp_data)} deep intronic ClinVar SNPs"
-        )
-        return snp_data
+        logger.info(f"Successfully processed {len(snp_formatted)} ClinVar SNPs")
+        return snp_formatted
 
     except Exception as e:
-        logger.error(f"Error processing ClinVar VCF: {e}")
+        logger.error(f"Error processing ClinVar SNPs: {str(e)}")
         return pd.DataFrame()
 
 
+def _filter_variants_by_gene_panel_vectorized(
+    variants_df: pd.DataFrame, panel_genes: pd.DataFrame, config: dict[str, Any]
+) -> pd.DataFrame:
+    """
+    Filter ClinVar variants to only those within gene panel genomic regions using vectorized operations.
+
+    Args:
+        variants_df: DataFrame with ClinVar variants
+        panel_genes: DataFrame with final gene panel (must have genomic coordinates)
+        config: ClinVar configuration dictionary
+
+    Returns:
+        Filtered DataFrame with variants only within gene panel regions
+    """
+    if variants_df.empty or panel_genes.empty:
+        return pd.DataFrame()
+
+    logger.info(
+        f"Filtering {len(variants_df)} variants against {len(panel_genes)} genes using vectorized operations"
+    )
+
+    # Prepare variants with standardized chromosomes and gene symbols
+    variants_prepared = variants_df.copy()
+    variants_prepared["std_chr"] = variants_prepared["chromosome"].apply(
+        lambda x: _standardize_chromosome(str(x))
+    )
+    variants_prepared["gene_symbol"] = variants_prepared["geneinfo"].apply(
+        _extract_gene_symbol
+    )
+
+    # Prepare genes with standardized chromosomes
+    genes_prepared = panel_genes.copy()
+    genes_prepared["std_chr"] = genes_prepared["chromosome"].apply(
+        lambda x: _standardize_chromosome(str(x))
+    )
+
+    # Use vectorized operations for chromosome-position filtering
+    filtered_variants = []
+
+    # Process by chromosome for efficiency
+    for chrom in genes_prepared["std_chr"].unique():
+        if pd.isna(chrom) or chrom == "None":
+            continue
+
+        # Get variants and genes for this chromosome
+        chrom_variants = variants_prepared[variants_prepared["std_chr"] == chrom]
+        chrom_genes = genes_prepared[genes_prepared["std_chr"] == chrom]
+
+        if chrom_variants.empty or chrom_genes.empty:
+            continue
+
+        # Vectorized position filtering using NumPy broadcasting
+        variant_positions = chrom_variants["position"].values
+        gene_starts = chrom_genes["gene_start"].values
+        gene_ends = chrom_genes["gene_end"].values
+
+        # Create boolean mask for variants within any gene region
+        # This uses broadcasting to compare all variants against all genes
+        within_gene_mask = (
+            (variant_positions[:, np.newaxis] >= gene_starts[np.newaxis, :])
+            & (variant_positions[:, np.newaxis] <= gene_ends[np.newaxis, :])
+        ).any(axis=1)
+
+        # Filter variants using the mask
+        filtered_chrom_variants = chrom_variants[within_gene_mask]
+        filtered_variants.append(filtered_chrom_variants)
+
+    # Combine results from all chromosomes
+    if filtered_variants:
+        result_df = pd.concat(filtered_variants, ignore_index=True)
+    else:
+        result_df = pd.DataFrame()
+
+    logger.info(
+        f"Found {len(result_df)} variants within gene panel regions after vectorized filtering"
+    )
+
+    return result_df
+
+
+def _filter_deep_intronic_vectorized(
+    variants_df: pd.DataFrame,
+    panel_genes: pd.DataFrame,
+    ensembl_client: EnsemblClient,
+    config: dict[str, Any],
+) -> pd.DataFrame:
+    """
+    Filter variants to only deep intronic ones using vectorized operations and parallel processing.
+
+    Args:
+        variants_df: DataFrame with ClinVar variants within gene panel regions
+        panel_genes: DataFrame with final gene panel
+        ensembl_client: Ensembl client for fetching exon data
+        config: ClinVar configuration dictionary
+
+    Returns:
+        DataFrame with only deep intronic variants
+    """
+    if variants_df.empty:
+        return pd.DataFrame()
+
+    # Get intronic padding from config (default 50bp)
+    intronic_padding = config.get("intronic_padding", 50)
+    logger.info(
+        f"Applying vectorized deep intronic filter with {intronic_padding}bp padding from exon boundaries"
+    )
+
+    # Fetch exon coordinates for all genes
+    gene_exons = _fetch_gene_exons(panel_genes, ensembl_client)
+
+    if not gene_exons:
+        logger.warning("No exon data available - cannot apply deep intronic filtering")
+        return pd.DataFrame()
+
+    # Group variants by chromosome for parallel processing
+    chromosomes = variants_df["chromosome"].apply(_standardize_chromosome).unique()
+    chromosome_groups = []
+
+    for chrom in chromosomes:
+        if pd.isna(chrom) or chrom == "None":
+            continue
+
+        chrom_variants = variants_df[
+            variants_df["chromosome"].apply(_standardize_chromosome) == chrom
+        ]
+        if not chrom_variants.empty:
+            chromosome_groups.append((chrom, chrom_variants))
+
+    # Process chromosomes in parallel
+    max_workers = min(mp.cpu_count(), 8)  # Limit to 8 cores max
+    deep_intronic_variants = []
+
+    if len(chromosome_groups) > 1 and max_workers > 1:
+        logger.info(f"Processing {len(chromosome_groups)} chromosomes in parallel")
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            # Submit tasks for each chromosome
+            future_to_chrom = {
+                executor.submit(
+                    _process_chromosome_batch,
+                    chrom,
+                    chrom_variants,
+                    gene_exons,
+                    intronic_padding,
+                ): chrom
+                for chrom, chrom_variants in chromosome_groups
+            }
+
+            # Collect results
+            for future in as_completed(future_to_chrom):
+                chrom = future_to_chrom[future]
+                try:
+                    chrom_deep_intronic = future.result()
+                    if not chrom_deep_intronic.empty:
+                        deep_intronic_variants.append(chrom_deep_intronic)
+                except Exception as e:
+                    logger.error(f"Error processing chromosome {chrom}: {e}")
+    else:
+        # Sequential processing for single chromosome or limited workers
+        for chrom, chrom_variants in chromosome_groups:
+            chrom_deep_intronic = _process_chromosome_batch(
+                chrom, chrom_variants, gene_exons, intronic_padding
+            )
+            if not chrom_deep_intronic.empty:
+                deep_intronic_variants.append(chrom_deep_intronic)
+
+    # Combine results
+    if deep_intronic_variants:
+        result_df = pd.concat(deep_intronic_variants, ignore_index=True)
+    else:
+        result_df = pd.DataFrame()
+
+    logger.info(
+        f"Identified {len(result_df)} deep intronic variants after vectorized filtering"
+    )
+
+    return result_df
+
+
+def _process_chromosome_batch(
+    chrom: str,
+    chrom_variants: pd.DataFrame,
+    gene_exons: dict[str, list[dict[str, Any]]],
+    intronic_padding: int,
+) -> pd.DataFrame:
+    """
+    Process a batch of variants from a single chromosome.
+
+    Args:
+        chrom: Chromosome identifier
+        chrom_variants: Variants from this chromosome
+        gene_exons: Dictionary mapping gene symbols to exon coordinates
+        intronic_padding: Distance from exon boundaries in bp
+
+    Returns:
+        DataFrame with deep intronic variants from this chromosome
+    """
+    deep_intronic_variants = []
+
+    for _, variant in chrom_variants.iterrows():
+        variant_pos = variant["position"]
+        variant_gene = _extract_gene_symbol(variant.get("geneinfo", ""))
+
+        # Check if variant is deep intronic
+        if variant_gene and variant_gene in gene_exons:
+            exons = gene_exons[variant_gene]
+            is_deep_intronic = True
+
+            # Check distance from all exons using vectorized operations
+            if exons:
+                exon_starts = np.array([exon["start"] for exon in exons])
+                exon_ends = np.array([exon["end"] for exon in exons])
+
+                # Calculate minimum distance to any exon boundary
+                dist_to_starts = np.abs(variant_pos - exon_starts)
+                dist_to_ends = np.abs(variant_pos - exon_ends)
+
+                # Check if variant is within any exon or too close to boundaries
+                within_exon = (variant_pos >= exon_starts) & (variant_pos <= exon_ends)
+                too_close_to_boundary = (dist_to_starts < intronic_padding) | (
+                    dist_to_ends < intronic_padding
+                )
+
+                if within_exon.any() or too_close_to_boundary.any():
+                    is_deep_intronic = False
+
+            if is_deep_intronic:
+                deep_intronic_variants.append(variant)
+        else:
+            # If no exon data available, keep the variant (conservative approach)
+            deep_intronic_variants.append(variant)
+
+    if deep_intronic_variants:
+        return pd.DataFrame(deep_intronic_variants)
+    else:
+        return pd.DataFrame()
+
+
+def _fetch_gene_exons(
+    panel_genes: pd.DataFrame, ensembl_client: EnsemblClient
+) -> dict[str, list[dict[str, Any]]]:
+    """
+    Fetch exon coordinates for all genes in the panel.
+
+    Args:
+        panel_genes: DataFrame with gene panel
+        ensembl_client: Ensembl client for API calls
+
+    Returns:
+        Dictionary mapping gene symbol to list of exon coordinates
+    """
+    gene_exons = {}
+
+    # Process genes with transcript IDs first (faster)
+    genes_with_transcripts = panel_genes[
+        panel_genes["canonical_transcript"].notna()
+    ].copy()
+    genes_without_transcripts = panel_genes[
+        panel_genes["canonical_transcript"].isna()
+    ].copy()
+
+    logger.info(
+        f"Fetching exons for {len(genes_with_transcripts)} genes with transcript IDs..."
+    )
+
+    # Batch process genes with transcript IDs
+    for _, gene in genes_with_transcripts.iterrows():
+        symbol = gene["approved_symbol"]
+        transcript_id = gene["canonical_transcript"]
+
+        if pd.notna(transcript_id):
+            exons = ensembl_client.get_transcript_exons(transcript_id)
+            if exons:
+                gene_exons[symbol] = exons
+                logger.debug(
+                    f"Fetched {len(exons)} exons for {symbol} from transcript {transcript_id}"
+                )
+
+    # For genes without transcript IDs, try to fetch by gene ID
+    if not genes_without_transcripts.empty:
+        logger.info(
+            f"Fetching exons for {len(genes_without_transcripts)} genes without transcript IDs..."
+        )
+
+        for _, gene in genes_without_transcripts.iterrows():
+            symbol = gene["approved_symbol"]
+            gene_id = gene.get("gene_id")
+
+            if pd.notna(gene_id):
+                # Try to get canonical transcript for the gene
+                gene_data = ensembl_client._make_request(
+                    f"lookup/id/{gene_id}?expand=1"
+                )
+                if gene_data and isinstance(gene_data, dict):
+                    exons = ensembl_client.get_gene_exons_by_transcript_type(
+                        gene_data, "canonical"
+                    )
+                    if exons:
+                        gene_exons[symbol] = exons
+                        logger.debug(
+                            f"Fetched {len(exons)} exons for {symbol} from gene {gene_id}"
+                        )
+
+    logger.info(f"Successfully fetched exon data for {len(gene_exons)} genes")
+    return gene_exons
+
+
+# Helper functions from original implementation
 def _get_clinvar_vcf_file(config: dict[str, Any]) -> Optional[Path]:
     """
     Get ClinVar VCF file - either from local path or by downloading.
@@ -242,29 +562,18 @@ def _download_clinvar_vcf(
                     f.write(chunk)
                     downloaded_size += len(chunk)
 
-                    # Log progress every 50MB
-                    if (
-                        downloaded_size > 0
-                        and downloaded_size % (50 * 1024 * 1024) < 8192
-                    ):
-                        if total_size > 0:
-                            progress = (downloaded_size / total_size) * 100
-                            logger.info(
-                                f"Downloaded {downloaded_size // (1024*1024)}MB / {total_size // (1024*1024)}MB ({progress:.1f}%)"
-                            )
-                        else:
-                            logger.info(
-                                f"Downloaded {downloaded_size // (1024*1024)}MB"
-                            )
+                    # Progress reporting every 10MB
+                    if total_size > 0 and downloaded_size % (10 * 1024 * 1024) == 0:
+                        progress = (downloaded_size / total_size) * 100
+                        logger.info(
+                            f"Downloaded {progress:.1f}% ({downloaded_size / 1024 / 1024:.1f}MB)"
+                        )
 
         logger.info(f"Successfully downloaded ClinVar VCF to: {cache_file}")
         return cache_file
 
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to download ClinVar VCF: {e}")
-        return None
     except Exception as e:
-        logger.error(f"Error downloading ClinVar VCF: {e}")
+        logger.error(f"Error downloading ClinVar VCF: {str(e)}")
         return None
 
 
@@ -322,31 +631,35 @@ def _parse_clinvar_vcf(
                     "ref_allele": ref,
                     "alt_allele": alt,
                     "clnsig": info_dict.get("CLNSIG", ""),
+                    "geneinfo": info_dict.get("GENEINFO", ""),
                     "clndn": info_dict.get("CLNDN", ""),
                     "clnrevstat": info_dict.get("CLNREVSTAT", ""),
                     "clnvc": info_dict.get("CLNVC", ""),
-                    "geneinfo": info_dict.get("GENEINFO", ""),
+                    "origin": info_dict.get("ORIGIN", ""),
+                    "clnvcso": info_dict.get("CLNVCSO", ""),
+                    "clnvi": info_dict.get("CLNVI", ""),
                 }
 
                 variants.append(variant)
 
-            except (ValueError, IndexError) as e:
-                logger.warning(f"Error parsing line {line_num}: {e}")
-                continue
-
-            # Process in chunks to avoid memory issues
-            if len(variants) % 100000 == 0 and len(variants) > 0:
-                logger.info(f"Processed {len(variants)} variants so far...")
-                # Limit processing to avoid memory issues and long processing times
-                if (
-                    len(variants) >= 2000000
-                ):  # 2M variants should be sufficient for panel genes
-                    logger.info("Limiting to 2M variants for memory and performance")
+                # Memory management: limit to 2M variants
+                if len(variants) >= 2000000:
+                    logger.warning(
+                        f"Reached variant limit of 2M, stopping parsing at line {line_num}"
+                    )
                     break
 
-    if not variants:
-        return pd.DataFrame()
+                # Progress reporting
+                if line_num % 100000 == 0:
+                    logger.info(
+                        f"Processed {line_num} lines, found {len(variants)} variants"
+                    )
 
+            except (ValueError, IndexError) as e:
+                logger.warning(f"Error parsing line {line_num}: {str(e)}")
+                continue
+
+    logger.info(f"Parsed {len(variants)} variants from ClinVar VCF")
     return pd.DataFrame(variants)
 
 
@@ -467,30 +780,22 @@ def _convert_to_snp_format(variants_df: pd.DataFrame) -> pd.DataFrame:
             "hg19_end": "",
             "hg19_strand": "",
             "hg19_allele_string": "",
-            # ClinVar-specific columns (additional detail)
-            "rsid": rsids,
-            "chromosome": variants_df["chromosome"].apply(_standardize_chromosome),
-            "position": variants_df["position"],
-            "ref_allele": variants_df["ref_allele"],
-            "alt_allele": variants_df["alt_allele"],
-            "gene_symbol": variants_df["gene_symbol"],
+            # Additional ClinVar-specific columns
             "clinical_significance": variants_df["clnsig"],
+            "gene_symbol": variants_df["gene_symbol"],
             "condition": variants_df["clndn"],
             "review_status": variants_df["clnrevstat"],
             "variant_type": variants_df["clnvc"],
-            "source_details": "Deep intronic pathogenic variants",
-            # Legacy coordinate columns (for backward compatibility)
-            "hg38_chr": variants_df["chromosome"].apply(_standardize_chromosome),
-            "hg38_pos": variants_df["position"],
-            "hg19_chr": "",
-            "hg19_pos": "",
+            "origin": variants_df["origin"],
+            "molecular_consequence": variants_df["clnvcso"],
+            "variant_id": variants_df["clnvi"],
+            # Metadata columns
+            "processing_date": datetime.now().strftime("%Y-%m-%d"),
+            "source_file": "ClinVar VCF",
         }
     )
 
-    # Keep variants with valid positions
-    snp_data = snp_data.dropna(subset=["position"])
-
-    return snp_data.reset_index(drop=True)
+    return snp_data
 
 
 def _extract_gene_symbol(geneinfo: str) -> Optional[str]:
@@ -545,164 +850,3 @@ def _standardize_chromosome(chrom: str) -> str:
 
     # Return original if can't standardize
     return chrom
-
-
-def _filter_variants_by_gene_panel(
-    variants_df: pd.DataFrame, panel_genes: pd.DataFrame, config: dict[str, Any]
-) -> pd.DataFrame:
-    """
-    Filter ClinVar variants to only those within gene panel genomic regions.
-
-    Args:
-        variants_df: DataFrame with ClinVar variants
-        panel_genes: DataFrame with final gene panel (must have genomic coordinates)
-        config: ClinVar configuration dictionary
-
-    Returns:
-        Filtered DataFrame with variants only within gene panel regions
-    """
-    if variants_df.empty or panel_genes.empty:
-        return pd.DataFrame()
-
-    # Check if panel genes have required coordinate columns
-    required_coords = ["chromosome", "gene_start", "gene_end"]
-    if not all(col in panel_genes.columns for col in required_coords):
-        logger.warning(
-            f"Gene panel missing required coordinate columns {required_coords}"
-        )
-        logger.warning(f"Available columns: {list(panel_genes.columns)}")
-        return pd.DataFrame()
-
-    logger.info(
-        f"Filtering {len(variants_df)} variants against {len(panel_genes)} genes using optimized algorithm"
-    )
-
-    # Prepare variants with standardized chromosomes and gene symbols
-    variants_prepared = variants_df.copy()
-    variants_prepared["std_chr"] = variants_prepared["chromosome"].apply(
-        lambda x: _standardize_chromosome(str(x))
-    )
-    variants_prepared["gene_symbol"] = variants_prepared["geneinfo"].apply(
-        _extract_gene_symbol
-    )
-
-    # Prepare genes with standardized chromosomes
-    genes_prepared = panel_genes.copy()
-    genes_prepared["std_chr"] = genes_prepared["chromosome"].apply(
-        lambda x: _standardize_chromosome(str(x))
-    )
-
-    filtered_variants = []
-
-    # Process by chromosome for efficiency
-    for chrom in genes_prepared["std_chr"].unique():
-        if pd.isna(chrom) or chrom == "None":
-            continue
-
-        # Get variants and genes for this chromosome
-        chrom_variants = variants_prepared[variants_prepared["std_chr"] == chrom]
-        chrom_genes = genes_prepared[genes_prepared["std_chr"] == chrom]
-
-        if chrom_variants.empty or chrom_genes.empty:
-            continue
-
-        logger.debug(
-            f"Processing {len(chrom_variants)} variants on {chrom} against {len(chrom_genes)} genes"
-        )
-
-        # For each variant on this chromosome, check if it falls within any gene
-        for _, variant in chrom_variants.iterrows():
-            variant_pos = variant["position"]
-            variant_gene = variant["gene_symbol"]
-
-            # Check if variant overlaps with any gene on this chromosome
-            for _, gene in chrom_genes.iterrows():
-                gene_start = int(gene["gene_start"])
-                gene_end = int(gene["gene_end"])
-                gene_symbol = gene["approved_symbol"]
-
-                # Check if variant is within gene boundaries
-                if gene_start <= variant_pos <= gene_end:
-                    # Additional check: if variant has gene symbol, it should match
-                    if variant_gene and pd.notna(gene_symbol):
-                        if variant_gene == gene_symbol:
-                            filtered_variants.append(variant)
-                            break  # Found exact match
-                    else:
-                        # No gene symbol or no match - accept based on position alone
-                        filtered_variants.append(variant)
-                        break  # Found positional match
-
-    if not filtered_variants:
-        logger.info("No variants found within gene panel regions")
-        return pd.DataFrame()
-
-    # Convert back to DataFrame and remove the temporary columns
-    result_df = pd.DataFrame(filtered_variants)
-    result_df = result_df.drop(columns=["std_chr", "gene_symbol"], errors="ignore")
-
-    logger.info(
-        f"Filtered to {len(result_df)} variants within {len(panel_genes)} gene panel regions"
-    )
-
-    return result_df
-
-
-def _filter_deep_intronic_variants(
-    variants_df: pd.DataFrame, panel_genes: pd.DataFrame, config: dict[str, Any]
-) -> pd.DataFrame:
-    """
-    Filter variants to only deep intronic ones (outside exon boundaries by specified padding).
-
-    Args:
-        variants_df: DataFrame with ClinVar variants within gene panel regions
-        panel_genes: DataFrame with final gene panel
-        config: ClinVar configuration dictionary
-
-    Returns:
-        DataFrame with only deep intronic variants
-    """
-    if variants_df.empty:
-        return pd.DataFrame()
-
-    # Get intronic padding from config (default 50bp)
-    intronic_padding = config.get("intronic_padding", 50)
-
-    # For now, we'll assume all variants are intronic if they're within gene boundaries
-    # but outside of exons. Since we don't have exon coordinates readily available,
-    # we'll keep all variants that are within gene boundaries as potentially intronic.
-    # This is a simplified approach - a more sophisticated implementation would
-    # require exon coordinate data from Ensembl or other sources.
-
-    logger.info(f"Applying deep intronic filter with {intronic_padding}bp padding")
-    logger.info(
-        "Note: Using simplified intronic filtering - variants within gene boundaries are considered potentially intronic"
-    )
-
-    # For now, return all variants as they're already filtered to be within gene regions
-    # and ClinVar typically contains variants outside of coding regions
-    deep_intronic_variants = variants_df.copy()
-
-    logger.info(
-        f"Identified {len(deep_intronic_variants)} potential deep intronic variants"
-    )
-
-    return deep_intronic_variants
-
-
-if __name__ == "__main__":
-    # Test the module
-    test_config = {
-        "snp_processing": {
-            "deep_intronic_clinvar": {
-                "enabled": True,
-                "vcf_path": "data/clinvar/clinvar.vcf.gz",
-                "cache_dir": ".cache/clinvar",
-                "cache_expiry_days": 30,
-                "intronic_padding": 50,
-            }
-        }
-    }
-
-    result = fetch_clinvar_snps(test_config)
-    print(f"Test result: {len(result)} SNPs processed")
