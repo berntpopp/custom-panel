@@ -67,9 +67,9 @@ def fetch_manual_snps(
     # Combine all lists
     combined_df = pd.concat(all_snps, ignore_index=True)
 
-    # Remove duplicates based on rsID, keeping first occurrence
+    # Remove duplicates based on SNP ID, keeping first occurrence
     initial_count = len(combined_df)
-    combined_df = combined_df.drop_duplicates(subset=["rsid"], keep="first")
+    combined_df = combined_df.drop_duplicates(subset=["snp"], keep="first")
     final_count = len(combined_df)
 
     if initial_count != final_count:
@@ -208,8 +208,16 @@ def _process_manual_dataframe(
     if not rsids:
         raise ValueError(f"No valid rsIDs found in column '{rsid_column}'")
 
-    # Create result DataFrame
-    result_df = pd.DataFrame({"rsid": rsids, "source": name, "category": "manual"})
+    # Create result DataFrame with 'snp' column for harmonizer compatibility
+    result_df = pd.DataFrame(
+        {
+            "snp": rsids,
+            "rsid": rsids,
+            "source": name,
+            "category": "manual",
+            "snp_type": "manual",
+        }
+    )
 
     # Add details column if specified and available
     if details_column and details_column in df.columns:
@@ -221,12 +229,13 @@ def _process_manual_dataframe(
                 f"Details column '{details_column}' length doesn't match rsID column"
             )
 
-    # Standardize rsID format
+    # Standardize rsID format for both columns
+    result_df["snp"] = result_df["snp"].apply(_standardize_rsid)
     result_df["rsid"] = result_df["rsid"].apply(_standardize_rsid)
 
     # Remove any rows with empty rsids
-    result_df = result_df.dropna(subset=["rsid"])
-    result_df = result_df[result_df["rsid"].str.strip() != ""]
+    result_df = result_df.dropna(subset=["snp"])
+    result_df = result_df[result_df["snp"].str.strip() != ""]
 
     return result_df
 

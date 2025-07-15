@@ -742,8 +742,8 @@ snp_processing:
   manual_snps:
     enabled: true
     lists:
-      - name: "PGx_CYP2C19"
-        file_path: "data/snp/manual/pgx_cyp2c19.csv"
-        parser: "manual_csv"
-        rsid_column: "rsID"
-        details_column: "Drug"
+      - name: "Manual_SNPs"
+        file_path: "data/snp/manual/manual.xlsx"
+        parser: "manual_excel"
+        rsid_column: "rs_id"
+        details_column: "notes"
