@@ -933,7 +933,7 @@ class PGSCatalogParser(BaseSNPParser):
             if header_key in header_metadata:
                 result_df[result_col] = header_metadata[header_key]
 
-    def _create_variant_identifiers(self, df: pd.DataFrame) -> pd.Series[str]:
+    def _create_variant_identifiers(self, df: pd.DataFrame) -> pd.Series[Any]:
         """
         Create variant identifiers from PGS data, handling different column formats.
 
@@ -1033,8 +1033,8 @@ class PGSCatalogParser(BaseSNPParser):
         return variant_ids
 
     def _validate_variant_identifiers(
-        self, variant_ids: pd.Series[str]
-    ) -> pd.Series[bool]:
+        self, variant_ids: pd.Series[Any]
+    ) -> pd.Series[Any]:
         """
         Validate variant identifiers and filter out problematic entries.
 

@@ -398,7 +398,7 @@ def _aggregate_prs_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
     all_metadata_cols = prs_metadata_cols + coordinate_cols + pgs_metadata_cols
 
     # Define custom aggregation function for coordinates
-    def get_first_valid_coord(series: pd.Series[Any]) -> Any:
+    def get_first_valid_coord(series: "pd.Series[Any]") -> Any:
         """Get first non-empty, non-null value from series."""
         valid_values = series.dropna()
         if len(valid_values) == 0:
