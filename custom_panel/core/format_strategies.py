@@ -154,12 +154,13 @@ class ExcelStrategy(FormatStrategy):
                 # Add individual SNP type sheets
                 for snp_type, snp_df in snp_data.items():
                     if not snp_df.empty:
-                        # Create valid sheet name (Excel sheet names can't be longer than 31 chars)
+                        # Create valid sheet name (Excel sheet names <= 31 chars)
                         sheet_name = f"SNPs_{snp_type}"[:31]
                         snp_df.to_excel(writer, sheet_name=sheet_name, index=index)
                         logger.debug(f"Saved {len(snp_df)} SNPs to {sheet_name} sheet")
                         console.print(
-                            f"[blue]Added {sheet_name} sheet with {len(snp_df)} SNPs[/blue]"
+                            f"[blue]Added {sheet_name} sheet with "
+                            f"{len(snp_df)} SNPs[/blue]"
                         )
 
     def get_extension(self) -> str:
@@ -186,6 +187,26 @@ class JSONStrategy(FormatStrategy):
         return "json"
 
 
+class BedStrategy(FormatStrategy):
+    """Strategy for saving DataFrames as BED files."""
+
+    def save(self, df: pd.DataFrame, path: Path, **kwargs: Any) -> None:
+        """Save DataFrame as BED file."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        # BED format expects tab-separated values without headers
+        # Standard BED format: chrom, start, end, name, score, strand
+        try:
+            df.to_csv(path, sep="\t", header=False, index=False)
+            logger.debug(f"Saved {len(df)} records to BED: {path}")
+        except Exception as e:
+            logger.error(f"Failed to save BED file {path}: {e}")
+            raise
+
+    def get_extension(self) -> str:
+        return "bed"
+
+
 class FormatStrategyFactory:
     """Factory for creating format strategy instances."""
 
@@ -195,6 +216,7 @@ class FormatStrategyFactory:
         "excel": ExcelStrategy,
         "xlsx": ExcelStrategy,  # Alias for excel
         "json": JSONStrategy,
+        "bed": BedStrategy,
     }
 
     @classmethod

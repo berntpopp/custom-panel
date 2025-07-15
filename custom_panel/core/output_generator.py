@@ -123,6 +123,9 @@ def _generate_snp_data_files(
     if all_snps:
         master_snp_df = pd.concat(all_snps, ignore_index=True)
 
+        # Clean coordinate columns for parquet compatibility
+        master_snp_df = _clean_coordinate_columns(master_snp_df)
+
         # Generate master SNP files
         console.print(
             f"[blue]Generating master SNP files with {len(master_snp_df)} SNPs...[/blue]"
@@ -138,16 +141,75 @@ def _generate_snp_data_files(
         # Generate individual SNP type files
         for snp_type, snp_df in snp_data.items():
             if not snp_df.empty:
+                # Clean coordinate columns for parquet compatibility
+                snp_df_clean = _clean_coordinate_columns(snp_df)
                 console.print(
-                    f"[blue]Generating {snp_type} SNP files with {len(snp_df)} SNPs...[/blue]"
+                    f"[blue]Generating {snp_type} SNP files with {len(snp_df_clean)} SNPs...[/blue]"
                 )
                 saver.save_multiple_formats(
-                    df=snp_df,
+                    df=snp_df_clean,
                     base_path=output_dir,
                     filename_base=f"snps_{snp_type}",
                     formats=formats,
                     index=False,
                 )
+
+
+def _clean_coordinate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Clean coordinate columns to ensure they're properly formatted for parquet.
+
+    Converts empty strings to NaN and ensures coordinate columns are numeric.
+
+    Args:
+        df: DataFrame with potential coordinate columns
+
+    Returns:
+        DataFrame with cleaned coordinate columns
+    """
+    df_cleaned = df.copy()
+
+    # Define coordinate columns that should be numeric
+    coordinate_cols = [
+        "hg38_start",
+        "hg38_end",
+        "hg38_pos",
+        "hg19_start",
+        "hg19_end",
+        "hg19_pos",
+        "start",
+        "end",
+        "pos",
+        "position",
+        "chromosome",
+        "chr",
+        "hm_pos",
+    ]
+
+    for col in coordinate_cols:
+        if col in df_cleaned.columns:
+            # Convert empty strings to NaN, then to numeric
+            df_cleaned[col] = df_cleaned[col].replace("", pd.NA)
+            if col in [
+                "hg38_start",
+                "hg38_end",
+                "hg19_start",
+                "hg19_end",
+                "hm_pos",
+                "start",
+                "end",
+                "pos",
+                "position",
+            ]:
+                # These should be integers (positions)
+                df_cleaned[col] = pd.to_numeric(
+                    df_cleaned[col], errors="coerce"
+                ).astype("Int64")
+            elif col in ["chromosome", "chr", "hg38_chromosome", "hg19_chromosome"]:
+                # These should be strings but handle NaN properly
+                df_cleaned[col] = df_cleaned[col].astype("string")
+
+    return df_cleaned
 
 
 def _generate_bed_files(

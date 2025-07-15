@@ -545,6 +545,10 @@ class GeneAnnotator:
                     mane_clinical_full, self.transcript_padding
                 )
 
+        # Store all transcripts data for exon BED file generation
+        if "all_transcripts" in gene_data:
+            annotation["all_transcripts"] = gene_data["all_transcripts"]
+
         return annotation
 
     def _build_gene_annotation(
