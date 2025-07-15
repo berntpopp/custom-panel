@@ -64,11 +64,35 @@ class ParquetStrategy(FormatStrategy):
         index = kwargs.get("index", False)
 
         try:
-            df.to_parquet(path, index=index, engine=engine)
-            logger.debug(f"Saved {len(df)} records to Parquet: {path}")
+            # Clean DataFrame for Parquet compatibility
+            df_clean = self._clean_for_parquet(df)
+            df_clean.to_parquet(path, index=index, engine=engine)
+            logger.debug(f"Saved {len(df_clean)} records to Parquet: {path}")
         except Exception as e:
             logger.error(f"Failed to save Parquet file {path}: {e}")
             raise
+
+    def _clean_for_parquet(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Clean DataFrame for Parquet compatibility.
+
+        Handles mixed data types that cause Parquet conversion errors.
+        """
+        df_clean = df.copy()
+
+        # Fix hg19_strand and hg38_strand columns (mixed str/int types)
+        for strand_col in ["hg19_strand", "hg38_strand"]:
+            if strand_col in df_clean.columns:
+                # Convert all values to string first, then standardize
+                df_clean[strand_col] = df_clean[strand_col].astype(str)
+                # Replace empty strings and 'nan' with None for consistency
+                df_clean[strand_col] = df_clean[strand_col].replace(["", "nan"], None)
+                # Convert numeric strings back to integers where appropriate
+                df_clean[strand_col] = df_clean[strand_col].apply(
+                    lambda x: int(x) if x and x.isdigit() else x
+                )
+
+        return df_clean
 
     def get_extension(self) -> str:
         return "parquet"
