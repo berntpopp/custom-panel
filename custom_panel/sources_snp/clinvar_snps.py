@@ -656,12 +656,8 @@ def _parse_clinvar_vcf(
 
                 variants.append(variant)
 
-                # Memory management: limit to 2M variants
-                if len(variants) >= 2000000:
-                    logger.warning(
-                        f"Reached variant limit of 2M, stopping parsing at line {line_num}"
-                    )
-                    break
+                # Optional memory management for extremely large files
+                # Remove artificial limit to allow processing of all variants
 
                 # Progress reporting
                 if line_num % 100000 == 0:
