@@ -209,6 +209,96 @@ class Pipeline:
 
         return annotated_df, self.transcript_data
 
+    def _deduplicate_snps_in_pipeline(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Deduplicate SNPs in the pipeline based on VCF ID while preserving source information.
+
+        This method handles both cross-source and within-source duplicates,
+        consolidating them into single rows with merged metadata.
+
+        Args:
+            df: DataFrame with potentially duplicate SNPs
+
+        Returns:
+            DataFrame with deduplicated SNPs and consolidated source information
+        """
+        if df.empty or "snp" not in df.columns:
+            return df
+
+        # Count initial entries
+        initial_count = len(df)
+
+        # Group by SNP (VCF ID) and aggregate
+        aggregation_rules = {
+            # Core identification - take first non-null value
+            "rsid": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+
+            # Source information - merge all sources
+            "source": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "category": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "snp_type": lambda x: "; ".join(sorted(x.dropna().unique())),
+
+            # Coordinate information - take first valid coordinate
+            "hg38_chromosome": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "hg38_start": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "hg38_end": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "hg38_strand": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+
+            # Allele information - take first valid allele
+            "ref_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "alt_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "effect_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "other_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+
+            # Metadata - take first valid value or merge as appropriate
+            "effect_weight": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "pgs_id": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "pgs_name": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "trait": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "pmid": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "gene": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "gene_id": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "variant_id": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "clinical_significance": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "review_status": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "consequence": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "distance_to_exon": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "panel_name": lambda x: "; ".join(sorted(x.dropna().unique())),
+            "panel_description": lambda x: "; ".join(sorted(x.dropna().unique())),
+        }
+
+        # Only apply aggregation rules to columns that exist in the DataFrame
+        final_agg_rules = {
+            col: rule for col, rule in aggregation_rules.items() if col in df.columns
+        }
+
+        # Group by SNP and aggregate
+        deduplicated_df = df.groupby("snp", as_index=False).agg(final_agg_rules)
+
+        # Add source count information
+        source_counts = df.groupby("snp")["source"].apply(
+            lambda x: len(x.dropna().unique())
+        )
+        deduplicated_df["source_count"] = deduplicated_df["snp"].map(source_counts)
+
+        # Log deduplication results
+        final_count = len(deduplicated_df)
+        duplicates_removed = initial_count - final_count
+
+        if duplicates_removed > 0:
+            logger.info(
+                f"SNP deduplication: {duplicates_removed} duplicate entries removed "
+                f"({initial_count} -> {final_count} unique SNPs)"
+            )
+            console.print(
+                f"[yellow]Pipeline deduplication: {duplicates_removed} SNP entries merged - "
+                f"{final_count} unique variants from {initial_count} total entries[/yellow]"
+            )
+        else:
+            logger.info(f"No duplicate SNPs found in pipeline - {final_count} unique variants")
+
+        return deduplicated_df
+
     def _fetch_all_sources(self) -> list[pd.DataFrame]:
         """Fetch data from all enabled sources."""
         # Define source functions
@@ -587,6 +677,11 @@ class Pipeline:
             logger.info("No harmonizer available, using raw data")
             harmonized_df = combined_raw_df
 
+        # Step 4.5: Deduplicate SNPs based on VCF ID while preserving source information
+        logger.info("Deduplicating SNPs across all sources...")
+        harmonized_df = self._deduplicate_snps_in_pipeline(harmonized_df)
+        logger.info(f"After deduplication: {len(harmonized_df)} unique SNPs")
+
         # Step 5: Split harmonized data back into type-specific datasets
         for snp_type in raw_snp_data.keys():
             try:
@@ -658,17 +753,30 @@ class Pipeline:
             )
 
             if clinvar_snps is not None and not clinvar_snps.empty:
-                # Store ClinVar SNP data
-                self.snp_data["deep_intronic_clinvar"] = clinvar_snps
+                # Deduplicate ClinVar SNPs to handle within-source duplicates
+                logger.info("Deduplicating ClinVar SNPs...")
 
-                # Save ClinVar SNP data
-                self.output_manager.save_snp_data(clinvar_snps, "deep_intronic_clinvar")
+                # Add snp_type column for deduplication
+                clinvar_snps["snp_type"] = "deep_intronic_clinvar"
+
+                # Apply deduplication
+                deduplicated_clinvar = self._deduplicate_snps_in_pipeline(clinvar_snps)
+
+                # Remove the temporary snp_type column
+                if "snp_type" in deduplicated_clinvar.columns:
+                    deduplicated_clinvar = deduplicated_clinvar.drop(columns=["snp_type"])
+
+                # Store deduplicated ClinVar SNP data
+                self.snp_data["deep_intronic_clinvar"] = deduplicated_clinvar
+
+                # Save deduplicated ClinVar SNP data
+                self.output_manager.save_snp_data(deduplicated_clinvar, "deep_intronic_clinvar")
 
                 console.print(
-                    f"[green]✓ Deep intronic ClinVar: {len(clinvar_snps)} SNPs[/green]"
+                    f"[green]✓ Deep intronic ClinVar: {len(deduplicated_clinvar)} SNPs[/green]"
                 )
                 logger.info(
-                    f"Successfully processed {len(clinvar_snps)} deep intronic ClinVar SNPs for gene panel"
+                    f"Successfully processed {len(deduplicated_clinvar)} deep intronic ClinVar SNPs for gene panel"
                 )
             else:
                 console.print(

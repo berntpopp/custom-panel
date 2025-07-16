@@ -730,3 +730,202 @@ class TestEnsemblHelpers:
         # This would depend on the implementation - might be sum of all exons or merged regions
         assert coverage is not None
         assert coverage > 0
+
+
+class TestSNPDeduplication:
+    """Test SNP deduplication functionality."""
+
+    def test_deduplicate_snps_basic(self):
+        """Test basic SNP deduplication with duplicate VCF IDs."""
+        from custom_panel.engine.pipeline import Pipeline
+        
+        # Create a mock pipeline instance to access the deduplication method
+        pipeline = Pipeline({"output": {"directory": "/tmp"}})
+        _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
+
+        # Create test data with duplicate VCF IDs from different sources
+        df = pd.DataFrame({
+            "snp": ["19:11091630:G:T", "19:11091630:G:T", "rs123456"],
+            "rsid": [pd.NA, "rs6511720", "rs123456"],
+            "source": ["PGS_Catalog", "Manual_SNPs", "Identity_SNPs"],
+            "category": ["prs", "manual", "identity"],
+            "snp_type": ["prs", "manual_snps", "identity"],
+            "hg38_chromosome": ["19", "19", "1"],
+            "hg38_start": [11091630, 11091630, 1000000],
+            "hg38_end": [11091630, 11091630, 1000000],
+        })
+
+        result = _deduplicate_snps(df)
+
+        # Should have 2 unique SNPs now
+        assert len(result) == 2
+        
+        # Check the deduplicated entry for 19:11091630:G:T
+        dup_entry = result[result["snp"] == "19:11091630:G:T"].iloc[0]
+        assert dup_entry["rsid"] == "rs6511720"  # Should take first non-null rsID
+        assert dup_entry["source"] == "Manual_SNPs; PGS_Catalog"  # Sources merged and sorted
+        assert dup_entry["category"] == "manual; prs"  # Categories merged and sorted
+        assert dup_entry["snp_type"] == "manual_snps; prs"  # Types merged and sorted
+        assert dup_entry["source_count"] == 2  # Two sources
+        
+        # Check the non-duplicate entry remains unchanged
+        single_entry = result[result["snp"] == "rs123456"].iloc[0]
+        assert single_entry["rsid"] == "rs123456"
+        assert single_entry["source"] == "Identity_SNPs"
+        assert single_entry["source_count"] == 1
+
+    def test_deduplicate_snps_no_duplicates(self):
+        """Test deduplication with no duplicate entries."""
+        from custom_panel.engine.pipeline import Pipeline
+        
+        # Create a mock pipeline instance to access the deduplication method
+        pipeline = Pipeline({"output": {"directory": "/tmp"}})
+        _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
+
+        # Create test data with no duplicates
+        df = pd.DataFrame({
+            "snp": ["19:11091630:G:T", "rs123456", "1:1000000:A:G"],
+            "rsid": ["rs6511720", "rs123456", "rs789012"],
+            "source": ["PGS_Catalog", "Manual_SNPs", "Identity_SNPs"],
+            "category": ["prs", "manual", "identity"],
+            "snp_type": ["prs", "manual_snps", "identity"],
+        })
+
+        result = _deduplicate_snps(df)
+
+        # Should have same number of SNPs
+        assert len(result) == 3
+        
+        # All should have source_count = 1
+        assert all(result["source_count"] == 1)
+
+    def test_deduplicate_snps_empty_dataframe(self):
+        """Test deduplication with empty DataFrame."""
+        from custom_panel.engine.pipeline import Pipeline
+        
+        # Create a mock pipeline instance to access the deduplication method
+        pipeline = Pipeline({"output": {"directory": "/tmp"}})
+        _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
+
+        df = pd.DataFrame()
+        result = _deduplicate_snps(df)
+        
+        assert result.empty
+
+    def test_deduplicate_snps_missing_snp_column(self):
+        """Test deduplication with missing 'snp' column."""
+        from custom_panel.engine.pipeline import Pipeline
+        
+        # Create a mock pipeline instance to access the deduplication method
+        pipeline = Pipeline({"output": {"directory": "/tmp"}})
+        _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
+
+        df = pd.DataFrame({
+            "rsid": ["rs123456", "rs789012"],
+            "source": ["Source1", "Source2"],
+        })
+
+        result = _deduplicate_snps(df)
+        
+        # Should return original DataFrame unchanged
+        assert len(result) == 2
+        assert "snp" not in result.columns
+
+    def test_deduplicate_snps_complex_metadata(self):
+        """Test deduplication with complex metadata columns."""
+        from custom_panel.engine.pipeline import Pipeline
+        
+        # Create a mock pipeline instance to access the deduplication method
+        pipeline = Pipeline({"output": {"directory": "/tmp"}})
+        _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
+
+        # Create test data with various metadata columns
+        df = pd.DataFrame({
+            "snp": ["19:11091630:G:T", "19:11091630:G:T", "19:11091630:G:T"],
+            "rsid": [pd.NA, "rs6511720", pd.NA],
+            "source": ["PGS_Catalog_Clinical", "Manual_SNPs", "PGS_Catalog_Other"],
+            "category": ["prs", "manual", "prs"],
+            "snp_type": ["prs", "manual_snps", "prs"],
+            "pgs_id": ["PGS000765", pd.NA, "PGS000066"],
+            "pgs_name": ["Breast Cancer PRS", pd.NA, "Prostate Cancer PRS"],
+            "trait": ["breast_cancer", "pharmacogenomics", "prostate_cancer"],
+            "effect_weight": [0.5, pd.NA, 0.3],
+            "effect_allele": ["T", "T", "T"],
+            "hg38_chromosome": ["19", "19", "19"],
+            "hg38_start": [11091630, 11091630, 11091630],
+        })
+
+        result = _deduplicate_snps(df)
+
+        # Should have 1 unique SNP
+        assert len(result) == 1
+        
+        entry = result.iloc[0]
+        assert entry["snp"] == "19:11091630:G:T"
+        assert entry["rsid"] == "rs6511720"  # First non-null value
+        assert entry["source"] == "Manual_SNPs; PGS_Catalog_Clinical; PGS_Catalog_Other"  # Sorted
+        assert entry["category"] == "manual; prs"  # Unique categories sorted
+        assert entry["pgs_id"] == "PGS000066; PGS000765"  # Merged PGS IDs sorted
+        assert entry["pgs_name"] == "Breast Cancer PRS; Prostate Cancer PRS"  # Merged names sorted
+        assert entry["trait"] == "breast_cancer; pharmacogenomics; prostate_cancer"  # Sorted
+        assert entry["effect_weight"] == 0.5  # First non-null value
+        assert entry["effect_allele"] == "T"  # First non-null value
+        assert entry["source_count"] == 3
+
+    def test_deduplicate_snps_rsid_priority(self):
+        """Test that rsID is properly prioritized (first non-null value)."""
+        from custom_panel.engine.pipeline import Pipeline
+        
+        # Create a mock pipeline instance to access the deduplication method
+        pipeline = Pipeline({"output": {"directory": "/tmp"}})
+        _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
+
+        # Create test data where rsID appears in different positions
+        df = pd.DataFrame({
+            "snp": ["19:11091630:G:T", "19:11091630:G:T", "19:11091630:G:T"],
+            "rsid": [pd.NA, "rs6511720", "rs9999999"],  # Different rsIDs
+            "source": ["Source1", "Source2", "Source3"],
+            "category": ["cat1", "cat2", "cat3"],
+            "snp_type": ["type1", "type2", "type3"],
+        })
+
+        result = _deduplicate_snps(df)
+
+        # Should take the first non-null rsID
+        assert len(result) == 1
+        assert result.iloc[0]["rsid"] == "rs6511720"  # First non-null value
+
+    def test_deduplicate_snps_coordinate_preservation(self):
+        """Test that coordinate information is properly preserved."""
+        from custom_panel.engine.pipeline import Pipeline
+        
+        # Create a mock pipeline instance to access the deduplication method
+        pipeline = Pipeline({"output": {"directory": "/tmp"}})
+        _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
+
+        # Create test data with coordinate information
+        df = pd.DataFrame({
+            "snp": ["19:11091630:G:T", "19:11091630:G:T"],
+            "rsid": [pd.NA, "rs6511720"],
+            "source": ["Source1", "Source2"],
+            "category": ["cat1", "cat2"],
+            "snp_type": ["type1", "type2"],
+            "hg38_chromosome": ["19", "19"],
+            "hg38_start": [11091630, 11091630],
+            "hg38_end": [11091630, 11091630],
+            "hg38_strand": ["+", "+"],
+            "ref_allele": ["G", "G"],
+            "alt_allele": ["T", "T"],
+        })
+
+        result = _deduplicate_snps(df)
+
+        # Should preserve coordinate information
+        assert len(result) == 1
+        entry = result.iloc[0]
+        assert entry["hg38_chromosome"] == "19"
+        assert entry["hg38_start"] == 11091630
+        assert entry["hg38_end"] == 11091630
+        assert entry["hg38_strand"] == "+"
+        assert entry["ref_allele"] == "G"
+        assert entry["alt_allele"] == "T"

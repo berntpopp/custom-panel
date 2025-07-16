@@ -220,6 +220,97 @@ def _generate_regions_data_files(
                 )
 
 
+def _deduplicate_snps(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Deduplicate SNPs based on VCF ID while preserving source information.
+
+    When the same genomic variant (VCF ID) appears in multiple sources,
+    this function consolidates them into a single row with merged metadata.
+
+    Args:
+        df: DataFrame with potentially duplicate SNPs
+
+    Returns:
+        DataFrame with deduplicated SNPs and consolidated source information
+    """
+    if df.empty or "snp" not in df.columns:
+        return df
+
+    # Count initial entries
+    initial_count = len(df)
+
+    # Group by SNP (VCF ID) and aggregate
+    aggregation_rules = {
+        # Core identification - take first non-null value
+        "rsid": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+
+        # Source information - merge all sources
+        "source": lambda x: "; ".join(x.dropna().unique()),
+        "category": lambda x: "; ".join(x.dropna().unique()),
+        "snp_type": lambda x: "; ".join(x.dropna().unique()),
+
+        # Coordinate information - take first valid coordinate
+        "hg38_chromosome": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "hg38_start": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "hg38_end": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "hg38_strand": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+
+        # Allele information - take first valid allele
+        "ref_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "alt_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "effect_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "other_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+
+        # Metadata - take first valid value or merge as appropriate
+        "effect_weight": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "pgs_id": lambda x: "; ".join(x.dropna().unique()),
+        "pgs_name": lambda x: "; ".join(x.dropna().unique()),
+        "trait": lambda x: "; ".join(x.dropna().unique()),
+        "pmid": lambda x: "; ".join(x.dropna().unique()),
+        "gene": lambda x: "; ".join(x.dropna().unique()),
+        "gene_id": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "variant_id": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "clinical_significance": lambda x: "; ".join(x.dropna().unique()),
+        "review_status": lambda x: "; ".join(x.dropna().unique()),
+        "consequence": lambda x: "; ".join(x.dropna().unique()),
+        "distance_to_exon": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "panel_name": lambda x: "; ".join(x.dropna().unique()),
+        "panel_description": lambda x: "; ".join(x.dropna().unique()),
+    }
+
+    # Only apply aggregation rules to columns that exist in the DataFrame
+    final_agg_rules = {
+        col: rule for col, rule in aggregation_rules.items() if col in df.columns
+    }
+
+    # Group by SNP and aggregate
+    deduplicated_df = df.groupby("snp", as_index=False).agg(final_agg_rules)
+
+    # Add source count information
+    source_counts = df.groupby("snp")["source"].apply(
+        lambda x: len(x.dropna().unique())
+    )
+    deduplicated_df["source_count"] = deduplicated_df["snp"].map(source_counts)
+
+    # Log deduplication results
+    final_count = len(deduplicated_df)
+    duplicates_removed = initial_count - final_count
+
+    if duplicates_removed > 0:
+        logger.info(
+            f"SNP deduplication: {duplicates_removed} duplicate entries removed "
+            f"({initial_count} -> {final_count} unique SNPs)"
+        )
+        console.print(
+            f"[yellow]Deduplicated {duplicates_removed} SNP entries - "
+            f"{final_count} unique variants from {initial_count} total entries[/yellow]"
+        )
+    else:
+        logger.info(f"No duplicate SNPs found - {final_count} unique variants")
+
+    return deduplicated_df
+
+
 def _clean_coordinate_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean coordinate columns to ensure they're properly formatted for parquet.
