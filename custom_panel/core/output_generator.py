@@ -174,9 +174,7 @@ def _clean_coordinate_columns(df: pd.DataFrame) -> pd.DataFrame:
         "hg38_start",
         "hg38_end",
         "hg38_pos",
-        "hg19_start",
-        "hg19_end",
-        "hg19_pos",
+        # Only hg38 coordinates are supported
         "start",
         "end",
         "pos",
@@ -193,8 +191,7 @@ def _clean_coordinate_columns(df: pd.DataFrame) -> pd.DataFrame:
             if col in [
                 "hg38_start",
                 "hg38_end",
-                "hg19_start",
-                "hg19_end",
+                # Only hg38 coordinates are supported
                 "hm_pos",
                 "start",
                 "end",
@@ -205,7 +202,7 @@ def _clean_coordinate_columns(df: pd.DataFrame) -> pd.DataFrame:
                 df_cleaned[col] = pd.to_numeric(
                     df_cleaned[col], errors="coerce"
                 ).astype("Int64")
-            elif col in ["chromosome", "chr", "hg38_chromosome", "hg19_chromosome"]:
+            elif col in ["chromosome", "chr", "hg38_chromosome"]:
                 # These should be strings but handle NaN properly
                 df_cleaned[col] = df_cleaned[col].astype("string")
 

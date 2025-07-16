@@ -893,26 +893,7 @@
                     }
                 },
                 'hg38_allele_string': { title: 'Alleles (hg38)' },
-                'hg19_chromosome': { title: 'Chr (hg19)' },
-                'hg19_start': {
-                    title: 'Position (hg19)',
-                    render: function(data, type, row) {
-                        if (type === 'display' && data !== null && data !== "") {
-                            return parseInt(data).toLocaleString();
-                        }
-                        return data;
-                    }
-                },
-                'hg19_end': {
-                    title: 'End (hg19)',
-                    render: function(data, type, row) {
-                        if (type === 'display' && data !== null && data !== "") {
-                            return parseInt(data).toLocaleString();
-                        }
-                        return data;
-                    }
-                },
-                'hg19_allele_string': { title: 'Alleles (hg19)' }
+                // Only hg38 coordinates are supported
             };
 
             // Create tables for each SNP type

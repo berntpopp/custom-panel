@@ -668,11 +668,7 @@ def _convert_to_snp_format(
             "hg38_end": variants_df["position"],
             "hg38_strand": 1,
             "hg38_allele_string": allele_strings,
-            "hg19_chromosome": "",
-            "hg19_start": "",
-            "hg19_end": "",
-            "hg19_strand": "",
-            "hg19_allele_string": "",
+            # Only hg38 coordinates are supported
             "clinical_significance": variants_df["clnsig"],
             "gene_symbol": variants_df["gene_symbol"],
             "condition": variants_df["clndn"],

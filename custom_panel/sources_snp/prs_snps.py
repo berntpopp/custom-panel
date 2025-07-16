@@ -15,12 +15,10 @@ snp_processing:
     sources:
       - name: "PGS_Catalog_Clinical_Panel"
         parser: "pgs_catalog_fetcher"
-        pgs_ids: ["PGS000004", "PGS000005", "PGS000006"]
-        enhance_with_ensembl: true
-      - name: "PGS_Catalog_Breast_Cancer"
-        parser: "pgs_catalog_fetcher"
-        pgs_ids: ["PGS000873", "PGS000004"]
+        pgs_ids: ["PGS000765", "PGS000064", "PGS000065", "PGS000066", "PGS004914", "PGS004915", "PGS004916", "PGS000004", "PGS000005", "PGS000006", "PGS003394", "PGS000030"]
         genome_build: "GRCh38"
+        cache_dir: ".cache/pgs_catalog"
+        cache_ttl_days: 7
 ```
 
 ### 2. Multi-Source Processing
@@ -31,7 +29,7 @@ The pipeline processes multiple PRS sources in parallel:
 
 ### 3. Dual Genome Build Support
 Each source can provide coordinates for multiple genome builds:
-- **hg19/GRCh37**: Legacy build support
+- **hg38/GRCh38**: Current standard build
 - **hg38/GRCh38**: Modern harmonized coordinates
 - **Cross-build mapping**: Ensembl API integration for coordinate conversion
 
@@ -74,7 +72,7 @@ agg_rules = {
 ```python
 # Both genome builds supported simultaneously
 hg38_columns = ['hg38_chromosome', 'hg38_start', 'hg38_end', 'hg38_strand']
-hg19_columns = ['hg19_chromosome', 'hg19_start', 'hg19_end', 'hg19_strand']
+# Only hg38 columns are supported
 
 # Coordinate preference hierarchy
 coordinate_preference = [
@@ -125,8 +123,7 @@ optional_columns = [
     'effect_weight',        # PRS weight/beta coefficient
     'hg38_chromosome',      # hg38 coordinates
     'hg38_start', 'hg38_end', 'hg38_strand',
-    'hg19_chromosome',      # hg19 coordinates
-    'hg19_start', 'hg19_end', 'hg19_strand',
+    # Only hg38 coordinates are supported
     'pgs_id', 'pgs_name',   # PGS Catalog metadata
 ]
 ```
@@ -379,13 +376,7 @@ def _aggregate_prs_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
         "hg38_end",
         "hg38_strand",
         "hg38_allele_string",
-        "hg19_chromosome",
-        "hg19_chr",
-        "hg19_start",
-        "hg19_pos",
-        "hg19_end",
-        "hg19_strand",
-        "hg19_allele_string",
+        # Only hg38 coordinates are supported
     ]
 
     # Add PGS-specific metadata columns

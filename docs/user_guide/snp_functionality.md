@@ -296,11 +296,10 @@ snp_processing:
   prs:
     enabled: true
     panels:
-      - name: "BCAC_313_PRS"
-        file_path: "data/snp/prs/BCAC_313_PRS.csv"
-        parser: "bcac_prs"
-        rsid_column: "hm_rsid"
-        effect_allele_column: "effect_allele"
+      - name: "PGS_Catalog_Clinical_Panel"
+        parser: "pgs_catalog_fetcher"
+        pgs_ids: ["PGS000004", "PGS000005", "PGS000006"]
+        genome_build: "GRCh38"
         
   deep_intronic_clinvar:
     enabled: true

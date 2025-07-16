@@ -49,7 +49,7 @@ files = client.fetch_and_cache_pgs_files(["PGS000004"], "GRCh38")
 
 # Fetch multiple PGS
 files = client.fetch_and_cache_pgs_files(
-    ["PGS000873", "PGS000004"],
+    ["PGS000004", "PGS000005", "PGS000006"],
     "GRCh38"
 )
 ```
@@ -358,8 +358,11 @@ class PGSCatalogClient:
         downloaded_files = {}
         failed_downloads = []
 
-        # Try to get both genome builds for each PGS
-        builds_to_try = ["GRCh38", "GRCh37"]
+        # Try to get both genome builds for each PGS, but prefer single build for efficiency
+        if genome_build == "GRCh38":
+            builds_to_try = ["GRCh38"]  # Only use GRCh38 for efficiency
+        else:
+            builds_to_try = ["GRCh38", "GRCh37"]  # Fallback to dual-build for legacy
 
         for pgs_id in pgs_ids:
             pgs_files = {}

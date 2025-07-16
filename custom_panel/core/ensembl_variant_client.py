@@ -174,8 +174,8 @@ def lookup_rsid_by_coordinates(self, chromosome, position, assembly):
 enhanced_df = client.enhance_bcac_with_hg38_coordinates(bcac_df)
 
 # Results include:
-# - Original hg19 coordinates preserved
-# - New hg38 coordinates added
+# - hg38 coordinates standardized
+# - rsIDs added where available
 # - rsIDs added where available
 # - Success/failure tracking per variant
 ```
@@ -357,13 +357,11 @@ class EnsemblVariantClient:
         """Lookup rsID for a single variant."""
 
         # Try different coordinate fields
-        for chr_field in ["chromosome", "hg38_chromosome", "hg19_chromosome"]:
+        for chr_field in ["chromosome", "hg38_chromosome"]:
             for pos_field in [
                 "position",
                 "hg38_position",
-                "hg19_position",
                 "hg38_start",
-                "hg19_start",
             ]:
                 if chr_field in variant and pos_field in variant:
                     chromosome = str(variant[chr_field]).replace("chr", "")

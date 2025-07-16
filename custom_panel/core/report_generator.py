@@ -446,8 +446,7 @@ class ReportGenerator:
             display_columns.append("snp_type")
         if "hg38_chromosome" in df.columns:
             display_columns.extend(["hg38_chromosome", "hg38_start", "hg38_end"])
-        if "hg19_chromosome" in df.columns:
-            display_columns.extend(["hg19_chromosome", "hg19_start", "hg19_end"])
+        # Only hg38 coordinates are supported
 
         # Filter to existing columns
         existing_columns = [col for col in display_columns if col in df.columns]

@@ -696,7 +696,7 @@ snp_processing:
           - "PGS000006"  # ER-negative Breast Cancer - 313 variants for estrogen receptor negative
           - "PGS003394"  # Clinical risk score - check PGS Catalog for specific details
           - "PGS000030"  # Prostate Cancer - 147 variants for prostate cancer risk assessment
-        # Preferred genome build (GRCh38 or GRCh37)
+        # Preferred genome build (GRCh38 for efficiency - only fetches single build)
         genome_build: "GRCh38"
         # Cache settings
         cache_dir: ".cache/pgs_catalog"

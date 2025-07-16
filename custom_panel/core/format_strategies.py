@@ -80,8 +80,8 @@ class ParquetStrategy(FormatStrategy):
         """
         df_clean = df.copy()
 
-        # Fix hg19_strand and hg38_strand columns (mixed str/int types)
-        for strand_col in ["hg19_strand", "hg38_strand"]:
+        # Fix hg38_strand columns (mixed str/int types)
+        for strand_col in ["hg38_strand"]:
             if strand_col in df_clean.columns:
                 # Convert all values to string first, then standardize
                 df_clean[strand_col] = df_clean[strand_col].astype(str)

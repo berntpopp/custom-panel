@@ -11,7 +11,7 @@ The PRS parsing system supports multiple data sources and formats:
 ### 1. PGS Catalog Parser (PGSCatalogParser)
 - **Source**: PGS Catalog harmonized scoring files
 - **Format**: Tab-separated with extensive header metadata
-- **Genome Builds**: Supports both hg19/GRCh37 and hg38/GRCh38
+- **Genome Builds**: Supports GRCh38/hg38 (default and recommended)
 - **Coordinates**: Dual coordinate system with original and harmonized positions
 - **Features**:
   - Automatic genome build detection from metadata
@@ -23,7 +23,7 @@ The PRS parsing system supports multiple data sources and formats:
 ### 2. PGS Catalog Fetcher (PGSCatalogFetcher)
 - **Source**: PGS Catalog API with automatic download
 - **Caching**: Local file caching with configurable TTL
-- **Multi-build Support**: Downloads both hg19 and hg38 versions when available
+- **Multi-build Support**: Downloads GRCh38 by default for optimal performance
 - **Automation**: Fetches multiple PGS IDs in parallel
 - **Features**:
   - API-based retrieval with error handling
