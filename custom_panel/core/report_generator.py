@@ -441,11 +441,13 @@ class ReportGenerator:
     def _convert_snp_df_to_table_data(self, df: pd.DataFrame) -> list[dict[str, Any]]:
         """Convert SNP DataFrame to list of dictionaries for HTML table display."""
         # Select relevant columns for display
-        display_columns = ["snp", "source", "category"]
+        display_columns = ["snp", "rsid", "source", "category"]
         if "snp_type" in df.columns:
             display_columns.append("snp_type")
         if "hg38_chromosome" in df.columns:
             display_columns.extend(["hg38_chromosome", "hg38_start", "hg38_end"])
+        if "hg38_allele_string" in df.columns:
+            display_columns.append("hg38_allele_string")
         # Only hg38 coordinates are supported
 
         # Filter to existing columns
