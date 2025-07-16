@@ -110,7 +110,7 @@ class ConfigManager:
         Check if BED file generation is enabled for a specific type.
 
         Args:
-            bed_type: Type of BED file ("germline", "exons")
+            bed_type: Type of BED file ("germline", "exons", "complete_panel", "genes_all", etc.)
 
         Returns:
             True if BED generation is enabled
@@ -119,7 +119,22 @@ class ConfigManager:
             return self.get_nested(
                 "output", "bed_files", "exons", "enabled", default=False
             )
+        # Support for new master BED file types
+        if bed_type in ["complete_panel", "complete_panel_exons", "complete_panel_genes", "genes_all", "genes_included", "snps_all", "regions_all"]:
+            return self.get_nested("output", "bed_files", bed_type, default=False)
+        # Support for individual category files
+        if bed_type == "individual_categories":
+            return self.get_nested("output", "bed_files", "individual_categories", default=True)
         return self.get_nested("output", "bed_files", bed_type, default=False)
+
+    def get_bed_padding(self) -> int:
+        """
+        Get BED file padding value.
+
+        Returns:
+            Padding value in base pairs
+        """
+        return self.get_nested("output", "bed_files", "padding", default=0)
 
     def get_html_config(self) -> dict[str, Any]:
         """

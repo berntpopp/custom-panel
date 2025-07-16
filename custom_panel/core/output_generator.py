@@ -21,7 +21,7 @@ from rich.console import Console
 
 from .config_manager import ConfigManager
 from .format_strategies import DataFrameSaver
-from .io import create_bed_file, create_exon_bed_file
+from .io import create_exon_bed_file
 from .report_generator import ReportGenerator
 
 logger = logging.getLogger(__name__)
@@ -243,24 +243,22 @@ def _deduplicate_snps(df: pd.DataFrame) -> pd.DataFrame:
     aggregation_rules = {
         # Core identification - take first non-null value
         "rsid": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-
         # Source information - merge all sources
         "source": lambda x: "; ".join(x.dropna().unique()),
         "category": lambda x: "; ".join(x.dropna().unique()),
         "snp_type": lambda x: "; ".join(x.dropna().unique()),
-
         # Coordinate information - take first valid coordinate
-        "hg38_chromosome": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "hg38_chromosome": lambda x: x.dropna().iloc[0]
+        if not x.dropna().empty
+        else None,
         "hg38_start": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
         "hg38_end": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
         "hg38_strand": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-
         # Allele information - take first valid allele
         "ref_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
         "alt_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
         "effect_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
         "other_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-
         # Metadata - take first valid value or merge as appropriate
         "effect_weight": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
         "pgs_id": lambda x: "; ".join(x.dropna().unique()),
@@ -273,7 +271,9 @@ def _deduplicate_snps(df: pd.DataFrame) -> pd.DataFrame:
         "clinical_significance": lambda x: "; ".join(x.dropna().unique()),
         "review_status": lambda x: "; ".join(x.dropna().unique()),
         "consequence": lambda x: "; ".join(x.dropna().unique()),
-        "distance_to_exon": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+        "distance_to_exon": lambda x: x.dropna().iloc[0]
+        if not x.dropna().empty
+        else None,
         "panel_name": lambda x: "; ".join(x.dropna().unique()),
         "panel_description": lambda x: "; ".join(x.dropna().unique()),
     }
@@ -384,22 +384,75 @@ def _generate_bed_files(
         snp_data: Optional SNP data dictionary by type
         regions_data: Optional regions data dictionary by type
     """
-    # Generate germline BED file
+    # Import the new BED file functions
+    from custom_panel.core.io import (
+        create_complete_panel_bed,
+        create_complete_panel_exons_bed,
+        create_complete_panel_genes_bed,
+        create_genes_all_bed,
+        create_genes_included_bed,
+        create_regions_all_bed,
+        create_snps_all_bed,
+    )
+
+    # Get BED padding from config
+    padding = config_manager.get_bed_padding()
+
+    # Generate complete panel BED file (included genes + SNPs + regions)
+    if config_manager.is_bed_enabled("complete_panel"):
+        bed_path = output_dir / "complete_panel.bed"
+        create_complete_panel_bed(df, snp_data, regions_data, bed_path, padding)
+
+    # Generate complete panel exons BED file (exons from included genes + SNPs + regions)
+    if config_manager.is_bed_enabled("complete_panel_exons"):
+        bed_path = output_dir / "complete_panel_exons.bed"
+        create_complete_panel_exons_bed(df, transcript_data, snp_data, regions_data, bed_path, padding)
+
+    # Generate complete panel genes BED file (full genomic regions from included genes + SNPs + regions)
+    if config_manager.is_bed_enabled("complete_panel_genes"):
+        bed_path = output_dir / "complete_panel_genes.bed"
+        create_complete_panel_genes_bed(df, snp_data, regions_data, bed_path, padding)
+
+    # Generate genes all BED file (all genes regardless of inclusion)
+    if config_manager.is_bed_enabled("genes_all"):
+        bed_path = output_dir / "genes_all.bed"
+        create_genes_all_bed(df, bed_path, padding)
+
+    # Generate genes included BED file (only included genes)
+    if config_manager.is_bed_enabled("genes_included") and "include" in df.columns:
+        bed_path = output_dir / "genes_included.bed"
+        create_genes_included_bed(df, bed_path, padding)
+
+    # Generate all SNPs combined BED file
+    if config_manager.is_bed_enabled("snps_all") and snp_data:
+        bed_path = output_dir / "snps_all.bed"
+        create_snps_all_bed(snp_data, bed_path)
+
+    # Generate all regions combined BED file
+    if config_manager.is_bed_enabled("regions_all") and regions_data:
+        bed_path = output_dir / "regions_all.bed"
+        create_regions_all_bed(regions_data, bed_path)
+
+    # Generate individual category BED files if enabled
+    if config_manager.is_bed_enabled("individual_categories"):
+        # Generate exon BED files
+        if config_manager.is_bed_enabled("exons") and "include" in df.columns:
+            _generate_exon_bed_files(df, config_manager, output_dir, transcript_data)
+
+        # Generate individual SNP BED files if SNP data exists
+        if snp_data:
+            _generate_snp_bed_files(snp_data, output_dir)
+
+        # Generate individual regions BED files if regions data exists
+        if regions_data:
+            _generate_regions_bed_files(regions_data, output_dir)
+
+    # Legacy support: Generate genes included BED file (previously "germline_panel.bed")
     if config_manager.is_bed_enabled("germline") and "include" in df.columns:
-        bed_path = output_dir / "germline_panel.bed"
-        create_bed_file(df, bed_path, "include")
-
-    # Generate exon BED files
-    if config_manager.is_bed_enabled("exons") and "include" in df.columns:
-        _generate_exon_bed_files(df, config_manager, output_dir, transcript_data)
-
-    # Generate SNP BED files if SNP data exists
-    if snp_data:
-        _generate_snp_bed_files(snp_data, output_dir)
-
-    # Generate regions BED files if regions data exists
-    if regions_data:
-        _generate_regions_bed_files(regions_data, output_dir)
+        # Only generate if genes_included is not already enabled (avoid duplicates)
+        if not config_manager.is_bed_enabled("genes_included"):
+            bed_path = output_dir / "genes_included.bed"
+            create_genes_included_bed(df, bed_path, padding)
 
 
 def _generate_snp_bed_files(
@@ -475,8 +528,18 @@ def _generate_snp_bed_files(
         # Sort by chromosome and position
         bed_df = bed_df.sort_values(["chrom", "chromStart"])
 
-        # Save BED file
-        bed_path = output_dir / f"snps_{snp_type}.bed"
+        # Save BED file with improved naming
+        # Map SNP types to clearer names
+        snp_type_mapping = {
+            "deep_intronic_clinvar": "snps_clinvar_deep_intronic",
+            "identity": "snps_identity",
+            "ethnicity": "snps_ethnicity",
+            "prs": "snps_prs",
+            "manual_snps": "snps_manual",
+        }
+
+        bed_filename = snp_type_mapping.get(snp_type, f"snps_{snp_type}")
+        bed_path = output_dir / f"{bed_filename}.bed"
         bed_df.to_csv(bed_path, sep="\t", header=False, index=False)
         console.print(
             f"[green]Generated {bed_path.name} with {len(bed_df)} SNPs[/green]"
@@ -712,8 +775,8 @@ def _generate_single_transcript_bed_file(
             all_exons.extend(exons)
 
     if all_exons:
-        # Generate BED file for this transcript type
-        bed_filename = f"exons_{transcript_type}_transcript.bed"
+        # Generate BED file for this transcript type with improved naming
+        bed_filename = f"genes_exons_{transcript_type}.bed"
         bed_path = output_dir / bed_filename
         create_exon_bed_file(all_exons, bed_path, transcript_type, exon_padding)
         console.print(

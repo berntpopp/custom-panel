@@ -738,7 +738,7 @@ class TestSNPDeduplication:
     def test_deduplicate_snps_basic(self):
         """Test basic SNP deduplication with duplicate VCF IDs."""
         from custom_panel.engine.pipeline import Pipeline
-        
+
         # Create a mock pipeline instance to access the deduplication method
         pipeline = Pipeline({"output": {"directory": "/tmp"}})
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
@@ -759,7 +759,7 @@ class TestSNPDeduplication:
 
         # Should have 2 unique SNPs now
         assert len(result) == 2
-        
+
         # Check the deduplicated entry for 19:11091630:G:T
         dup_entry = result[result["snp"] == "19:11091630:G:T"].iloc[0]
         assert dup_entry["rsid"] == "rs6511720"  # Should take first non-null rsID
@@ -767,7 +767,7 @@ class TestSNPDeduplication:
         assert dup_entry["category"] == "manual; prs"  # Categories merged and sorted
         assert dup_entry["snp_type"] == "manual_snps; prs"  # Types merged and sorted
         assert dup_entry["source_count"] == 2  # Two sources
-        
+
         # Check the non-duplicate entry remains unchanged
         single_entry = result[result["snp"] == "rs123456"].iloc[0]
         assert single_entry["rsid"] == "rs123456"
@@ -777,7 +777,7 @@ class TestSNPDeduplication:
     def test_deduplicate_snps_no_duplicates(self):
         """Test deduplication with no duplicate entries."""
         from custom_panel.engine.pipeline import Pipeline
-        
+
         # Create a mock pipeline instance to access the deduplication method
         pipeline = Pipeline({"output": {"directory": "/tmp"}})
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
@@ -795,27 +795,27 @@ class TestSNPDeduplication:
 
         # Should have same number of SNPs
         assert len(result) == 3
-        
+
         # All should have source_count = 1
         assert all(result["source_count"] == 1)
 
     def test_deduplicate_snps_empty_dataframe(self):
         """Test deduplication with empty DataFrame."""
         from custom_panel.engine.pipeline import Pipeline
-        
+
         # Create a mock pipeline instance to access the deduplication method
         pipeline = Pipeline({"output": {"directory": "/tmp"}})
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
 
         df = pd.DataFrame()
         result = _deduplicate_snps(df)
-        
+
         assert result.empty
 
     def test_deduplicate_snps_missing_snp_column(self):
         """Test deduplication with missing 'snp' column."""
         from custom_panel.engine.pipeline import Pipeline
-        
+
         # Create a mock pipeline instance to access the deduplication method
         pipeline = Pipeline({"output": {"directory": "/tmp"}})
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
@@ -826,7 +826,7 @@ class TestSNPDeduplication:
         })
 
         result = _deduplicate_snps(df)
-        
+
         # Should return original DataFrame unchanged
         assert len(result) == 2
         assert "snp" not in result.columns
@@ -834,7 +834,7 @@ class TestSNPDeduplication:
     def test_deduplicate_snps_complex_metadata(self):
         """Test deduplication with complex metadata columns."""
         from custom_panel.engine.pipeline import Pipeline
-        
+
         # Create a mock pipeline instance to access the deduplication method
         pipeline = Pipeline({"output": {"directory": "/tmp"}})
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
@@ -859,7 +859,7 @@ class TestSNPDeduplication:
 
         # Should have 1 unique SNP
         assert len(result) == 1
-        
+
         entry = result.iloc[0]
         assert entry["snp"] == "19:11091630:G:T"
         assert entry["rsid"] == "rs6511720"  # First non-null value
@@ -875,7 +875,7 @@ class TestSNPDeduplication:
     def test_deduplicate_snps_rsid_priority(self):
         """Test that rsID is properly prioritized (first non-null value)."""
         from custom_panel.engine.pipeline import Pipeline
-        
+
         # Create a mock pipeline instance to access the deduplication method
         pipeline = Pipeline({"output": {"directory": "/tmp"}})
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
@@ -898,7 +898,7 @@ class TestSNPDeduplication:
     def test_deduplicate_snps_coordinate_preservation(self):
         """Test that coordinate information is properly preserved."""
         from custom_panel.engine.pipeline import Pipeline
-        
+
         # Create a mock pipeline instance to access the deduplication method
         pipeline = Pipeline({"output": {"directory": "/tmp"}})
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
@@ -929,3 +929,430 @@ class TestSNPDeduplication:
         assert entry["hg38_strand"] == "+"
         assert entry["ref_allele"] == "G"
         assert entry["alt_allele"] == "T"
+
+
+class TestNewBEDFileGeneration:
+    """Test new master BED file generation functions."""
+
+    def test_create_genes_all_bed(self):
+        """Test creating BED file with all genes."""
+        from custom_panel.core.io import create_genes_all_bed
+
+        # Create test data
+        df = pd.DataFrame(
+            {
+                "approved_symbol": ["BRCA1", "TP53", "BRCA2"],
+                "chromosome": ["chr17", "chr17", "chr13"],
+                "gene_start": [43044295, 7668402, 32315086],
+                "gene_end": [43125364, 7687538, 32400266],
+                "gene_strand": [1, -1, 1],
+                "include": [True, False, True],
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "genes_all.bed"
+            create_genes_all_bed(df, bed_path, padding=0)
+
+            # Should include all genes regardless of inclusion status
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 3  # All genes included
+
+            # Check that file contains all genes
+            bed_content = "".join(lines)
+            assert "BRCA1" in bed_content
+            assert "TP53" in bed_content
+            assert "BRCA2" in bed_content
+
+    def test_create_genes_included_bed(self):
+        """Test creating BED file with only included genes."""
+        from custom_panel.core.io import create_genes_included_bed
+
+        # Create test data
+        df = pd.DataFrame(
+            {
+                "approved_symbol": ["BRCA1", "TP53", "BRCA2"],
+                "chromosome": ["chr17", "chr17", "chr13"],
+                "gene_start": [43044295, 7668402, 32315086],
+                "gene_end": [43125364, 7687538, 32400266],
+                "gene_strand": [1, -1, 1],
+                "include": [True, False, True],
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "genes_included.bed"
+            create_genes_included_bed(df, bed_path, padding=0)
+
+            # Should only include genes with include=True
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 2  # Only BRCA1 and BRCA2 included
+
+            # Check that file contains only included genes
+            bed_content = "".join(lines)
+            assert "BRCA1" in bed_content
+            assert "TP53" not in bed_content
+            assert "BRCA2" in bed_content
+
+    def test_create_snps_all_bed(self):
+        """Test creating BED file with all SNPs combined."""
+        from custom_panel.core.io import create_snps_all_bed
+
+        # Create test SNP data
+        snp_data = {
+            "identity": pd.DataFrame({
+                "snp": ["rs1234", "rs5678"],
+                "hg38_chromosome": ["1", "2"],
+                "hg38_start": [1000, 2000],
+                "hg38_end": [1000, 2000],
+            }),
+            "ethnicity": pd.DataFrame({
+                "snp": ["rs9876", "rs5432"],
+                "hg38_chromosome": ["3", "4"],
+                "hg38_start": [3000, 4000],
+                "hg38_end": [3000, 4000],
+            }),
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "snps_all.bed"
+            create_snps_all_bed(snp_data, bed_path)
+
+            # Should include all SNPs from all categories
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 4  # All SNPs included
+
+            # Check that file contains all SNPs
+            bed_content = "".join(lines)
+            assert "rs1234" in bed_content
+            assert "rs5678" in bed_content
+            assert "rs9876" in bed_content
+            assert "rs5432" in bed_content
+
+    def test_create_regions_all_bed(self):
+        """Test creating BED file with all regions combined."""
+        from custom_panel.core.io import create_regions_all_bed
+
+        # Create test regions data
+        regions_data = {
+            "manual": pd.DataFrame({
+                "region_name": ["region1", "region2"],
+                "chromosome": ["chr1", "chr2"],
+                "start": [1000, 2000],
+                "end": [2000, 3000],
+            }),
+            "stripy": pd.DataFrame({
+                "region_name": ["region3", "region4"],
+                "chromosome": ["chr3", "chr4"],
+                "start": [3000, 4000],
+                "end": [4000, 5000],
+            }),
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "regions_all.bed"
+            create_regions_all_bed(regions_data, bed_path)
+
+            # Should include all regions from all categories
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 4  # All regions included
+
+            # Check that file contains all regions
+            bed_content = "".join(lines)
+            assert "region1" in bed_content
+            assert "region2" in bed_content
+            assert "region3" in bed_content
+            assert "region4" in bed_content
+
+    def test_create_complete_panel_bed(self):
+        """Test creating complete panel BED file with only included genes plus SNPs and regions."""
+        from custom_panel.core.io import create_complete_panel_bed
+
+        # Create test gene data
+        df = pd.DataFrame(
+            {
+                "approved_symbol": ["BRCA1", "TP53"],
+                "chromosome": ["chr17", "chr17"],
+                "gene_start": [43044295, 7668402],
+                "gene_end": [43125364, 7687538],
+                "gene_strand": [1, -1],
+                "include": [True, False],  # Only BRCA1 is included
+            }
+        )
+
+        # Create test SNP data
+        snp_data = {
+            "identity": pd.DataFrame({
+                "snp": ["rs1234"],
+                "hg38_chromosome": ["1"],
+                "hg38_start": [1000],
+                "hg38_end": [1000],
+            }),
+        }
+
+        # Create test regions data
+        regions_data = {
+            "manual": pd.DataFrame({
+                "region_name": ["region1"],
+                "chromosome": ["chr1"],
+                "start": [2000],
+                "end": [3000],
+            }),
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "complete_panel.bed"
+            create_complete_panel_bed(df, snp_data, regions_data, bed_path, padding=0)
+
+            # Should include only included genes + SNPs + regions
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 3  # 1 included gene + 1 SNP + 1 region
+
+            # Check that file contains only included genes plus SNPs and regions
+            bed_content = "".join(lines)
+            assert "BRCA1" in bed_content
+            assert "TP53" not in bed_content  # Not included
+            assert "rs1234" in bed_content
+            assert "region1" in bed_content
+
+    def test_create_complete_panel_bed_with_padding(self):
+        """Test creating complete panel BED file with padding."""
+        from custom_panel.core.io import create_complete_panel_bed
+
+        # Create test gene data
+        df = pd.DataFrame(
+            {
+                "approved_symbol": ["BRCA1"],
+                "chromosome": ["chr17"],
+                "gene_start": [43044295],
+                "gene_end": [43125364],
+                "gene_strand": [1],
+                "include": [True],
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "complete_panel_padded.bed"
+            create_complete_panel_bed(df, None, None, bed_path, padding=100)
+
+            # Check that padding was applied
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 1
+            line = lines[0].strip().split("\t")
+
+            # BED format: chr, start, end, name, score, strand, element_type, element_subtype
+            assert line[0] == "chr17"
+            assert int(line[1]) == 43044295 - 1 - 100  # BED is 0-based with padding
+            assert int(line[2]) == 43125364 + 100  # End position with padding
+            assert line[3] == "BRCA1"
+
+    def test_empty_data_handling(self):
+        """Test handling of empty data for all new BED functions."""
+        from custom_panel.core.io import (
+            create_complete_panel_bed,
+            create_genes_all_bed,
+            create_regions_all_bed,
+            create_snps_all_bed,
+        )
+
+        # Test with empty DataFrame
+        empty_df = pd.DataFrame()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Test genes_all_bed with empty data
+            bed_path = Path(tmpdir) / "empty_genes_all.bed"
+            # Should handle gracefully and not create file or create empty file
+            try:
+                create_genes_all_bed(empty_df, bed_path, padding=0)
+            except ValueError:
+                # Expected behavior for missing required columns
+                pass
+
+            # Test snps_all_bed with empty data
+            bed_path = Path(tmpdir) / "empty_snps_all.bed"
+            create_snps_all_bed({}, bed_path)
+            # Should handle gracefully
+
+            # Test regions_all_bed with empty data
+            bed_path = Path(tmpdir) / "empty_regions_all.bed"
+            create_regions_all_bed({}, bed_path)
+            # Should handle gracefully
+
+            # Test complete_panel_bed with empty data
+            bed_path = Path(tmpdir) / "empty_complete_panel.bed"
+            create_complete_panel_bed(empty_df, None, None, bed_path, padding=0)
+            # Should handle gracefully
+
+    def test_bed_file_sorting(self):
+        """Test that BED files are properly sorted by chromosome and position."""
+        from custom_panel.core.io import create_genes_all_bed
+
+        # Create test data with chromosomes in non-natural order
+        df = pd.DataFrame(
+            {
+                "approved_symbol": ["GENE1", "GENE2", "GENE3", "GENE4"],
+                "chromosome": ["chr10", "chr2", "chrX", "chr1"],
+                "gene_start": [1000, 2000, 3000, 4000],
+                "gene_end": [2000, 3000, 4000, 5000],
+                "gene_strand": [1, 1, 1, 1],
+                "include": [True, True, True, True],
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "sorted_genes.bed"
+            create_genes_all_bed(df, bed_path, padding=0)
+
+            # Check that file is sorted naturally (1, 2, 10, X)
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            # First line should be chr1 (GENE4)
+            assert lines[0].split("\t")[0] == "chr1"
+            assert "GENE4" in lines[0]
+
+            # Second line should be chr2 (GENE2)
+            assert lines[1].split("\t")[0] == "chr2"
+            assert "GENE2" in lines[1]
+
+            # Third line should be chr10 (GENE1)
+            assert lines[2].split("\t")[0] == "chr10"
+            assert "GENE1" in lines[2]
+
+            # Fourth line should be chrX (GENE3)
+            assert lines[3].split("\t")[0] == "chrX"
+            assert "GENE3" in lines[3]
+
+    def test_create_complete_panel_exons_bed(self):
+        """Test creating complete panel exons BED file with exons from included genes plus SNPs and regions."""
+        from custom_panel.core.io import create_complete_panel_exons_bed
+
+        # Create test gene data
+        df = pd.DataFrame(
+            {
+                "approved_symbol": ["BRCA1", "TP53"],
+                "chromosome": ["chr17", "chr17"],
+                "gene_start": [43044295, 7668402],
+                "gene_end": [43125364, 7687538],
+                "gene_strand": [1, -1],
+                "include": [True, False],  # Only BRCA1 is included
+                "canonical_transcript": ["ENST00000357654", "ENST00000269305"],
+            }
+        )
+
+        # Create mock transcript data
+        transcript_data = {
+            "BRCA1": {
+                "all_transcripts": [
+                    {
+                        "id": "ENST00000357654",
+                        "Exon": [
+                            {"seq_region_name": "17", "start": 43044295, "end": 43044395, "strand": 1, "rank": 1},
+                            {"seq_region_name": "17", "start": 43045000, "end": 43045100, "strand": 1, "rank": 2},
+                        ]
+                    }
+                ]
+            }
+        }
+
+        # Create test SNP data
+        snp_data = {
+            "identity": pd.DataFrame({
+                "snp": ["rs1234"],
+                "hg38_chromosome": ["1"],
+                "hg38_start": [1000],
+                "hg38_end": [1000],
+            }),
+        }
+
+        # Create test regions data
+        regions_data = {
+            "manual": pd.DataFrame({
+                "region_name": ["region1"],
+                "chromosome": ["chr1"],
+                "start": [2000],
+                "end": [3000],
+            }),
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "complete_panel_exons.bed"
+            create_complete_panel_exons_bed(df, transcript_data, snp_data, regions_data, bed_path, padding=0)
+
+            # Should include exons from included genes + SNPs + regions
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 4  # 2 exons + 1 SNP + 1 region
+
+            # Check that file contains exons from included genes plus SNPs and regions
+            bed_content = "".join(lines)
+            assert "BRCA1_exon1" in bed_content
+            assert "BRCA1_exon2" in bed_content
+            assert "rs1234" in bed_content
+            assert "region1" in bed_content
+
+    def test_create_complete_panel_genes_bed(self):
+        """Test creating complete panel genes BED file with full genomic regions from included genes plus SNPs and regions."""
+        from custom_panel.core.io import create_complete_panel_genes_bed
+
+        # Create test gene data
+        df = pd.DataFrame(
+            {
+                "approved_symbol": ["BRCA1", "TP53"],
+                "chromosome": ["chr17", "chr17"],
+                "gene_start": [43044295, 7668402],
+                "gene_end": [43125364, 7687538],
+                "gene_strand": [1, -1],
+                "include": [True, False],  # Only BRCA1 is included
+            }
+        )
+
+        # Create test SNP data
+        snp_data = {
+            "identity": pd.DataFrame({
+                "snp": ["rs1234"],
+                "hg38_chromosome": ["1"],
+                "hg38_start": [1000],
+                "hg38_end": [1000],
+            }),
+        }
+
+        # Create test regions data
+        regions_data = {
+            "manual": pd.DataFrame({
+                "region_name": ["region1"],
+                "chromosome": ["chr1"],
+                "start": [2000],
+                "end": [3000],
+            }),
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "complete_panel_genes.bed"
+            create_complete_panel_genes_bed(df, snp_data, regions_data, bed_path, padding=0)
+
+            # Should include full genomic regions from included genes + SNPs + regions
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 3  # 1 included gene + 1 SNP + 1 region
+
+            # Check that file contains full genomic regions from included genes plus SNPs and regions
+            bed_content = "".join(lines)
+            assert "BRCA1" in bed_content
+            assert "TP53" not in bed_content  # Not included
+            assert "rs1234" in bed_content
+            assert "region1" in bed_content

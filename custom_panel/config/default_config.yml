@@ -299,10 +299,22 @@ output:
 
   # BED file generation
   bed_files:
-    # Generate BED file for included genes
-    germline: true
+    # Master/combined BED files
+    complete_panel: true          # Generate complete panel BED (all elements combined)
+    genes_all: true              # Generate all genes BED (regardless of inclusion)
+    genes_included: true         # Generate included genes only BED (replaces germline)
+    snps_all: true               # Generate all SNPs combined BED
+    regions_all: true            # Generate all regions combined BED
+    
+    # Legacy support (will be deprecated)
+    germline: true               # Generate BED file for included genes (same as genes_included)
+    
+    # Individual category BED files
+    individual_categories: true   # Generate individual category BED files
+    
     # Extend gene coordinates by this many base pairs
     padding: 0
+    
     # Generate exon BED files
     exons:
       enabled: true

@@ -461,3 +461,896 @@ def get_unique_genes(df: pd.DataFrame) -> list[str]:
     unique_genes = df["approved_symbol"].dropna().unique().tolist()
     logger.info(f"Found {len(unique_genes)} unique genes")
     return unique_genes
+
+
+def create_genes_all_bed(
+    df: pd.DataFrame, output_path: str | Path, padding: int = 0
+) -> None:
+    """
+    Create a BED file containing all genes regardless of inclusion status.
+
+    Args:
+        df: Annotated DataFrame with genomic coordinates
+        output_path: Output BED file path
+        padding: Padding around genes in base pairs
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Check for required columns
+    required_cols = ["chromosome", "gene_start", "gene_end", "approved_symbol"]
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns for BED file: {missing_cols}")
+
+    # Filter out rows with missing coordinates
+    df = df.dropna(subset=["chromosome", "gene_start", "gene_end"])
+
+    if df.empty:
+        logger.warning(f"No genes with valid coordinates for BED file: {output_path}")
+        return
+
+    # Create BED format DataFrame with padding
+    bed_df = pd.DataFrame(
+        {
+            "chrom": df["chromosome"].astype(str),
+            "chromStart": (df["gene_start"].astype(int) - 1 - padding).clip(
+                lower=0
+            ),  # BED is 0-based
+            "chromEnd": df["gene_end"].astype(int) + padding,
+            "name": df["approved_symbol"],
+            "score": 1000,  # Default score
+            "strand": (
+                df["gene_strand"].fillna("+") if "gene_strand" in df.columns else "+"
+            ),
+            "element_type": "gene",
+            "element_subtype": "all",
+        }
+    )
+
+    # Sort by chromosome and position with natural chromosome ordering
+    bed_df = _sort_bed_dataframe(bed_df)
+
+    # Save BED file
+    bed_df.to_csv(output_path, sep="\t", header=False, index=False)
+    logger.info(f"Created genes_all BED file with {len(bed_df)} genes: {output_path}")
+
+
+def create_genes_included_bed(
+    df: pd.DataFrame, output_path: str | Path, padding: int = 0
+) -> None:
+    """
+    Create a BED file containing only genes marked for inclusion.
+
+    Args:
+        df: Annotated DataFrame with genomic coordinates
+        output_path: Output BED file path
+        padding: Padding around genes in base pairs
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Filter for included genes
+    if "include" not in df.columns:
+        logger.warning("No 'include' column found, creating empty BED file")
+        return
+
+    df = df[df["include"]].copy()
+
+    # Check for required columns
+    required_cols = ["chromosome", "gene_start", "gene_end", "approved_symbol"]
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns for BED file: {missing_cols}")
+
+    # Filter out rows with missing coordinates
+    df = df.dropna(subset=["chromosome", "gene_start", "gene_end"])
+
+    if df.empty:
+        logger.warning(
+            f"No included genes with valid coordinates for BED file: {output_path}"
+        )
+        return
+
+    # Create BED format DataFrame with padding
+    bed_df = pd.DataFrame(
+        {
+            "chrom": df["chromosome"].astype(str),
+            "chromStart": (df["gene_start"].astype(int) - 1 - padding).clip(
+                lower=0
+            ),  # BED is 0-based
+            "chromEnd": df["gene_end"].astype(int) + padding,
+            "name": df["approved_symbol"],
+            "score": 1000,  # Default score
+            "strand": (
+                df["gene_strand"].fillna("+") if "gene_strand" in df.columns else "+"
+            ),
+            "element_type": "gene",
+            "element_subtype": "included",
+        }
+    )
+
+    # Sort by chromosome and position with natural chromosome ordering
+    bed_df = _sort_bed_dataframe(bed_df)
+
+    # Save BED file
+    bed_df.to_csv(output_path, sep="\t", header=False, index=False)
+    logger.info(
+        f"Created genes_included BED file with {len(bed_df)} genes: {output_path}"
+    )
+
+
+def create_snps_all_bed(
+    snp_data: dict[str, pd.DataFrame], output_path: str | Path
+) -> None:
+    """
+    Create a BED file containing all SNPs from all categories combined.
+
+    Args:
+        snp_data: Dictionary of SNP DataFrames by type
+        output_path: Output BED file path
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not snp_data:
+        logger.warning("No SNP data provided for combined BED file")
+        return
+
+    all_snps = []
+    coord_columns = ["hg38_chromosome", "hg38_start", "hg38_end"]
+
+    for snp_type, snp_df in snp_data.items():
+        if snp_df.empty:
+            continue
+
+        # Check if SNP data has coordinate information
+        if not all(col in snp_df.columns for col in coord_columns):
+            logger.warning(f"Skipping {snp_type} SNPs - missing coordinate data")
+            continue
+
+        # Filter out SNPs without coordinates
+        bed_data = snp_df.dropna(subset=coord_columns)
+        if bed_data.empty:
+            logger.warning(f"No {snp_type} SNPs have coordinate data")
+            continue
+
+        # Filter out rows with invalid coordinate data
+        valid_coords = (
+            bed_data["hg38_chromosome"].notna()
+            & bed_data["hg38_start"].notna()
+            & bed_data["hg38_end"].notna()
+            & (bed_data["hg38_chromosome"] != "")
+            & (bed_data["hg38_start"] != "")
+            & (bed_data["hg38_end"] != "")
+        )
+
+        bed_data_clean = bed_data[valid_coords].copy()
+
+        if bed_data_clean.empty:
+            logger.warning(f"No {snp_type} SNPs have valid coordinate data")
+            continue
+
+        # Add SNP type information
+        bed_data_clean = bed_data_clean.copy()
+        bed_data_clean["snp_type"] = snp_type
+
+        all_snps.append(bed_data_clean)
+
+    if not all_snps:
+        logger.warning("No valid SNP data found for combined BED file")
+        return
+
+    # Combine all SNP data
+    combined_snps = pd.concat(all_snps, ignore_index=True)
+
+    # Create BED format DataFrame
+    bed_df = pd.DataFrame(
+        {
+            "chrom": "chr" + combined_snps["hg38_chromosome"].astype(str),
+            "chromStart": pd.to_numeric(
+                combined_snps["hg38_start"], errors="coerce"
+            ).astype(int)
+            - 1,  # BED is 0-based
+            "chromEnd": pd.to_numeric(
+                combined_snps["hg38_end"], errors="coerce"
+            ).astype(int),
+            "name": (
+                combined_snps["snp"]
+                if "snp" in combined_snps.columns
+                else combined_snps.index.astype(str)
+            ),
+            "score": 1000,  # Default score
+            "strand": "+",  # Default strand for SNPs
+            "element_type": "snp",
+            "element_subtype": combined_snps["snp_type"],
+        }
+    )
+
+    # Sort by chromosome and position with natural chromosome ordering
+    bed_df = _sort_bed_dataframe(bed_df)
+
+    # Save BED file
+    bed_df.to_csv(output_path, sep="\t", header=False, index=False)
+    logger.info(f"Created snps_all BED file with {len(bed_df)} SNPs: {output_path}")
+
+
+def create_regions_all_bed(
+    regions_data: dict[str, pd.DataFrame], output_path: str | Path
+) -> None:
+    """
+    Create a BED file containing all regions from all categories combined.
+
+    Args:
+        regions_data: Dictionary of regions DataFrames by type
+        output_path: Output BED file path
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not regions_data:
+        logger.warning("No regions data provided for combined BED file")
+        return
+
+    all_regions = []
+    coord_columns = ["chromosome", "start", "end"]
+
+    for region_type, region_df in regions_data.items():
+        if region_df.empty:
+            continue
+
+        # Check if region data has coordinate information
+        if not all(col in region_df.columns for col in coord_columns):
+            logger.warning(f"Skipping {region_type} regions - missing coordinate data")
+            continue
+
+        # Filter out regions without coordinates
+        bed_data = region_df.dropna(subset=coord_columns)
+        if bed_data.empty:
+            logger.warning(f"No {region_type} regions have coordinate data")
+            continue
+
+        # Add region type information
+        bed_data = bed_data.copy()
+        bed_data["region_type"] = region_type
+
+        all_regions.append(bed_data)
+
+    if not all_regions:
+        logger.warning("No valid regions data found for combined BED file")
+        return
+
+    # Combine all regions data
+    combined_regions = pd.concat(all_regions, ignore_index=True)
+
+    # Create BED format DataFrame
+    bed_df = pd.DataFrame(
+        {
+            "chrom": combined_regions["chromosome"].astype(str),
+            "chromStart": pd.to_numeric(
+                combined_regions["start"], errors="coerce"
+            ).astype(int)
+            - 1,  # BED is 0-based
+            "chromEnd": pd.to_numeric(combined_regions["end"], errors="coerce").astype(
+                int
+            ),
+            "name": (
+                combined_regions["region_name"]
+                if "region_name" in combined_regions.columns
+                else combined_regions.index.astype(str)
+            ),
+            "score": 1000,  # Default score
+            "strand": "+",  # Default strand for regions
+            "element_type": "region",
+            "element_subtype": combined_regions["region_type"],
+        }
+    )
+
+    # Sort by chromosome and position with natural chromosome ordering
+    bed_df = _sort_bed_dataframe(bed_df)
+
+    # Save BED file
+    bed_df.to_csv(output_path, sep="\t", header=False, index=False)
+    logger.info(
+        f"Created regions_all BED file with {len(bed_df)} regions: {output_path}"
+    )
+
+
+def create_complete_panel_bed(
+    df: pd.DataFrame,
+    snp_data: dict[str, pd.DataFrame] | None = None,
+    regions_data: dict[str, pd.DataFrame] | None = None,
+    output_path: str | Path | None = None,
+    padding: int = 0,
+) -> None:
+    """
+    Create a comprehensive BED file containing only included genes plus all SNPs and regions.
+
+    Args:
+        df: Annotated DataFrame with gene data
+        snp_data: Dictionary of SNP DataFrames by type
+        regions_data: Dictionary of regions DataFrames by type
+        output_path: Output BED file path
+        padding: Padding around genes in base pairs
+    """
+    if output_path is None:
+        raise ValueError("output_path cannot be None")
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    all_bed_records = []
+
+    # Process genes - ONLY INCLUDED GENES
+    if not df.empty and "include" in df.columns:
+        gene_required_cols = ["chromosome", "gene_start", "gene_end", "approved_symbol"]
+        gene_missing_cols = [col for col in gene_required_cols if col not in df.columns]
+
+        if not gene_missing_cols:
+            # Filter for ONLY included genes with valid coordinates
+            included_genes = df[df["include"]]
+            gene_df = included_genes.dropna(subset=["chromosome", "gene_start", "gene_end"])
+
+            if not gene_df.empty:
+                # Create gene BED records for included genes only
+                gene_bed_df = pd.DataFrame(
+                    {
+                        "chrom": gene_df["chromosome"].astype(str),
+                        "chromStart": (
+                            gene_df["gene_start"].astype(int) - 1 - padding
+                        ).clip(lower=0),
+                        "chromEnd": gene_df["gene_end"].astype(int) + padding,
+                        "name": gene_df["approved_symbol"],
+                        "score": 1000,
+                        "strand": (
+                            gene_df["gene_strand"].fillna("+")
+                            if "gene_strand" in gene_df.columns
+                            else "+"
+                        ),
+                        "element_type": "gene",
+                        "element_subtype": "included",
+                    }
+                )
+                all_bed_records.append(gene_bed_df)
+        else:
+            logger.warning(
+                f"Missing required gene columns for complete BED file: {gene_missing_cols}"
+            )
+
+    # Process SNPs
+    if snp_data:
+        coord_columns = ["hg38_chromosome", "hg38_start", "hg38_end"]
+
+        for snp_type, snp_df in snp_data.items():
+            if snp_df.empty:
+                continue
+
+            # Check if SNP data has coordinate information
+            if not all(col in snp_df.columns for col in coord_columns):
+                logger.warning(f"Skipping {snp_type} SNPs - missing coordinate data")
+                continue
+
+            # Filter out SNPs without coordinates
+            bed_data = snp_df.dropna(subset=coord_columns)
+            if bed_data.empty:
+                continue
+
+            # Filter out rows with invalid coordinate data
+            valid_coords = (
+                bed_data["hg38_chromosome"].notna()
+                & bed_data["hg38_start"].notna()
+                & bed_data["hg38_end"].notna()
+                & (bed_data["hg38_chromosome"] != "")
+                & (bed_data["hg38_start"] != "")
+                & (bed_data["hg38_end"] != "")
+            )
+
+            bed_data_clean = bed_data[valid_coords].copy()
+
+            if bed_data_clean.empty:
+                continue
+
+            # Create SNP BED records
+            snp_bed_df = pd.DataFrame(
+                {
+                    "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
+                    "chromStart": pd.to_numeric(
+                        bed_data_clean["hg38_start"], errors="coerce"
+                    ).astype(int)
+                    - 1,  # BED is 0-based
+                    "chromEnd": pd.to_numeric(
+                        bed_data_clean["hg38_end"], errors="coerce"
+                    ).astype(int),
+                    "name": (
+                        bed_data_clean["snp"]
+                        if "snp" in bed_data_clean.columns
+                        else bed_data_clean.index.astype(str)
+                    ),
+                    "score": 1000,
+                    "strand": "+",
+                    "element_type": "snp",
+                    "element_subtype": snp_type,
+                }
+            )
+            all_bed_records.append(snp_bed_df)
+
+    # Process regions
+    if regions_data:
+        coord_columns = ["chromosome", "start", "end"]
+
+        for region_type, region_df in regions_data.items():
+            if region_df.empty:
+                continue
+
+            # Check if region data has coordinate information
+            if not all(col in region_df.columns for col in coord_columns):
+                logger.warning(
+                    f"Skipping {region_type} regions - missing coordinate data"
+                )
+                continue
+
+            # Filter out regions without coordinates
+            bed_data = region_df.dropna(subset=coord_columns)
+            if bed_data.empty:
+                continue
+
+            # Create region BED records
+            region_bed_df = pd.DataFrame(
+                {
+                    "chrom": bed_data["chromosome"].astype(str),
+                    "chromStart": pd.to_numeric(
+                        bed_data["start"], errors="coerce"
+                    ).astype(int)
+                    - 1,  # BED is 0-based
+                    "chromEnd": pd.to_numeric(bed_data["end"], errors="coerce").astype(
+                        int
+                    ),
+                    "name": (
+                        bed_data["region_name"]
+                        if "region_name" in bed_data.columns
+                        else bed_data.index.astype(str)
+                    ),
+                    "score": 1000,
+                    "strand": "+",
+                    "element_type": "region",
+                    "element_subtype": region_type,
+                }
+            )
+            all_bed_records.append(region_bed_df)
+
+    # Combine all records
+    if not all_bed_records:
+        logger.warning("No valid genomic elements found for complete panel BED file")
+        return
+
+    combined_bed_df = pd.concat(all_bed_records, ignore_index=True)
+
+    # Sort by chromosome and position with natural chromosome ordering
+    combined_bed_df = _sort_bed_dataframe(combined_bed_df)
+
+    # Save BED file
+    combined_bed_df.to_csv(output_path, sep="\t", header=False, index=False)
+    logger.info(
+        f"Created complete_panel BED file with {len(combined_bed_df)} elements: {output_path}"
+    )
+
+
+def create_complete_panel_exons_bed(
+    df: pd.DataFrame,
+    transcript_data: dict[str, Any] | None = None,
+    snp_data: dict[str, pd.DataFrame] | None = None,
+    regions_data: dict[str, pd.DataFrame] | None = None,
+    output_path: str | Path | None = None,
+    padding: int = 0,
+) -> None:
+    """
+    Create a comprehensive BED file containing exons from included genes plus all SNPs and regions.
+
+    Args:
+        df: Annotated DataFrame with gene data
+        transcript_data: Dictionary containing transcript data with exon information
+        snp_data: Dictionary of SNP DataFrames by type
+        regions_data: Dictionary of regions DataFrames by type
+        output_path: Output BED file path
+        padding: Padding around exons in base pairs
+    """
+    if output_path is None:
+        raise ValueError("output_path cannot be None")
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    all_bed_records = []
+
+    # Process exons from included genes
+    if not df.empty and "include" in df.columns and transcript_data:
+        included_genes = df[df["include"]]
+
+        all_exons = []
+        for _, row in included_genes.iterrows():
+            gene_symbol = row["approved_symbol"]
+            transcript_id = row.get("canonical_transcript")
+
+            if pd.isna(transcript_id) or not transcript_id:
+                continue
+
+            # Extract exons from stored transcript data
+            exons = _extract_exons_from_transcript_data(
+                transcript_data, gene_symbol, transcript_id, row
+            )
+
+            if exons:
+                all_exons.extend(exons)
+
+        if all_exons:
+            # Create exon BED records
+            exon_bed_df = pd.DataFrame(
+                {
+                    "chrom": [f"chr{exon['chromosome']}" for exon in all_exons],
+                    "chromStart": [max(0, exon["start"] - 1 - padding) for exon in all_exons],
+                    "chromEnd": [exon["end"] + padding for exon in all_exons],
+                    "name": [f"{exon['gene_symbol']}_exon{exon['rank']}" for exon in all_exons],
+                    "score": 1000,
+                    "strand": [exon.get("strand", "+") for exon in all_exons],
+                    "element_type": "exon",
+                    "element_subtype": "canonical",
+                }
+            )
+            all_bed_records.append(exon_bed_df)
+
+    # Add SNPs (reuse existing logic)
+    if snp_data:
+        coord_columns = ["hg38_chromosome", "hg38_start", "hg38_end"]
+
+        for snp_type, snp_df in snp_data.items():
+            if snp_df.empty:
+                continue
+
+            if not all(col in snp_df.columns for col in coord_columns):
+                continue
+
+            bed_data = snp_df.dropna(subset=coord_columns)
+            if bed_data.empty:
+                continue
+
+            valid_coords = (
+                bed_data["hg38_chromosome"].notna()
+                & bed_data["hg38_start"].notna()
+                & bed_data["hg38_end"].notna()
+                & (bed_data["hg38_chromosome"] != "")
+                & (bed_data["hg38_start"] != "")
+                & (bed_data["hg38_end"] != "")
+            )
+
+            bed_data_clean = bed_data[valid_coords]
+            if bed_data_clean.empty:
+                continue
+
+            snp_bed_df = pd.DataFrame(
+                {
+                    "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
+                    "chromStart": pd.to_numeric(
+                        bed_data_clean["hg38_start"], errors="coerce"
+                    ).astype(int) - 1,
+                    "chromEnd": pd.to_numeric(
+                        bed_data_clean["hg38_end"], errors="coerce"
+                    ).astype(int),
+                    "name": (
+                        bed_data_clean["snp"]
+                        if "snp" in bed_data_clean.columns
+                        else bed_data_clean.index.astype(str)
+                    ),
+                    "score": 1000,
+                    "strand": "+",
+                    "element_type": "snp",
+                    "element_subtype": snp_type,
+                }
+            )
+            all_bed_records.append(snp_bed_df)
+
+    # Add regions (reuse existing logic)
+    if regions_data:
+        coord_columns = ["chromosome", "start", "end"]
+
+        for region_type, region_df in regions_data.items():
+            if region_df.empty:
+                continue
+
+            if not all(col in region_df.columns for col in coord_columns):
+                continue
+
+            bed_data = region_df.dropna(subset=coord_columns)
+            if bed_data.empty:
+                continue
+
+            valid_coords = (
+                bed_data["chromosome"].notna()
+                & bed_data["start"].notna()
+                & bed_data["end"].notna()
+            )
+
+            bed_data_clean = bed_data[valid_coords]
+            if bed_data_clean.empty:
+                continue
+
+            region_bed_df = pd.DataFrame(
+                {
+                    "chrom": "chr" + bed_data_clean["chromosome"].astype(str),
+                    "chromStart": pd.to_numeric(
+                        bed_data_clean["start"], errors="coerce"
+                    ).astype(int) - 1,
+                    "chromEnd": pd.to_numeric(
+                        bed_data_clean["end"], errors="coerce"
+                    ).astype(int),
+                    "name": (
+                        bed_data_clean["region_name"]
+                        if "region_name" in bed_data_clean.columns
+                        else bed_data_clean.index.astype(str)
+                    ),
+                    "score": 1000,
+                    "strand": "+",
+                    "element_type": "region",
+                    "element_subtype": region_type,
+                }
+            )
+            all_bed_records.append(region_bed_df)
+
+    # Combine all records
+    if not all_bed_records:
+        logger.warning("No valid genomic elements found for complete panel exons BED file")
+        return
+
+    combined_bed_df = pd.concat(all_bed_records, ignore_index=True)
+    combined_bed_df = _sort_bed_dataframe(combined_bed_df)
+
+    # Save BED file
+    combined_bed_df.to_csv(output_path, sep="\t", header=False, index=False)
+    logger.info(
+        f"Created complete_panel_exons BED file with {len(combined_bed_df)} elements: {output_path}"
+    )
+
+
+def create_complete_panel_genes_bed(
+    df: pd.DataFrame,
+    snp_data: dict[str, pd.DataFrame] | None = None,
+    regions_data: dict[str, pd.DataFrame] | None = None,
+    output_path: str | Path | None = None,
+    padding: int = 0,
+) -> None:
+    """
+    Create a comprehensive BED file containing full genomic regions from included genes plus all SNPs and regions.
+
+    Args:
+        df: Annotated DataFrame with gene data
+        snp_data: Dictionary of SNP DataFrames by type
+        regions_data: Dictionary of regions DataFrames by type
+        output_path: Output BED file path
+        padding: Padding around genes in base pairs
+    """
+    if output_path is None:
+        raise ValueError("output_path cannot be None")
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    all_bed_records = []
+
+    # Process genes - ONLY INCLUDED GENES (same as complete_panel_bed)
+    if not df.empty and "include" in df.columns:
+        gene_required_cols = ["chromosome", "gene_start", "gene_end", "approved_symbol"]
+        gene_missing_cols = [col for col in gene_required_cols if col not in df.columns]
+
+        if not gene_missing_cols:
+            included_genes = df[df["include"]]
+            gene_df = included_genes.dropna(subset=["chromosome", "gene_start", "gene_end"])
+
+            if not gene_df.empty:
+                gene_bed_df = pd.DataFrame(
+                    {
+                        "chrom": gene_df["chromosome"].astype(str),
+                        "chromStart": (
+                            gene_df["gene_start"].astype(int) - 1 - padding
+                        ).clip(lower=0),
+                        "chromEnd": gene_df["gene_end"].astype(int) + padding,
+                        "name": gene_df["approved_symbol"],
+                        "score": 1000,
+                        "strand": (
+                            gene_df["gene_strand"].fillna("+")
+                            if "gene_strand" in gene_df.columns
+                            else "+"
+                        ),
+                        "element_type": "gene",
+                        "element_subtype": "included",
+                    }
+                )
+                all_bed_records.append(gene_bed_df)
+        else:
+            logger.warning(
+                f"Missing required gene columns for complete panel genes BED file: {gene_missing_cols}"
+            )
+
+    # Add SNPs (reuse existing logic)
+    if snp_data:
+        coord_columns = ["hg38_chromosome", "hg38_start", "hg38_end"]
+
+        for snp_type, snp_df in snp_data.items():
+            if snp_df.empty:
+                continue
+
+            if not all(col in snp_df.columns for col in coord_columns):
+                continue
+
+            bed_data = snp_df.dropna(subset=coord_columns)
+            if bed_data.empty:
+                continue
+
+            valid_coords = (
+                bed_data["hg38_chromosome"].notna()
+                & bed_data["hg38_start"].notna()
+                & bed_data["hg38_end"].notna()
+                & (bed_data["hg38_chromosome"] != "")
+                & (bed_data["hg38_start"] != "")
+                & (bed_data["hg38_end"] != "")
+            )
+
+            bed_data_clean = bed_data[valid_coords]
+            if bed_data_clean.empty:
+                continue
+
+            snp_bed_df = pd.DataFrame(
+                {
+                    "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
+                    "chromStart": pd.to_numeric(
+                        bed_data_clean["hg38_start"], errors="coerce"
+                    ).astype(int) - 1,
+                    "chromEnd": pd.to_numeric(
+                        bed_data_clean["hg38_end"], errors="coerce"
+                    ).astype(int),
+                    "name": (
+                        bed_data_clean["snp"]
+                        if "snp" in bed_data_clean.columns
+                        else bed_data_clean.index.astype(str)
+                    ),
+                    "score": 1000,
+                    "strand": "+",
+                    "element_type": "snp",
+                    "element_subtype": snp_type,
+                }
+            )
+            all_bed_records.append(snp_bed_df)
+
+    # Add regions (reuse existing logic)
+    if regions_data:
+        coord_columns = ["chromosome", "start", "end"]
+
+        for region_type, region_df in regions_data.items():
+            if region_df.empty:
+                continue
+
+            if not all(col in region_df.columns for col in coord_columns):
+                continue
+
+            bed_data = region_df.dropna(subset=coord_columns)
+            if bed_data.empty:
+                continue
+
+            valid_coords = (
+                bed_data["chromosome"].notna()
+                & bed_data["start"].notna()
+                & bed_data["end"].notna()
+            )
+
+            bed_data_clean = bed_data[valid_coords]
+            if bed_data_clean.empty:
+                continue
+
+            region_bed_df = pd.DataFrame(
+                {
+                    "chrom": "chr" + bed_data_clean["chromosome"].astype(str),
+                    "chromStart": pd.to_numeric(
+                        bed_data_clean["start"], errors="coerce"
+                    ).astype(int) - 1,
+                    "chromEnd": pd.to_numeric(
+                        bed_data_clean["end"], errors="coerce"
+                    ).astype(int),
+                    "name": (
+                        bed_data_clean["region_name"]
+                        if "region_name" in bed_data_clean.columns
+                        else bed_data_clean.index.astype(str)
+                    ),
+                    "score": 1000,
+                    "strand": "+",
+                    "element_type": "region",
+                    "element_subtype": region_type,
+                }
+            )
+            all_bed_records.append(region_bed_df)
+
+    # Combine all records
+    if not all_bed_records:
+        logger.warning("No valid genomic elements found for complete panel genes BED file")
+        return
+
+    combined_bed_df = pd.concat(all_bed_records, ignore_index=True)
+    combined_bed_df = _sort_bed_dataframe(combined_bed_df)
+
+    # Save BED file
+    combined_bed_df.to_csv(output_path, sep="\t", header=False, index=False)
+    logger.info(
+        f"Created complete_panel_genes BED file with {len(combined_bed_df)} elements: {output_path}"
+    )
+
+
+def _extract_exons_from_transcript_data(
+    transcript_data: dict[str, Any],
+    gene_symbol: str,
+    transcript_id: str,
+    row: Any,
+) -> list[dict[str, Any]]:
+    """Extract exon data from stored transcript information."""
+    gene_data = transcript_data.get(gene_symbol)
+    if not gene_data or "all_transcripts" not in gene_data:
+        return []
+
+    # Find the specific transcript in the stored data
+    target_transcript = None
+    for transcript in gene_data["all_transcripts"]:
+        if transcript.get("id") == transcript_id:
+            target_transcript = transcript
+            break
+
+    if not target_transcript or "Exon" not in target_transcript:
+        return []
+
+    # Extract and process exon information
+    exons = []
+    for exon in target_transcript["Exon"]:
+        exon_info = {
+            "chromosome": exon.get("seq_region_name"),
+            "start": exon.get("start"),
+            "end": exon.get("end"),
+            "strand": "+" if exon.get("strand", 1) == 1 else "-",
+            "rank": exon.get("rank", 0),
+            "gene_symbol": gene_symbol,
+            "transcript_id": transcript_id,
+        }
+        exons.append(exon_info)
+
+    # Sort by rank to maintain exon order
+    exons.sort(key=lambda x: x["rank"])
+    return exons
+
+
+def _sort_bed_dataframe(bed_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Sort BED DataFrame by chromosome and position with natural chromosome ordering.
+
+    Args:
+        bed_df: BED DataFrame to sort
+
+    Returns:
+        Sorted BED DataFrame
+    """
+    # Extract numeric part of chromosome for sorting
+    bed_df["chrom_num"] = (
+        bed_df["chrom"]
+        .str.replace("chr", "", case=False)
+        .str.replace("X", "23")
+        .str.replace("Y", "24")
+        .str.replace("M", "25")
+        .str.replace("MT", "25")  # Alternative mitochondrial notation
+    )
+
+    # Handle chromosomes that might not convert to integers (keep as high numbers)
+    def safe_int_convert(x: str) -> int:
+        try:
+            return int(x)
+        except (ValueError, TypeError):
+            return 999  # Put unknown chromosomes at the end
+
+    bed_df["chrom_num"] = bed_df["chrom_num"].apply(safe_int_convert)
+
+    # Sort by the numeric chromosome column, then by start position
+    bed_df = bed_df.sort_values(["chrom_num", "chromStart"])
+
+    # Remove the temporary column before returning
+    bed_df = bed_df.drop(columns=["chrom_num"])
+
+    return bed_df
