@@ -97,12 +97,12 @@ class BaseSNPParser(ABC):
             )
 
         df = df.copy()
-        
+
         # Handle rsid column if present
         if "rsid" in df.columns:
             # Standardize rsid format (ensure they start with 'rs')
             df["rsid"] = df["rsid"].apply(self._standardize_rsid)
-        
+
         # For new format, validate snp column instead of rsid
         if "snp" in df.columns:
             # Remove rows with empty snp identifiers

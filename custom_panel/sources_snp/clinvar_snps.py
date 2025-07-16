@@ -291,7 +291,7 @@ def _validate_vcf_file(vcf_file: Path, tbi_file: Path) -> bool:
 
     try:
         # Try to open the tabix file and read a few records
-        tbx = pysam.TabixFile(str(vcf_file), encoding='utf-8')
+        tbx = pysam.TabixFile(str(vcf_file), encoding="utf-8")
 
         # Try to iterate through chromosomes to test file integrity
         for chrom in ["1", "2", "3"]:  # Test a few chromosomes
@@ -484,7 +484,7 @@ def _stream_clinvar_variants_by_genes(
 
     try:
         # Open tabix file with proper encoding handling
-        tbx = pysam.TabixFile(str(vcf_file), encoding='utf-8')
+        tbx = pysam.TabixFile(str(vcf_file), encoding="utf-8")
 
         variants_processed = 0
         variants_yielded = 0
@@ -506,7 +506,9 @@ def _stream_clinvar_variants_by_genes(
                         if not variant:
                             continue
                     except UnicodeDecodeError as e:
-                        logger.debug(f"Skipping record with encoding issue: {str(e)[:100]}")
+                        logger.debug(
+                            f"Skipping record with encoding issue: {str(e)[:100]}"
+                        )
                         continue
 
                     # Apply pathogenic filtering during streaming
@@ -521,7 +523,9 @@ def _stream_clinvar_variants_by_genes(
                     yield variant
 
             except UnicodeDecodeError as e:
-                logger.warning(f"Encoding error in region {chromosome}:{start}-{end}: {str(e)[:100]}...")
+                logger.warning(
+                    f"Encoding error in region {chromosome}:{start}-{end}: {str(e)[:100]}..."
+                )
                 continue
             except Exception as e:
                 logger.warning(f"Error querying region {chromosome}:{start}-{end}: {e}")
@@ -542,10 +546,10 @@ def _parse_vcf_record(record: str) -> Optional[dict[str, Any]]:
         # Handle encoding issues if record is bytes
         if isinstance(record, bytes):
             try:
-                record = record.decode('utf-8')
+                record = record.decode("utf-8")
             except UnicodeDecodeError:
-                record = record.decode('utf-8', errors='replace')
-        
+                record = record.decode("utf-8", errors="replace")
+
         fields = record.strip().split("\t")
         if len(fields) < 8:
             return None
@@ -591,7 +595,7 @@ def _parse_info_field(info: str) -> dict[str, str]:
             # Handle potential encoding issues in values
             try:
                 if isinstance(value, bytes):
-                    value = value.decode('utf-8', errors='replace')
+                    value = value.decode("utf-8", errors="replace")
                 info_dict[key] = value
             except UnicodeDecodeError:
                 info_dict[key] = str(value)

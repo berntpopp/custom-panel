@@ -728,21 +728,21 @@ class PGSCatalogParser(BaseSNPParser):
     def _create_vcf_identifiers(self, df: pd.DataFrame) -> pd.Series[Any]:
         """
         Create VCF-conform variant identifiers in chr:pos:ref:alt format.
-        
+
         Always creates coordinate-based identifiers for consistency.
-        
+
         Args:
             df: DataFrame with PGS data
-            
+
         Returns:
             Series of VCF-conform variant identifiers
         """
         logger.info(f"Creating VCF-conform identifiers for {len(df)} variants")
-        
+
         # Determine coordinate columns (prefer harmonized)
         chr_col = "hm_chr" if "hm_chr" in df.columns else "chr_name"
         pos_col = "hm_pos" if "hm_pos" in df.columns else "chr_position"
-        
+
         # Determine allele columns (handle missing other_allele)
         effect_allele_col = "effect_allele"
         if "other_allele" in df.columns:
@@ -752,7 +752,7 @@ class PGSCatalogParser(BaseSNPParser):
         else:
             # No other allele info available, use simplified format
             other_allele_col = None
-            
+
         if other_allele_col:
             # Full chr:pos:ref:alt format
             vcf_ids = (
@@ -773,27 +773,27 @@ class PGSCatalogParser(BaseSNPParser):
                 + ":"
                 + df[effect_allele_col].astype(str)
             )
-            
+
         logger.info(f"Successfully created {len(vcf_ids)} VCF-conform identifiers")
         return vcf_ids
 
     def _extract_rsids(self, df: pd.DataFrame) -> pd.Series[Any]:
         """
         Extract rsID information from PGS data when available.
-        
+
         Returns empty string when rsID is not available.
-        
+
         Args:
             df: DataFrame with PGS data
-            
+
         Returns:
             Series of rsIDs (empty string where not available)
         """
         logger.info(f"Extracting rsID information for {len(df)} variants")
-        
+
         # Initialize with empty strings
         rsids = pd.Series([""] * len(df), index=df.index)
-        
+
         # Strategy 1: Use harmonized rsID if available and not empty
         if "hm_rsID" in df.columns:
             hm_rsids = df["hm_rsID"].fillna("")
@@ -803,14 +803,14 @@ class PGSCatalogParser(BaseSNPParser):
                     f"Found {valid_hm_rsids.sum()} variants with harmonized rsIDs"
                 )
                 rsids.loc[valid_hm_rsids] = hm_rsids.loc[valid_hm_rsids]
-                
+
         # Strategy 2: Use original rsID if available and not empty (for remaining)
         rsid_column = None
         for col in ["rsID", "rsid", "rsId"]:  # Check multiple case variations
             if col in df.columns:
                 rsid_column = col
                 break
-                
+
         if rsid_column:
             orig_rsids = df[rsid_column].fillna("")
             # Check for empty rsids more carefully - need to handle cases where rsids might have been updated
@@ -821,11 +821,13 @@ class PGSCatalogParser(BaseSNPParser):
                     f"Found {valid_orig_rsids.sum()} variants with original rsIDs from column '{rsid_column}'"
                 )
                 rsids.loc[valid_orig_rsids] = orig_rsids.loc[valid_orig_rsids]
-                
+
         # Count valid rsIDs before conversion
         rsids_count = (rsids != "").sum()
-        logger.info(f"Successfully extracted {rsids_count} rsIDs from {len(df)} variants")
-        
+        logger.info(
+            f"Successfully extracted {rsids_count} rsIDs from {len(df)} variants"
+        )
+
         # Convert empty strings to None for proper handling (do this at the very end)
         rsids = rsids.replace("", None)
         return rsids
