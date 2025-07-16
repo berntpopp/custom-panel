@@ -291,7 +291,7 @@ def _validate_vcf_file(vcf_file: Path, tbi_file: Path) -> bool:
 
     try:
         # Try to open the tabix file and read a few records
-        tbx = pysam.TabixFile(str(vcf_file))
+        tbx = pysam.TabixFile(str(vcf_file), encoding='utf-8')
 
         # Try to iterate through chromosomes to test file integrity
         for chrom in ["1", "2", "3"]:  # Test a few chromosomes
@@ -304,6 +304,9 @@ def _validate_vcf_file(vcf_file: Path, tbi_file: Path) -> bool:
             except StopIteration:
                 # No records in this region, try next chromosome
                 continue
+            except UnicodeDecodeError:
+                # Encoding issues are not fatal for validation
+                break
             except Exception:
                 # If we can't read from any chromosome, file is corrupted
                 return False
@@ -480,8 +483,8 @@ def _stream_clinvar_variants_by_genes(
     max_indel_size = config.get("max_indel_size", 50)
 
     try:
-        # Open tabix file
-        tbx = pysam.TabixFile(str(vcf_file))
+        # Open tabix file with proper encoding handling
+        tbx = pysam.TabixFile(str(vcf_file), encoding='utf-8')
 
         variants_processed = 0
         variants_yielded = 0
@@ -497,9 +500,13 @@ def _stream_clinvar_variants_by_genes(
                 for record in tbx.fetch(chromosome, start - 1, end):
                     variants_processed += 1
 
-                    # Parse VCF record
-                    variant = _parse_vcf_record(record)
-                    if not variant:
+                    # Parse VCF record with encoding handling
+                    try:
+                        variant = _parse_vcf_record(record)
+                        if not variant:
+                            continue
+                    except UnicodeDecodeError as e:
+                        logger.debug(f"Skipping record with encoding issue: {str(e)[:100]}")
                         continue
 
                     # Apply pathogenic filtering during streaming
@@ -513,6 +520,9 @@ def _stream_clinvar_variants_by_genes(
                     variants_yielded += 1
                     yield variant
 
+            except UnicodeDecodeError as e:
+                logger.warning(f"Encoding error in region {chromosome}:{start}-{end}: {str(e)[:100]}...")
+                continue
             except Exception as e:
                 logger.warning(f"Error querying region {chromosome}:{start}-{end}: {e}")
                 continue
@@ -529,6 +539,13 @@ def _stream_clinvar_variants_by_genes(
 def _parse_vcf_record(record: str) -> Optional[dict[str, Any]]:
     """Parse a VCF record string into a variant dictionary."""
     try:
+        # Handle encoding issues if record is bytes
+        if isinstance(record, bytes):
+            try:
+                record = record.decode('utf-8')
+            except UnicodeDecodeError:
+                record = record.decode('utf-8', errors='replace')
+        
         fields = record.strip().split("\t")
         if len(fields) < 8:
             return None
@@ -559,7 +576,7 @@ def _parse_vcf_record(record: str) -> Optional[dict[str, Any]]:
             "clnvi": info_dict.get("CLNVI", ""),
         }
 
-    except (ValueError, IndexError) as e:
+    except (ValueError, IndexError, UnicodeDecodeError) as e:
         logger.warning(f"Error parsing VCF record: {str(e)}")
         return None
 
@@ -571,7 +588,13 @@ def _parse_info_field(info: str) -> dict[str, str]:
     for item in info.split(";"):
         if "=" in item:
             key, value = item.split("=", 1)
-            info_dict[key] = value
+            # Handle potential encoding issues in values
+            try:
+                if isinstance(value, bytes):
+                    value = value.decode('utf-8', errors='replace')
+                info_dict[key] = value
+            except UnicodeDecodeError:
+                info_dict[key] = str(value)
         else:
             info_dict[item] = "True"
 
