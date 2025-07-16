@@ -222,6 +222,19 @@ class OutputManager:
             {"snp_type": snp_type, "data_type": "snp"},
         )
 
+    def save_regions_data(self, data: pd.DataFrame, region_type: str) -> Path | None:
+        """Save regions data with appropriate handling for different schema."""
+        if not self.intermediate_config.get("include_raw_data", True):
+            return None
+
+        # Regions data has a different schema than gene data, so we bypass validation
+        return self.save_intermediate_data(
+            data,
+            "raw_data",
+            f"REGIONS_{region_type}",
+            {"region_type": region_type, "data_type": "regions"},
+        )
+
     def save_standardized_data(
         self,
         data: pd.DataFrame,

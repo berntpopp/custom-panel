@@ -34,6 +34,7 @@ def generate_outputs(
     output_dir: Path,
     transcript_data: dict[str, Any] | None = None,
     snp_data: dict[str, pd.DataFrame] | None = None,
+    regions_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """
     Generate all output files including Excel, CSV, BED files, and HTML report.
@@ -44,18 +45,23 @@ def generate_outputs(
         output_dir: Output directory path
         transcript_data: Optional transcript data for exon BED generation
         snp_data: Optional SNP data dictionary by type
+        regions_data: Optional regions data dictionary by type
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     config_manager = ConfigManager(config)
 
-    # Generate data files in multiple formats (genes + SNPs)
-    _generate_data_files(df, config_manager, output_dir, snp_data)
+    # Generate data files in multiple formats (genes + SNPs + regions)
+    _generate_data_files(df, config_manager, output_dir, snp_data, regions_data)
 
-    # Generate BED files if enabled (genes + SNPs)
-    _generate_bed_files(df, config_manager, output_dir, transcript_data, snp_data)
+    # Generate BED files if enabled (genes + SNPs + regions)
+    _generate_bed_files(
+        df, config_manager, output_dir, transcript_data, snp_data, regions_data
+    )
 
-    # Generate HTML report if enabled (genes + SNPs)
-    _generate_html_report_if_enabled(df, config_manager, output_dir, snp_data)
+    # Generate HTML report if enabled (genes + SNPs + regions)
+    _generate_html_report_if_enabled(
+        df, config_manager, output_dir, snp_data, regions_data
+    )
 
 
 def _generate_data_files(
@@ -63,6 +69,7 @@ def _generate_data_files(
     config_manager: ConfigManager,
     output_dir: Path,
     snp_data: dict[str, pd.DataFrame] | None = None,
+    regions_data: dict[str, pd.DataFrame] | None = None,
 ) -> dict[str, Path]:
     """
     Generate data files in multiple formats using the format strategy pattern.
@@ -72,6 +79,7 @@ def _generate_data_files(
         config_manager: Configuration manager instance
         output_dir: Output directory
         snp_data: Optional SNP data dictionary by type
+        regions_data: Optional regions data dictionary by type
 
     Returns:
         Dictionary mapping format names to file paths
@@ -79,7 +87,7 @@ def _generate_data_files(
     formats = config_manager.get_output_formats()
     saver = DataFrameSaver()
 
-    # Generate gene panel files
+    # Generate gene panel files (now including regions in Excel)
     gene_files = saver.save_multiple_formats(
         df=df,
         base_path=output_dir,
@@ -87,11 +95,16 @@ def _generate_data_files(
         formats=formats,
         index=False,
         snp_data=snp_data,  # Pass SNP data for multi-sheet Excel
+        regions_data=regions_data,  # Pass regions data for multi-sheet Excel
     )
 
     # Generate individual SNP files if SNP data exists
     if snp_data:
         _generate_snp_data_files(snp_data, saver, formats, output_dir)
+
+    # Generate individual regions files if regions data exists
+    if regions_data:
+        _generate_regions_data_files(regions_data, saver, formats, output_dir)
 
     return gene_files
 
@@ -150,6 +163,58 @@ def _generate_snp_data_files(
                     df=snp_df_clean,
                     base_path=output_dir,
                     filename_base=f"snps_{snp_type}",
+                    formats=formats,
+                    index=False,
+                )
+
+
+def _generate_regions_data_files(
+    regions_data: dict[str, pd.DataFrame],
+    saver: DataFrameSaver,
+    formats: list[str],
+    output_dir: Path,
+) -> None:
+    """
+    Generate individual regions data files for each region type.
+
+    Args:
+        regions_data: Dictionary of regions DataFrames by type
+        saver: DataFrameSaver instance
+        formats: List of output formats
+        output_dir: Output directory
+    """
+    # Combine all regions into a master regions table
+    all_regions = []
+    for region_type, region_df in regions_data.items():
+        if not region_df.empty:
+            # Add region type column for identification
+            region_df_copy = region_df.copy()
+            region_df_copy["region_type"] = region_type
+            all_regions.append(region_df_copy)
+
+    if all_regions:
+        master_regions_df = pd.concat(all_regions, ignore_index=True)
+        console.print(
+            f"[blue]Generating master regions files with {len(master_regions_df)} regions...[/blue]"
+        )
+        saver.save_multiple_formats(
+            df=master_regions_df,
+            base_path=output_dir,
+            filename_base="master_regions",
+            formats=formats,
+            index=False,
+        )
+
+        # Generate individual region type files
+        for region_type, region_df in regions_data.items():
+            if not region_df.empty:
+                console.print(
+                    f"[blue]Generating {region_type} regions files with {len(region_df)} regions...[/blue]"
+                )
+                saver.save_multiple_formats(
+                    df=region_df,
+                    base_path=output_dir,
+                    filename_base=f"regions_{region_type}",
                     formats=formats,
                     index=False,
                 )
@@ -215,6 +280,7 @@ def _generate_bed_files(
     output_dir: Path,
     transcript_data: dict[str, Any] | None,
     snp_data: dict[str, pd.DataFrame] | None = None,
+    regions_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """
     Generate BED files if enabled in configuration.
@@ -225,6 +291,7 @@ def _generate_bed_files(
         output_dir: Output directory
         transcript_data: Optional transcript data for exon BED generation
         snp_data: Optional SNP data dictionary by type
+        regions_data: Optional regions data dictionary by type
     """
     # Generate germline BED file
     if config_manager.is_bed_enabled("germline") and "include" in df.columns:
@@ -238,6 +305,10 @@ def _generate_bed_files(
     # Generate SNP BED files if SNP data exists
     if snp_data:
         _generate_snp_bed_files(snp_data, output_dir)
+
+    # Generate regions BED files if regions data exists
+    if regions_data:
+        _generate_regions_bed_files(regions_data, output_dir)
 
 
 def _generate_snp_bed_files(
@@ -321,11 +392,84 @@ def _generate_snp_bed_files(
         )
 
 
+def _generate_regions_bed_files(
+    regions_data: dict[str, pd.DataFrame],
+    output_dir: Path,
+) -> None:
+    """
+    Generate BED files for regions data.
+
+    Args:
+        regions_data: Dictionary of regions DataFrames by type
+        output_dir: Output directory
+    """
+    for region_type, region_df in regions_data.items():
+        if region_df.empty:
+            continue
+
+        # Check if regions data has coordinate information
+        coord_columns = ["chromosome", "start", "end"]
+        if not all(col in region_df.columns for col in coord_columns):
+            console.print(
+                f"[yellow]Skipping BED file for {region_type} regions - missing coordinate data[/yellow]"
+            )
+            continue
+
+        # Filter out regions without coordinates
+        bed_data = region_df.dropna(subset=coord_columns)
+        if bed_data.empty:
+            console.print(
+                f"[yellow]No {region_type} regions have coordinate data for BED file[/yellow]"
+            )
+            continue
+
+        # Filter out rows with invalid coordinate data
+        valid_coords = (
+            bed_data["chromosome"].notna()
+            & bed_data["start"].notna()
+            & bed_data["end"].notna()
+        )
+        bed_data_clean = bed_data[valid_coords].copy()
+
+        if bed_data_clean.empty:
+            console.print(
+                f"[yellow]No valid {region_type} regions for BED file[/yellow]"
+            )
+            continue
+
+        # Create BED DataFrame
+        bed_df = pd.DataFrame(
+            {
+                "chrom": "chr" + bed_data_clean["chromosome"].astype(str),
+                "chromStart": bed_data_clean["start"].astype(int),
+                "chromEnd": bed_data_clean["end"].astype(int),
+                "name": (
+                    bed_data_clean["region_name"]
+                    if "region_name" in bed_data_clean.columns
+                    else bed_data_clean.index
+                ),
+                "score": 1000,  # Default score
+                "strand": ".",  # Unknown strand for regions
+            }
+        )
+
+        # Sort by chromosome and position
+        bed_df = bed_df.sort_values(["chrom", "chromStart"])
+
+        # Save BED file
+        bed_path = output_dir / f"regions_{region_type}.bed"
+        bed_df.to_csv(bed_path, sep="\t", header=False, index=False)
+        console.print(
+            f"[green]Generated {bed_path.name} with {len(bed_df)} regions[/green]"
+        )
+
+
 def _generate_html_report_if_enabled(
     df: pd.DataFrame,
     config_manager: ConfigManager,
     output_dir: Path,
     snp_data: dict[str, pd.DataFrame] | None = None,
+    regions_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """
     Generate HTML report if enabled in configuration.
@@ -335,10 +479,13 @@ def _generate_html_report_if_enabled(
         config_manager: Configuration manager instance
         output_dir: Output directory
         snp_data: Optional SNP data dictionary by type
+        regions_data: Optional regions data dictionary by type
     """
     if config_manager.is_html_enabled():
         html_path = output_dir / "panel_report.html"
-        _generate_html_report(df, config_manager.to_dict(), html_path, snp_data)
+        _generate_html_report(
+            df, config_manager.to_dict(), html_path, snp_data, regions_data
+        )
 
 
 def _generate_html_report(
@@ -346,11 +493,12 @@ def _generate_html_report(
     config: dict[str, Any],
     output_path: Path,
     snp_data: dict[str, pd.DataFrame] | None = None,
+    regions_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """Generate HTML report using the ReportGenerator."""
     try:
         report_generator = ReportGenerator()
-        report_generator.render(df, config, output_path, snp_data)
+        report_generator.render(df, config, output_path, snp_data, regions_data)
     except Exception as e:
         logger.error(f"Failed to generate HTML report: {e}")
         console.print(f"[red]Failed to generate HTML report: {e}[/red]")

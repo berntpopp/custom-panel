@@ -599,29 +599,118 @@
                 </div>
             </div>
             {% endif %}
+
+            {% if has_regions_data %}
+            <!-- Regions Analysis Section -->
+            <div class="section">
+                <h2>Regions Analysis</h2>
+                
+                <!-- Regions Statistics -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ "{:,}".format(regions_stats.total_regions) }}</div>
+                        <div class="stat-label">Total Regions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ regions_stats.region_types }}</div>
+                        <div class="stat-label">Region Types</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ regions_stats.total_mb }}</div>
+                        <div class="stat-label">Total Coverage (MB)</div>
+                    </div>
+                </div>
+
+                <!-- Region Type Breakdown -->
+                <div style="background: #f8f9fa; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+                    <h3 style="color: #495057; margin-bottom: 15px;">Region Categories</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        {% for region_type, count in regions_stats.region_type_counts.items() %}
+                        <div style="background: white; border-radius: 4px; padding: 15px; border-left: 4px solid #667eea;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 500; color: #495057; text-transform: capitalize;">{{ region_type.replace('_', ' ') }}</span>
+                                <span style="color: #6c757d; font-size: 0.9em;">{{ "{:,}".format(count) }} regions</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Regions Data Tables -->
+                <div style="margin-top: 30px;">
+                    <h3 style="color: #495057; margin-bottom: 15px;">Regions Data Tables</h3>
+                    
+                    <!-- Download Controls -->
+                    <div class="download-container">
+                        <span class="download-section-title">Download:</span>
+                        <button class="download-btn" onclick="downloadAllRegionsTable()">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                            </svg>
+                            All Regions (Excel)
+                        </button>
+                        <button class="download-btn" onclick="downloadCurrentRegionsTable()">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                            </svg>
+                            Current Tab (Excel)
+                        </button>
+                    </div>
+                    
+                    <!-- Tab Navigation -->
+                    <div class="regions-tabs" style="margin-bottom: 20px;">
+                        <div style="border-bottom: 2px solid #e9ecef;">
+                            <div style="display: flex; gap: 0;">
+                                <button class="regions-tab-button active" data-table="all_regions" style="padding: 10px 20px; border: none; background: #667eea; color: white; cursor: pointer; border-radius: 6px 6px 0 0; font-weight: 500;">
+                                    All Regions ({{ "{:,}".format(regions_stats.total_regions) }})
+                                </button>
+                                {% for region_type, count in regions_stats.region_type_counts.items() %}
+                                <button class="regions-tab-button" data-table="{{ region_type }}" style="padding: 10px 20px; border: none; background: #f8f9fa; color: #495057; cursor: pointer; border-radius: 6px 6px 0 0; margin-left: 2px; font-weight: 500;">
+                                    {{ region_type.replace('_', ' ').title() }} ({{ "{:,}".format(count) }})
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Regions Tables Container -->
+                    <div id="regionsTablesContainer">
+                        <!-- Tables will be dynamically generated here -->
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
     <script>
-        $(document).ready(function() {
-            // Gene data
-            var geneData = {{ table_data|safe }};
-            var chartData = {{ chart_data|safe }};
-            var availableColumns = {{ available_columns|safe }};
-            var defaultVisible = {{ default_visible|safe }};
+        // Global variables for data
+        var geneData = {{ table_data|safe }};
+        var chartData = {{ chart_data|safe }};
+        var availableColumns = {{ available_columns|safe }};
+        var defaultVisible = {{ default_visible|safe }};
+        var geneSourceData = {{ gene_source_data|safe }};
+        
+        {% if has_snp_data %}
+        var snpTableData = {{ snp_table_data|safe }};
+        {% endif %}
+        
+        {% if has_regions_data %}
+        var regionsTableData = {{ regions_table_data|safe }};
+        {% endif %}
 
-            // Gene source data
-            var geneSourceData = {{ gene_source_data|safe }};
-            
+        $(document).ready(function() {
             // Initialize gene source tables
             initializeGeneSourceTables(geneSourceData, availableColumns, defaultVisible);
 
             {% if has_snp_data %}
-            // SNP data
-            var snpTableData = {{ snp_table_data|safe }};
-            
             // Initialize SNP tables
             initializeSNPTables(snpTableData);
+            {% endif %}
+
+            {% if has_regions_data %}
+            // Initialize regions tables
+            initializeRegionsTables(regionsTableData);
             {% endif %}
 
             // Create interactive charts
@@ -1605,6 +1694,228 @@
             // Track current SNP table selection
             $('.snp-tab-button').on('click', function() {
                 currentSNPTable = $(this).data('table');
+            });
+        });
+        {% endif %}
+
+        {% if has_regions_data %}
+        // Regions table functionality
+        function initializeRegionsTables(regionsTableData) {
+            if (!regionsTableData || Object.keys(regionsTableData).length === 0) {
+                return;
+            }
+
+            // Regions column configuration
+            var regionsColumnConfig = {
+                'region_name': { 
+                    title: 'Region Name',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var chr = row.chromosome || '';
+                            var start = row.start || '';
+                            var end = row.end || '';
+                            var coords = chr && start && end ? chr + ':' + start + '-' + end : '';
+                            var tooltipText = coords ? 'Coordinates: ' + coords : 'No coordinates available';
+                            return '<span class="tooltip-cell" title="' + tooltipText + '">' + data + '</span>';
+                        }
+                        return data;
+                    }
+                },
+                'chromosome': { title: 'Chromosome' },
+                'start': { 
+                    title: 'Start',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            return data ? parseInt(data).toLocaleString() : '';
+                        }
+                        return data;
+                    }
+                },
+                'end': { 
+                    title: 'End',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            return data ? parseInt(data).toLocaleString() : '';
+                        }
+                        return data;
+                    }
+                },
+                'coverage': { 
+                    title: 'Coverage (bp)',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            return data ? parseInt(data).toLocaleString() : '';
+                        }
+                        return data;
+                    }
+                },
+                'source_type': { title: 'Source Type' },
+                'region_type': { title: 'Region Type' },
+                'comment': { 
+                    title: 'Comment',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data && data.length > 50) {
+                            return '<span class="tooltip-cell" title="' + data + '">' + data.substring(0, 50) + '...</span>';
+                        }
+                        return data || '';
+                    }
+                }
+            };
+
+            var regionsTables = {};
+            var regionsTabButtons = $('#regionsTabButtons');
+
+            // Create tables for each region type
+            Object.keys(regionsTableData).forEach(function(tableKey) {
+                var data = regionsTableData[tableKey];
+                if (data && data.length > 0) {
+                    // Determine columns present in data
+                    var availableColumns = Object.keys(data[0]);
+                    var columns = availableColumns.map(function(col) {
+                        return {
+                            data: col,
+                            title: regionsColumnConfig[col] ? regionsColumnConfig[col].title : col,
+                            render: regionsColumnConfig[col] ? regionsColumnConfig[col].render : null
+                        };
+                    });
+
+                    // Create table container
+                    var tableId = 'regionsTable_' + tableKey;
+                    var tableHtml = '<table id="' + tableId + '" class="display compact" style="width:100%"></table>';
+                    $('#regionsTablesContainer').append('<div id="' + tableId + '_container" class="regions-table-container" style="display:none;">' + tableHtml + '</div>');
+
+                    // Initialize DataTable
+                    regionsTables[tableKey] = $('#' + tableId).DataTable({
+                        data: data,
+                        columns: columns,
+                        pageLength: 25,
+                        responsive: true,
+                        dom: 'Bfrtip',
+                        buttons: ['copy', 'csv', 'excel'],
+                        language: {
+                            processing: "Loading regions data...",
+                            search: "Search regions:",
+                            lengthMenu: "Show _MENU_ regions per page",
+                            info: "Showing _START_ to _END_ of _TOTAL_ regions",
+                            infoEmpty: "Showing 0 to 0 of 0 regions",
+                            infoFiltered: "(filtered from _MAX_ total regions)",
+                        }
+                    });
+                }
+            });
+
+            // Show first table by default
+            var firstTableKey = Object.keys(regionsTables)[0];
+            if (firstTableKey) {
+                showRegionsTable(firstTableKey, regionsTables);
+            }
+
+            // Tab click handlers
+            $('.regions-tab-button').on('click', function() {
+                var tableKey = $(this).data('table');
+                
+                // Update tab styling
+                $('.regions-tab-button').css({
+                    'background': '#f8f9fa',
+                    'color': '#495057'
+                });
+                $(this).css({
+                    'background': '#667eea',
+                    'color': 'white'
+                });
+                
+                // Update active class
+                $('.regions-tab-button').removeClass('active');
+                $(this).addClass('active');
+
+                // Show corresponding table
+                showRegionsTable(tableKey, regionsTables);
+            });
+
+            function showRegionsTable(tableKey, tables) {
+                // Hide all tables
+                $('.regions-table-container').hide();
+                
+                // Show selected table
+                var tableId = 'regionsTable_' + tableKey;
+                $('#' + tableId + '_container').show();
+                
+                // Redraw table to fix column sizing
+                if (tables[tableKey]) {
+                    tables[tableKey].columns.adjust().draw();
+                }
+            }
+        }
+
+        function downloadAllRegionsTable() {
+            {% if has_regions_data %}
+            if (regionsTableData && regionsTableData.all_regions) {
+                exportRegionsDataToExcel(regionsTableData.all_regions, 'all_regions');
+            } else {
+                alert('No regions data available to download.');
+            }
+            {% else %}
+            alert('No regions data available to download.');
+            {% endif %}
+        }
+
+        function downloadCurrentRegionsTable() {
+            {% if has_regions_data %}
+            var activeTab = $('.regions-tab-button.active').data('table');
+            if (regionsTableData && regionsTableData[activeTab]) {
+                exportRegionsDataToExcel(regionsTableData[activeTab], activeTab);
+            } else {
+                alert('No regions data available for current tab.');
+            }
+            {% else %}
+            alert('No regions data available to download.');
+            {% endif %}
+        }
+
+        function exportRegionsDataToExcel(data, tableType) {
+            if (!data || data.length === 0) {
+                alert('No data to export.');
+                return;
+            }
+
+            // Create workbook
+            var wb = XLSX.utils.book_new();
+            
+            // Convert data to worksheet
+            var ws = XLSX.utils.json_to_sheet(data);
+            
+            // Auto-size columns
+            var colWidths = [];
+            if (data.length > 0) {
+                Object.keys(data[0]).forEach(function(key) {
+                    var maxLen = key.length;
+                    data.forEach(function(row) {
+                        var cellValue = String(row[key] || '');
+                        if (cellValue.length > maxLen) {
+                            maxLen = cellValue.length;
+                        }
+                    });
+                    colWidths.push({wch: Math.min(maxLen + 2, 50)});
+                });
+                ws['!cols'] = colWidths;
+            }
+            
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, 'Regions');
+            
+            // Generate filename with current date
+            var date = new Date();
+            var filename = 'regions_data_' + tableType + '_' + date.toISOString().split('T')[0] + '.xlsx';
+            
+            XLSX.writeFile(wb, filename);
+        }
+
+        // Initialize tracking for current regions table
+        var currentRegionsTable = 'all_regions';
+        $(document).ready(function() {
+            // Track current regions table selection
+            $(document).on('click', '.regions-tab-button', function() {
+                currentRegionsTable = $(this).data('table');
             });
         });
         {% endif %}

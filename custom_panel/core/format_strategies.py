@@ -128,11 +128,16 @@ class ExcelStrategy(FormatStrategy):
         engine = kwargs.get("engine", "openpyxl")
         sheet_name = kwargs.get("sheet_name", "Sheet1")
         snp_data = kwargs.get("snp_data")
+        regions_data = kwargs.get("regions_data")
 
         try:
-            # Check if this is a multi-sheet Excel file with SNP data
-            if snp_data and isinstance(snp_data, dict):
-                self._save_multi_sheet_excel(df, path, snp_data, index, engine)
+            # Check if this is a multi-sheet Excel file with SNP or regions data
+            if (snp_data and isinstance(snp_data, dict)) or (
+                regions_data and isinstance(regions_data, dict)
+            ):
+                self._save_multi_sheet_excel(
+                    df, path, snp_data, regions_data, index, engine
+                )
             else:
                 # Single sheet Excel
                 df.to_excel(path, index=index, engine=engine, sheet_name=sheet_name)
@@ -145,11 +150,12 @@ class ExcelStrategy(FormatStrategy):
         self,
         gene_df: pd.DataFrame,
         path: Path,
-        snp_data: dict[str, pd.DataFrame],
+        snp_data: dict[str, pd.DataFrame] | None,
+        regions_data: dict[str, pd.DataFrame] | None,
         index: bool,
         engine: Any,
     ) -> None:
-        """Save multi-sheet Excel with genes and SNPs."""
+        """Save multi-sheet Excel with genes, SNPs, and regions."""
         from rich.console import Console
 
         console = Console()
@@ -159,33 +165,75 @@ class ExcelStrategy(FormatStrategy):
             gene_df.to_excel(writer, sheet_name="Gene_Panel", index=index)
             logger.debug(f"Saved {len(gene_df)} genes to Gene_Panel sheet")
 
-            # Combine all SNPs for master SNP sheet
-            all_snps = []
-            for snp_type, snp_df in snp_data.items():
-                if not snp_df.empty:
-                    snp_df_copy = snp_df.copy()
-                    snp_df_copy["snp_type"] = snp_type
-                    all_snps.append(snp_df_copy)
-
-            if all_snps:
-                master_snp_df = pd.concat(all_snps, ignore_index=True)
-                master_snp_df.to_excel(writer, sheet_name="All_SNPs", index=index)
-                logger.debug(f"Saved {len(master_snp_df)} SNPs to All_SNPs sheet")
-                console.print(
-                    f"[blue]Added All_SNPs sheet with {len(master_snp_df)} SNPs[/blue]"
-                )
-
-                # Add individual SNP type sheets
+            # Process SNP data if available
+            if snp_data and isinstance(snp_data, dict):
+                # Combine all SNPs for master SNP sheet
+                all_snps = []
                 for snp_type, snp_df in snp_data.items():
                     if not snp_df.empty:
-                        # Create valid sheet name (Excel sheet names <= 31 chars)
-                        sheet_name = f"SNPs_{snp_type}"[:31]
-                        snp_df.to_excel(writer, sheet_name=sheet_name, index=index)
-                        logger.debug(f"Saved {len(snp_df)} SNPs to {sheet_name} sheet")
-                        console.print(
-                            f"[blue]Added {sheet_name} sheet with "
-                            f"{len(snp_df)} SNPs[/blue]"
-                        )
+                        snp_df_copy = snp_df.copy()
+                        snp_df_copy["snp_type"] = snp_type
+                        all_snps.append(snp_df_copy)
+
+                if all_snps:
+                    master_snp_df = pd.concat(all_snps, ignore_index=True)
+                    master_snp_df.to_excel(writer, sheet_name="All_SNPs", index=index)
+                    logger.debug(f"Saved {len(master_snp_df)} SNPs to All_SNPs sheet")
+                    console.print(
+                        f"[blue]Added All_SNPs sheet with {len(master_snp_df)} SNPs[/blue]"
+                    )
+
+                    # Add individual SNP type sheets
+                    for snp_type, snp_df in snp_data.items():
+                        if not snp_df.empty:
+                            # Create valid sheet name (Excel sheet names <= 31 chars)
+                            sheet_name = f"SNPs_{snp_type}"[:31]
+                            snp_df.to_excel(writer, sheet_name=sheet_name, index=index)
+                            logger.debug(
+                                f"Saved {len(snp_df)} SNPs to {sheet_name} sheet"
+                            )
+                            console.print(
+                                f"[blue]Added {sheet_name} sheet with "
+                                f"{len(snp_df)} SNPs[/blue]"
+                            )
+
+            # Process regions data if available
+            if regions_data and isinstance(regions_data, dict):
+                # Combine all regions for master regions sheet
+                all_regions = []
+                for region_type, region_df in regions_data.items():
+                    if not region_df.empty:
+                        region_df_copy = region_df.copy()
+                        region_df_copy["region_type"] = region_type
+                        all_regions.append(region_df_copy)
+
+                if all_regions:
+                    master_regions_df = pd.concat(all_regions, ignore_index=True)
+                    master_regions_df.to_excel(
+                        writer, sheet_name="All_Regions", index=index
+                    )
+                    logger.debug(
+                        f"Saved {len(master_regions_df)} regions to All_Regions sheet"
+                    )
+                    console.print(
+                        f"[blue]Added All_Regions sheet with {len(master_regions_df)} regions[/blue]"
+                    )
+
+                    # Add individual region type sheets
+                    for region_type, region_df in regions_data.items():
+                        if not region_df.empty:
+                            # Create valid sheet name (Excel sheet names <= 31 chars)
+                            sheet_name = f"Regions_{region_type}"[:31]
+                            region_df.to_excel(
+                                writer, sheet_name=sheet_name, index=index
+                            )
+                            logger.debug(
+                                f"Saved {len(region_df)} regions to {sheet_name} sheet"
+                            )
+                            console.print(
+                                f"[blue]Added {sheet_name} sheet with "
+                                f"{len(region_df)} regions[/blue]"
+                            )
 
     def get_extension(self) -> str:
         return "xlsx"

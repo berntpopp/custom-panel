@@ -177,6 +177,7 @@ def _generate_pipeline_outputs(
         output_dir=final_output_dir,
         transcript_data=transcript_data,
         snp_data=pipeline.snp_data,  # Pass SNP data from pipeline
+        regions_data=pipeline.regions_data,  # Pass regions data from pipeline
     )
 
     # Save run summary

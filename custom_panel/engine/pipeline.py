@@ -35,6 +35,7 @@ from ..sources.g03_commercial_panels import fetch_commercial_panels_data
 from ..sources.g04_cosmic_germline import fetch_cosmic_germline_data
 from ..sources.g05_clingen import fetch_clingen_data
 from ..sources.g06_gencc import fetch_gencc_data
+from ..sources.g07_regions import fetch_regions_data
 from ..sources_snp.clinvar_snps import fetch_clinvar_snps
 from ..sources_snp.ethnicity_snps import fetch_ethnicity_snps
 from ..sources_snp.identity_snps import fetch_identity_snps
@@ -66,6 +67,7 @@ class Pipeline:
         self.snp_harmonizer: Optional[SNPHarmonizer] = None
         self.transcript_data: dict[str, Any] = {}
         self.snp_data: dict[str, pd.DataFrame] = {}
+        self.regions_data: dict[str, pd.DataFrame] = {}
 
         # Initialize SNP harmonizer once if SNP processing is enabled
         snp_config = self.config_manager.to_dict().get("snp_processing", {})
@@ -163,7 +165,11 @@ class Pipeline:
         progress.update(task, description="Processing SNPs...")
         self._process_snps()
 
-        # Step 7: Process deep intronic ClinVar SNPs for final gene panel
+        # Step 7: Process regions if enabled
+        progress.update(task, description="Processing regions...")
+        self._process_regions()
+
+        # Step 8: Process deep intronic ClinVar SNPs for final gene panel
         progress.update(task, description="Processing deep intronic ClinVar SNPs...")
         self._process_deep_intronic_clinvar(annotated_df)
 
@@ -195,7 +201,10 @@ class Pipeline:
         # Step 6: Process SNPs
         self._process_snps()
 
-        # Step 7: Process deep intronic ClinVar SNPs for final gene panel
+        # Step 7: Process regions
+        self._process_regions()
+
+        # Step 8: Process deep intronic ClinVar SNPs for final gene panel
         self._process_deep_intronic_clinvar(annotated_df)
 
         return annotated_df, self.transcript_data
@@ -670,6 +679,52 @@ class Pipeline:
         except Exception as e:
             console.print(f"[red]✗ Deep intronic ClinVar: {e}[/red]")
             logger.exception("Error processing deep intronic ClinVar SNPs")
+
+    def _process_regions(self) -> None:
+        """
+        Process genomic regions from configured sources.
+
+        This method fetches and processes regions data from:
+        1. Manual regions from Excel files
+        2. Stripy repeat regions from JSON files
+        """
+        try:
+            logger.info("Starting regions processing...")
+
+            # Fetch regions data from all sources
+            regions_data = fetch_regions_data(self.config_manager.to_dict())
+
+            if not regions_data:
+                logger.info("No regions data was fetched from any source")
+                return
+
+            # Store regions data
+            self.regions_data = regions_data
+
+            # Save regions data for each type
+            for region_type, df in regions_data.items():
+                try:
+                    # Save regions data using output manager
+                    self.output_manager.save_regions_data(df, region_type)
+
+                    console.print(f"[green]✓ {region_type}: {len(df)} regions[/green]")
+                    logger.info(
+                        f"Successfully processed {len(df)} {region_type} regions"
+                    )
+
+                except Exception as e:
+                    logger.error(f"Error saving {region_type} regions: {e}")
+                    console.print(f"[red]✗ {region_type}: {e}[/red]")
+
+            # Log regions processing summary
+            total_regions = sum(len(df) for df in self.regions_data.values())
+            logger.info(
+                f"Regions processing completed: {total_regions} total regions across {len(self.regions_data)} types"
+            )
+
+        except Exception as e:
+            logger.error(f"Error during regions processing: {e}")
+            console.print(f"[red]✗ Regions processing failed: {e}[/red]")
 
     def get_run_summary(self) -> dict[str, Any]:
         """Get summary of the pipeline run."""

@@ -736,3 +736,25 @@ snp_processing:
         parser: "manual_excel"
         rsid_column: "rs_id"
         details_column: "notes"
+
+#=======================================================
+# REGIONS PROCESSING CONFIGURATION
+#=======================================================
+regions_processing:
+  # Master switch to enable or disable all regions processing
+  enabled: true
+  
+  # --- Manual Regions ---
+  # Manually curated genomic regions from Excel files
+  manual_regions:
+    enabled: true
+    file_path: "data/regions/regions_list.xlsx"
+    sheet_name: 0  # Use first sheet
+    filter_column: "include"
+    filter_value: "yes"
+  
+  # --- Stripy Repeat Regions ---
+  # Repeat regions from stripy.org variant catalog
+  stripy_regions:
+    enabled: true
+    file_path: "data/regions/stripy_variant_catalog.json"

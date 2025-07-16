@@ -63,6 +63,7 @@ class ReportGenerator:
         config: dict[str, Any],
         output_path: Path,
         snp_data: dict[str, pd.DataFrame] | None = None,
+        regions_data: dict[str, pd.DataFrame] | None = None,
     ) -> None:
         """
         Render the HTML report and save it to a file.
@@ -72,6 +73,7 @@ class ReportGenerator:
             config: Configuration dictionary
             output_path: Path where the HTML report will be saved
             snp_data: Optional SNP data dictionary by type
+            regions_data: Optional regions data dictionary by type
 
         Raises:
             FileNotFoundError: If the template file is not found
@@ -79,7 +81,7 @@ class ReportGenerator:
         """
         try:
             template = self.env.get_template("report.html.j2")
-            context = self._prepare_context(df, config, snp_data)
+            context = self._prepare_context(df, config, snp_data, regions_data)
             html_content = template.render(context)
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -97,6 +99,7 @@ class ReportGenerator:
         df: pd.DataFrame,
         config: dict[str, Any],
         snp_data: dict[str, pd.DataFrame] | None = None,
+        regions_data: dict[str, pd.DataFrame] | None = None,
     ) -> dict[str, Any]:
         """
         Prepare template context from DataFrame and configuration.
@@ -105,6 +108,7 @@ class ReportGenerator:
             df: Final annotated DataFrame
             config: Configuration dictionary
             snp_data: Optional SNP data dictionary by type
+            regions_data: Optional regions data dictionary by type
 
         Returns:
             Dictionary containing template variables
@@ -142,6 +146,13 @@ class ReportGenerator:
             snp_stats = self._calculate_snp_statistics(snp_data)
             snp_table_data = self._prepare_snp_table_data(snp_data)
 
+        # Prepare regions data if available
+        regions_stats = {}
+        regions_table_data = {}
+        if regions_data:
+            regions_stats = self._calculate_regions_statistics(regions_data)
+            regions_table_data = self._prepare_regions_table_data(regions_data)
+
         # Combine all context data
         context = {
             "generation_date": datetime.now().strftime("%B %d, %Y at %I:%M %p"),
@@ -160,6 +171,10 @@ class ReportGenerator:
             "has_snp_data": bool(snp_data),
             "snp_stats": snp_stats,
             "snp_table_data": json.dumps(snp_table_data),
+            # Regions data
+            "has_regions_data": bool(regions_data),
+            "regions_stats": regions_stats,
+            "regions_table_data": json.dumps(regions_table_data),
         }
 
         return context
@@ -464,6 +479,119 @@ class ReportGenerator:
         if "hg38_allele_string" in df.columns:
             display_columns.append("hg38_allele_string")
         # Only hg38 coordinates are supported
+
+        # Filter to existing columns
+        existing_columns = [col for col in display_columns if col in df.columns]
+
+        # Convert to list of dictionaries
+        table_data = []
+        for _, row in df.iterrows():
+            row_data = {}
+            for col in existing_columns:
+                value = row.get(col)
+                # Convert to string for JSON serialization, handle NaN
+                if pd.isna(value):
+                    row_data[col] = ""
+                else:
+                    row_data[col] = str(value)
+            table_data.append(row_data)
+
+        return table_data
+
+    def _calculate_regions_statistics(
+        self, regions_data: dict[str, pd.DataFrame]
+    ) -> dict[str, Any]:
+        """Calculate regions summary statistics for the report."""
+        total_regions = 0
+        region_type_counts = {}
+        total_bp = 0
+
+        for region_type, region_df in regions_data.items():
+            if region_df.empty:
+                continue
+
+            region_count = len(region_df)
+            total_regions += region_count
+            region_type_counts[region_type] = region_count
+
+            # Calculate total base pairs covered using coverage column if available
+            if "coverage" in region_df.columns:
+                for _, row in region_df.iterrows():
+                    try:
+                        coverage = int(row["coverage"])
+                        total_bp += coverage
+                    except (ValueError, TypeError):
+                        continue
+            elif "start" in region_df.columns and "end" in region_df.columns:
+                # Fallback to start/end calculation
+                for _, row in region_df.iterrows():
+                    try:
+                        start = int(row["start"])
+                        end = int(row["end"])
+                        total_bp += end - start + 1
+                    except (ValueError, TypeError):
+                        continue
+
+        # Format coverage in human-readable format
+        if total_bp >= 1_000_000:
+            total_mb = f"{total_bp / 1_000_000:.1f} MB"
+        elif total_bp >= 1_000:
+            total_mb = f"{total_bp / 1_000:.1f} KB"
+        else:
+            total_mb = f"{total_bp} bp"
+
+        return {
+            "total_regions": total_regions,
+            "region_types": len(region_type_counts),
+            "region_type_counts": region_type_counts,
+            "total_bp": total_bp,
+            "total_mb": total_mb,
+        }
+
+    def _prepare_regions_table_data(
+        self, regions_data: dict[str, pd.DataFrame]
+    ) -> dict[str, Any]:
+        """Prepare regions data for interactive tables in the HTML report."""
+        regions_tables = {}
+
+        # Combine all regions for master table
+        all_regions = []
+        for region_type, region_df in regions_data.items():
+            if not region_df.empty:
+                region_df_copy = region_df.copy()
+                region_df_copy["region_type"] = region_type
+                all_regions.append(region_df_copy)
+
+        if all_regions:
+            master_regions_df = pd.concat(all_regions, ignore_index=True)
+            regions_tables["all_regions"] = self._convert_regions_df_to_table_data(
+                master_regions_df
+            )
+
+        # Individual region type tables
+        for region_type, region_df in regions_data.items():
+            if not region_df.empty:
+                regions_tables[region_type] = self._convert_regions_df_to_table_data(
+                    region_df
+                )
+
+        return regions_tables
+
+    def _convert_regions_df_to_table_data(
+        self, df: pd.DataFrame
+    ) -> list[dict[str, Any]]:
+        """Convert regions DataFrame to list of dictionaries for HTML table display."""
+        # Select relevant columns for display in optimal order
+        display_columns = [
+            "region_name",
+            "chromosome",
+            "start",
+            "end",
+            "coverage",
+            "region_type",
+            "source_type",
+            "comment",
+        ]
 
         # Filter to existing columns
         existing_columns = [col for col in display_columns if col in df.columns]
