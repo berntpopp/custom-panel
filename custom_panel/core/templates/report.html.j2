@@ -211,6 +211,47 @@
         .gene-link:visited {
             color: #6f42c1 !important;
         }
+        .download-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .download-btn {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+        .download-btn:hover {
+            background: linear-gradient(135deg, #218838, #1fa187);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+        .download-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+        .download-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        .download-section-title {
+            margin: 0;
+            color: #495057;
+            font-size: 14px;
+            font-weight: 500;
+        }
     </style>
     <!-- DataTables CSS -->
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
@@ -219,6 +260,8 @@
     <!-- jQuery and DataTables JS -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -336,6 +379,17 @@
                 <h2>Gene Data Table</h2>
                 <p>Interactive table showing all genes with sorting, filtering, and search capabilities. Use the search box to find genes by name, score values, source information, inclusion reasons, or any other field data.</p>
 
+                <!-- Download Controls -->
+                <div class="download-container">
+                    <span class="download-section-title">Download:</span>
+                    <button class="download-btn" onclick="downloadGeneTable()">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                        </svg>
+                        Gene Table (Excel)
+                    </button>
+                </div>
+
                 <!-- Column Toggle Controls -->
                 <div class="column-toggles" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
                     <h4 style="margin: 0 0 10px 0; color: #495057;">Toggle Columns:</h4>
@@ -398,6 +452,23 @@
                 <!-- SNP Data Tables -->
                 <div style="margin-top: 30px;">
                     <h3 style="color: #495057; margin-bottom: 15px;">SNP Data Tables</h3>
+                    
+                    <!-- Download Controls -->
+                    <div class="download-container">
+                        <span class="download-section-title">Download:</span>
+                        <button class="download-btn" onclick="downloadAllSNPTable()">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                            </svg>
+                            All SNPs (Excel)
+                        </button>
+                        <button class="download-btn" onclick="downloadCurrentSNPTable()">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                            </svg>
+                            Current Tab (Excel)
+                        </button>
+                    </div>
                     
                     <!-- Tab Navigation -->
                     <div class="snp-tabs" style="margin-bottom: 20px;">
@@ -1008,6 +1079,153 @@
                 }
             }
         }
+        {% endif %}
+
+        // Excel Download Functions
+        function downloadGeneTable() {
+            var table = $('#geneTable').DataTable();
+            var data = table.rows({search: 'applied'}).data().toArray();
+            var headers = table.columns().header().toArray().map(function(th) {
+                return $(th).text();
+            });
+
+            // Create workbook
+            var wb = XLSX.utils.book_new();
+            var ws_data = [headers];
+            
+            // Add data rows
+            data.forEach(function(row) {
+                var rowData = headers.map(function(header, index) {
+                    var value = row[table.column(index).dataSrc()];
+                    // Clean up HTML and format for Excel
+                    if (typeof value === 'string') {
+                        value = value.replace(/<[^>]*>/g, ''); // Remove HTML tags
+                        if (value === 'null' || value === 'undefined') value = '';
+                    }
+                    return value || '';
+                });
+                ws_data.push(rowData);
+            });
+
+            var ws = XLSX.utils.aoa_to_sheet(ws_data);
+            
+            // Auto-size columns
+            var range = XLSX.utils.decode_range(ws['!ref']);
+            var colWidths = [];
+            for (var C = range.s.c; C <= range.e.c; ++C) {
+                var maxWidth = 0;
+                for (var R = range.s.r; R <= range.e.r; ++R) {
+                    var cell = ws[XLSX.utils.encode_cell({r: R, c: C})];
+                    if (cell && cell.v) {
+                        var cellWidth = cell.v.toString().length;
+                        if (cellWidth > maxWidth) maxWidth = cellWidth;
+                    }
+                }
+                colWidths.push({wch: Math.min(maxWidth + 2, 50)});
+            }
+            ws['!cols'] = colWidths;
+
+            XLSX.utils.book_append_sheet(wb, ws, "Gene Panel");
+            
+            // Generate filename with current date
+            var date = new Date();
+            var filename = 'gene_panel_' + date.toISOString().split('T')[0] + '.xlsx';
+            
+            XLSX.writeFile(wb, filename);
+        }
+
+        function downloadAllSNPTable() {
+            {% if has_snp_data %}
+            var snpData = {{ snp_table_data|safe }};
+            
+            if (snpData.all_snps && snpData.all_snps.length > 0) {
+                exportSNPDataToExcel(snpData.all_snps, 'all_snps');
+            } else {
+                alert('No SNP data available to download.');
+            }
+            {% else %}
+            alert('No SNP data available to download.');
+            {% endif %}
+        }
+
+        function downloadCurrentSNPTable() {
+            {% if has_snp_data %}
+            var activeTab = $('.snp-tab-button.active').data('table');
+            var snpData = {{ snp_table_data|safe }};
+            
+            if (snpData[activeTab] && snpData[activeTab].length > 0) {
+                exportSNPDataToExcel(snpData[activeTab], activeTab);
+            } else {
+                alert('No SNP data available for current tab.');
+            }
+            {% else %}
+            alert('No SNP data available to download.');
+            {% endif %}
+        }
+
+        function exportSNPDataToExcel(data, tableType) {
+            if (!data || data.length === 0) {
+                alert('No data to export.');
+                return;
+            }
+
+            // Get headers from first row
+            var headers = Object.keys(data[0]);
+            
+            // Create workbook
+            var wb = XLSX.utils.book_new();
+            var ws_data = [headers];
+            
+            // Add data rows
+            data.forEach(function(row) {
+                var rowData = headers.map(function(header) {
+                    var value = row[header];
+                    // Clean up HTML and format for Excel
+                    if (typeof value === 'string') {
+                        value = value.replace(/<[^>]*>/g, ''); // Remove HTML tags
+                        if (value === 'null' || value === 'undefined') value = '';
+                    }
+                    return value || '';
+                });
+                ws_data.push(rowData);
+            });
+
+            var ws = XLSX.utils.aoa_to_sheet(ws_data);
+            
+            // Auto-size columns
+            var range = XLSX.utils.decode_range(ws['!ref']);
+            var colWidths = [];
+            for (var C = range.s.c; C <= range.e.c; ++C) {
+                var maxWidth = 0;
+                for (var R = range.s.r; R <= range.e.r; ++R) {
+                    var cell = ws[XLSX.utils.encode_cell({r: R, c: C})];
+                    if (cell && cell.v) {
+                        var cellWidth = cell.v.toString().length;
+                        if (cellWidth > maxWidth) maxWidth = cellWidth;
+                    }
+                }
+                colWidths.push({wch: Math.min(maxWidth + 2, 50)});
+            }
+            ws['!cols'] = colWidths;
+
+            XLSX.utils.book_append_sheet(wb, ws, tableType.replace('_', ' ').toUpperCase());
+            
+            // Generate filename with current date
+            var date = new Date();
+            var filename = 'snp_data_' + tableType + '_' + date.toISOString().split('T')[0] + '.xlsx';
+            
+            XLSX.writeFile(wb, filename);
+        }
+
+        // Initialize tracking for current SNP table
+        var currentSNPTable = 'all_snps';
+        {% if has_snp_data %}
+        $(document).ready(function() {
+            // Track current SNP table selection
+            $('.snp-tab-button').on('click', function() {
+                currentSNPTable = $(this).data('table');
+            });
+        });
         {% endif %}
     </script>
 </body>
