@@ -100,7 +100,7 @@ The pipeline generates several output formats:
 - `master_panel.csv` - CSV format for programmatic use
 - `master_panel.parquet` - Efficient binary format
 - `germline_panel.bed` - BED file for included genes
-- `panel_report.html` - Interactive HTML report
+- `panel_report.html` - Interactive HTML report with charts and export functionality
 
 ### Intermediate Files (if enabled)
 - Raw source data
@@ -185,5 +185,6 @@ performance:
 ## Next Steps
 
 - **[Configuration Guide](./configuration.md)** - Customize scoring and data sources
+- **[HTML Reports](./html_reports.md)** - Learn about interactive web reports
 - **[Data Source Setup](./cosmic_setup.md)** - Configure external data access
 - **[API Reference](../api/cli.md)** - Complete CLI documentation

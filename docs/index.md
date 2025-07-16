@@ -14,6 +14,7 @@ Custom Panel is a comprehensive bioinformatics tool for creating, managing, and 
 - **Genomic annotation**: Rich annotation with Ensembl coordinates, transcripts, and MANE information
 - **Flexible output formats**: Excel, CSV, Parquet, and BED file generation
 - **Modern architecture**: Built with Python 3.10+, Poetry, and comprehensive type hints
+- **Interactive HTML reports**: Rich, interactive web reports with charts, filtering, and export capabilities
 
 ## Getting Started
 
@@ -22,6 +23,7 @@ New to Custom Panel? Start here:
 - **[Installation Guide](./user_guide/installation.md)** - Set up Custom Panel on your system
 - **[Running the Pipeline](./user_guide/running_pipeline.md)** - Learn the basic commands and workflows
 - **[Configuration](./user_guide/configuration.md)** - Understand the scoring system and customize data sources
+- **[Sample HTML Report](./examples/sample_panel_report.html)** - Interactive example of generated reports
 
 ## Data Sources
 
@@ -29,6 +31,7 @@ Learn how to configure and use different data sources:
 
 - **[COSMIC Setup](./user_guide/cosmic_setup.md)** - Configure COSMIC Cancer Gene Census access
 - **[OMIM/HPO Setup](./user_guide/omim_setup.md)** - Set up OMIM and HPO data sources
+- **[HTML Reports](./user_guide/html_reports.md)** - Interactive web reports with charts and export functionality
 
 ## API Reference
 

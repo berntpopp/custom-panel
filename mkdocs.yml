@@ -77,6 +77,7 @@ nav:
       - 'Web Scraping': 'user_guide/web_scraping.md'
       - 'COSMIC Setup': 'user_guide/cosmic_setup.md'
       - 'OMIM / HPO Setup': 'user_guide/omim_setup.md'
+    - 'HTML Reports': 'user_guide/html_reports.md'
   - 'API Reference':
     - 'CLI Interface': 'api/cli.md'
     - 'Core Components':
