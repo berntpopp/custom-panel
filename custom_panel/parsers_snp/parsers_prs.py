@@ -813,18 +813,21 @@ class PGSCatalogParser(BaseSNPParser):
                 
         if rsid_column:
             orig_rsids = df[rsid_column].fillna("")
-            valid_orig_rsids = (orig_rsids != "") & orig_rsids.notna() & (rsids == "")
+            # Check for empty rsids more carefully - need to handle cases where rsids might have been updated
+            rsids_are_empty = (rsids == "") | rsids.isna()
+            valid_orig_rsids = (orig_rsids != "") & orig_rsids.notna() & rsids_are_empty
             if valid_orig_rsids.any():
                 logger.info(
                     f"Found {valid_orig_rsids.sum()} variants with original rsIDs from column '{rsid_column}'"
                 )
                 rsids.loc[valid_orig_rsids] = orig_rsids.loc[valid_orig_rsids]
                 
-        # Convert empty strings to NaN for proper handling
-        rsids = rsids.replace("", pd.NA)
-        
-        rsids_count = rsids.notna().sum()
+        # Count valid rsIDs before conversion
+        rsids_count = (rsids != "").sum()
         logger.info(f"Successfully extracted {rsids_count} rsIDs from {len(df)} variants")
+        
+        # Convert empty strings to None for proper handling (do this at the very end)
+        rsids = rsids.replace("", None)
         return rsids
 
     def _validate_variant_identifiers(

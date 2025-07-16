@@ -81,7 +81,13 @@ class BaseSNPParser(ABC):
         Raises:
             ValueError: If required columns are missing
         """
-        required_columns = ["rsid", "source", "category"]
+        # Check for required columns - either old format (rsid) or new format (snp)
+        if "snp" in df.columns:
+            # New format: snp is primary identifier, rsid is optional
+            required_columns = ["snp", "source", "category"]
+        else:
+            # Old format: rsid is primary identifier
+            required_columns = ["rsid", "source", "category"]
 
         # Check for required columns
         missing_columns = [col for col in required_columns if col not in df.columns]
@@ -90,13 +96,22 @@ class BaseSNPParser(ABC):
                 f"Missing required columns in parser output: {missing_columns}"
             )
 
-        # Standardize rsid format (ensure they start with 'rs')
         df = df.copy()
-        df["rsid"] = df["rsid"].apply(self._standardize_rsid)
-
-        # Remove any rows with empty rsids
-        df = df.dropna(subset=["rsid"])
-        df = df[df["rsid"].str.strip() != ""]
+        
+        # Handle rsid column if present
+        if "rsid" in df.columns:
+            # Standardize rsid format (ensure they start with 'rs')
+            df["rsid"] = df["rsid"].apply(self._standardize_rsid)
+        
+        # For new format, validate snp column instead of rsid
+        if "snp" in df.columns:
+            # Remove rows with empty snp identifiers
+            df = df.dropna(subset=["snp"])
+            df = df[df["snp"].str.strip() != ""]
+        elif "rsid" in df.columns:
+            # Old format: remove rows with empty rsids
+            df = df.dropna(subset=["rsid"])
+            df = df[df["rsid"].str.strip() != ""]
 
         # Ensure source and category are strings
         df["source"] = df["source"].astype(str)

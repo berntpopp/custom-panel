@@ -668,6 +668,7 @@ def _convert_to_snp_format(
             "hg38_end": variants_df["position"],
             "hg38_strand": 1,
             "hg38_allele_string": allele_strings,
+            "rsid": pd.NA,  # ClinVar SNPs don't have rsIDs, use NA for consistency
             # Only hg38 coordinates are supported
             "clinical_significance": variants_df["clnsig"],
             "gene_symbol": variants_df["gene_symbol"],
