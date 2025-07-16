@@ -123,6 +123,10 @@ class ReportGenerator:
         table_data, available_columns, default_visible = self._prepare_table_data(df)
         chart_data = self._prepare_chart_data(df, source_stats)
 
+        # Prepare gene source data for tabbed display
+        gene_source_data = self._prepare_gene_source_data(table_data, source_stats)
+        gene_source_stats = self._calculate_gene_source_statistics(source_stats, basic_stats["total_genes"])
+
         # Prepare SNP data if available
         snp_stats = {}
         snp_table_data = {}
@@ -141,6 +145,9 @@ class ReportGenerator:
             "chart_data": json.dumps(chart_data),
             "available_columns": json.dumps(available_columns),
             "default_visible": json.dumps(default_visible),
+            # Gene source data
+            "gene_source_data": json.dumps(gene_source_data),
+            "gene_source_stats": gene_source_stats,
             # SNP data
             "has_snp_data": bool(snp_data),
             "snp_stats": snp_stats,
@@ -467,3 +474,67 @@ class ReportGenerator:
             table_data.append(row_data)
 
         return table_data
+
+    def _prepare_gene_source_data(
+        self, table_data: list[dict[str, Any]], source_stats: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """
+        Prepare gene data organized by source for tabbed display.
+        Reuses existing processed table data for efficiency.
+
+        Args:
+            table_data: Already processed gene table data
+            source_stats: List of source statistics from _calculate_source_statistics
+
+        Returns:
+            Dictionary with gene data organized by source
+        """
+        gene_source_data = {}
+        
+        # Add "All Genes" table (reuse existing processed data)
+        gene_source_data["all_genes"] = table_data
+        
+        # Create source-specific gene lists by filtering existing data
+        for source_stat in source_stats:
+            source_name = source_stat["name"]
+            source_key = f"genes_{source_name.lower().replace(' ', '_').replace('-', '_')}"
+            
+            # Filter genes that have this source
+            source_genes = []
+            for gene_record in table_data:
+                gene_sources = gene_record.get("source_names_tooltip", "")
+                if gene_sources and source_name in gene_sources:
+                    source_genes.append(gene_record)
+            
+            # Store source-specific gene data
+            if source_genes:
+                gene_source_data[source_key] = source_genes
+        
+        return gene_source_data
+
+    def _calculate_gene_source_statistics(
+        self, source_stats: list[dict[str, Any]], total_genes: int
+    ) -> dict[str, Any]:
+        """
+        Calculate statistics for gene sources for tab display.
+        Reuses existing source statistics for efficiency.
+
+        Args:
+            source_stats: List of source statistics
+            total_genes: Total number of genes
+
+        Returns:
+            Dictionary with gene source statistics
+        """
+        gene_source_stats = {}
+        
+        # Add "All Genes" count
+        gene_source_stats["all_genes"] = total_genes
+        
+        # Add individual source counts
+        for source_stat in source_stats:
+            source_name = source_stat["name"]
+            source_key = f"genes_{source_name.lower().replace(' ', '_').replace('-', '_')}"
+            gene_source_stats[source_key] = source_stat["gene_count"]
+        
+        return gene_source_stats

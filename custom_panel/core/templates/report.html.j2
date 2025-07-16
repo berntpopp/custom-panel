@@ -252,6 +252,62 @@
             font-size: 14px;
             font-weight: 500;
         }
+        .gene-tabs {
+            margin-bottom: 20px;
+        }
+        .gene-tab-button {
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            font-weight: 500;
+            font-size: 14px;
+            margin-left: 2px;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .gene-tab-button.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        .gene-tab-button:not(.active) {
+            background: #f8f9fa;
+            color: #495057;
+        }
+        .gene-tab-button:not(.active):hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .gene-table-container {
+            display: none;
+        }
+        .gene-table-container.active {
+            display: block;
+        }
+        .multi-source-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 12px;
+            margin-left: 5px;
+            cursor: help;
+            min-width: 16px;
+            text-align: center;
+            line-height: 1.2;
+            box-shadow: 0 1px 3px rgba(23, 162, 184, 0.3);
+        }
+        .multi-source-badge:hover {
+            background: linear-gradient(135deg, #138496, #117a8b);
+            transform: scale(1.05);
+        }
     </style>
     <!-- DataTables CSS -->
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
@@ -379,14 +435,39 @@
                 <h2>Gene Data Table</h2>
                 <p>Interactive table showing all genes with sorting, filtering, and search capabilities. Use the search box to find genes by name, score values, source information, inclusion reasons, or any other field data.</p>
 
+                <!-- Gene Source Tabs -->
+                <div class="gene-tabs">
+                    <div style="border-bottom: 2px solid #e9ecef;">
+                        <div style="display: flex; gap: 0; flex-wrap: wrap;">
+                            <button class="gene-tab-button active" data-table="all_genes">
+                                All Genes ({{ "{:,}".format(gene_source_stats.all_genes) }})
+                            </button>
+                            {% for source in source_stats %}
+                            {% set source_key = "genes_" + source.name.lower().replace(' ', '_').replace('-', '_') %}
+                            {% if gene_source_stats[source_key] %}
+                            <button class="gene-tab-button" data-table="{{ source_key }}">
+                                {{ source.name }} ({{ "{:,}".format(gene_source_stats[source_key]) }})
+                            </button>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Download Controls -->
                 <div class="download-container">
                     <span class="download-section-title">Download:</span>
-                    <button class="download-btn" onclick="downloadGeneTable()">
+                    <button class="download-btn" onclick="downloadAllGenesTable()">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
                         </svg>
-                        Gene Table (Excel)
+                        All Genes (Excel)
+                    </button>
+                    <button class="download-btn" onclick="downloadCurrentGeneSourceTable()">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                        </svg>
+                        Current Tab (Excel)
                     </button>
                 </div>
 
@@ -396,11 +477,10 @@
                     <div id="columnToggles" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
                 </div>
 
-                <table id="geneTable" class="display" style="width:100%">
-                    <thead>
-                        <tr id="tableHeader"></tr>
-                    </thead>
-                </table>
+                <!-- Gene Tables Container -->
+                <div id="geneTablesContainer">
+                    <!-- Tables will be dynamically generated here -->
+                </div>
             </div>
 
             {% if has_snp_data %}
@@ -504,6 +584,12 @@
             var availableColumns = {{ available_columns|safe }};
             var defaultVisible = {{ default_visible|safe }};
 
+            // Gene source data
+            var geneSourceData = {{ gene_source_data|safe }};
+            
+            // Initialize gene source tables
+            initializeGeneSourceTables(geneSourceData, availableColumns, defaultVisible);
+
             {% if has_snp_data %}
             // SNP data
             var snpTableData = {{ snp_table_data|safe }};
@@ -514,9 +600,6 @@
 
             // Create interactive charts
             createCharts(chartData);
-
-            // Initialize table with column toggles
-            initializeTable(geneData, availableColumns, defaultVisible);
         });
 
         function initializeTable(geneData, availableColumns, defaultVisible) {
@@ -739,6 +822,265 @@
             });
 
             return columns;
+        }
+
+        function initializeGeneSourceTables(geneSourceData, availableColumns, defaultVisible) {
+            var geneTables = {};
+            var currentGeneTable = null;
+
+            // Column configuration (reuse from initializeTable)
+            var columnConfig = {
+                'approved_symbol': {
+                    title: 'Gene Symbol',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var hgncId = row.hgnc_id_tooltip || '';
+                            var tooltipText = hgncId ? 'HGNC ID: ' + hgncId : 'No HGNC ID';
+
+                            // Use direct HGNC ID URL if available, otherwise fallback to search
+                            var hgncUrl;
+                            if (hgncId && hgncId.startsWith('HGNC:')) {
+                                hgncUrl = 'https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/' + hgncId;
+                                tooltipText += ' (Click to view gene report)';
+                            } else {
+                                hgncUrl = 'https://www.genenames.org/tools/search/#!/?query=' + encodeURIComponent(data);
+                                tooltipText += ' (Click to search in HGNC)';
+                            }
+
+                            var geneLink = '<a href="' + hgncUrl + '" target="_blank" class="tooltip-cell gene-link" title="' + tooltipText + '">' + data + '</a>';
+                            
+                            // Add multi-source indicator if gene has multiple sources
+                            var sourceCount = row.source_count || 0;
+                            if (sourceCount > 1) {
+                                var sourceNames = row.source_names_tooltip || '';
+                                var multiBadge = '<span class="multi-source-badge" title="Found in ' + sourceCount + ' sources: ' + sourceNames + '">' + sourceCount + '</span>';
+                                geneLink += ' ' + multiBadge;
+                            }
+                            
+                            return geneLink;
+                        }
+                        return data;
+                    }
+                },
+                'hgnc_id': { title: 'HGNC ID' },
+                'gene_size': {
+                    title: 'Gene Size (bp)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'chromosome': { title: 'Chromosome' },
+                'gene_start': {
+                    title: 'Start',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'gene_end': {
+                    title: 'End',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'biotype': { title: 'Biotype' },
+                'gene_description': { title: 'Description' },
+                'canonical_transcript_coverage': {
+                    title: 'Canonical Coverage (bp)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'mane_select_coverage': {
+                    title: 'MANE Select Coverage (bp)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'mane_clinical_coverage': {
+                    title: 'MANE Clinical Coverage (bp)',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null) {
+                            return parseInt(data).toLocaleString();
+                        }
+                        return data;
+                    }
+                },
+                'source_count': {
+                    title: 'Sources',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var sourceNames = row.source_names_tooltip || 'No source details';
+                            return '<span class="tooltip-cell" title="' + sourceNames + '">' + data + '</span>';
+                        }
+                        return data;
+                    }
+                },
+                'score': {
+                    title: 'Score',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data !== null && data !== undefined) {
+                            var scoreClass = data >= 3 ? 'score-high' : data >= 1.5 ? 'score-medium' : 'score-low';
+                            return '<span class="' + scoreClass + '">' + parseFloat(data).toFixed(2) + '</span>';
+                        }
+                        return data;
+                    }
+                },
+                'include': {
+                    title: 'Included',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var includeClass = data ? 'include-yes' : 'include-no';
+                            var includeText = data ? 'Yes' : 'No';
+                            return '<span class="' + includeClass + '">' + includeText + '</span>';
+                        }
+                        return data;
+                    }
+                },
+                'veto_reasons': {
+                    title: 'Veto Reasons',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data) {
+                            return '<span class="tooltip-cell" title="' + data + '" style="color: #e83e8c; font-weight: 500;">Veto Applied</span>';
+                        }
+                        return data || '';
+                    }
+                },
+                'inclusion_reason': {
+                    title: 'Inclusion Reason',
+                    render: function(data, type, row) {
+                        if (type === 'display') {
+                            var reasonClass = '';
+                            var displayText = '';
+                            if (data === 'veto') {
+                                reasonClass = 'style="color: #e83e8c; font-weight: 500;"';
+                                displayText = 'Veto Override';
+                            } else if (data === 'threshold+veto') {
+                                reasonClass = 'style="color: #6f42c1; font-weight: 500;"';
+                                displayText = 'Threshold + Veto';
+                            } else {
+                                reasonClass = 'style="color: #28a745;"';
+                                displayText = 'Score Threshold';
+                            }
+                            return '<span ' + reasonClass + '>' + displayText + '</span>';
+                        }
+                        return data;
+                    }
+                }
+            };
+
+            // Create tables for each gene source
+            Object.keys(geneSourceData).forEach(function(tableKey) {
+                var tableData = geneSourceData[tableKey];
+                if (tableData && tableData.length > 0) {
+                    var tableId = 'geneTable_' + tableKey;
+                    var containerDiv = '<div id="' + tableId + '_container" class="gene-table-container">' +
+                                      '<table id="' + tableId + '" class="display" style="width:100%"><thead><tr></tr></thead></table>' +
+                                      '</div>';
+                    $('#geneTablesContainer').append(containerDiv);
+
+                    // Build columns
+                    var columns = buildColumns(availableColumns, defaultVisible, columnConfig);
+
+                    // Initialize DataTable
+                    var table = $('#' + tableId).DataTable({
+                        data: tableData,
+                        columns: columns,
+                        pageLength: 25,
+                        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+                        order: [[columns.findIndex(col => col.data === 'score'), 'desc']],
+                        responsive: true,
+                        autoWidth: false,
+                        scrollX: true,
+                        processing: true,
+                        language: {
+                            processing: "Loading gene data...",
+                            search: "Search genes:",
+                            searchPlaceholder: "Gene names, scores, sources, reasons, etc.",
+                            lengthMenu: "Show _MENU_ genes per page",
+                            info: "Showing _START_ to _END_ of _TOTAL_ genes",
+                            infoEmpty: "Showing 0 to 0 of 0 genes",
+                            infoFiltered: "(filtered from _MAX_ total genes)",
+                            paginate: {
+                                first: "First",
+                                last: "Last",
+                                next: "Next",
+                                previous: "Previous"
+                            }
+                        }
+                    });
+
+                    geneTables[tableKey] = table;
+                }
+            });
+
+            // Show first table by default
+            var firstTableKey = Object.keys(geneSourceData)[0];
+            if (firstTableKey) {
+                showGeneTable(firstTableKey, geneTables);
+                currentGeneTable = firstTableKey;
+                window.currentGeneTable = firstTableKey;
+            }
+
+            // Tab click handlers
+            $('.gene-tab-button').on('click', function() {
+                var tableKey = $(this).data('table');
+                
+                // Update tab styling
+                $('.gene-tab-button').removeClass('active');
+                $(this).addClass('active');
+
+                // Show corresponding table
+                showGeneTable(tableKey, geneTables);
+                currentGeneTable = tableKey;
+                window.currentGeneTable = tableKey;
+            });
+
+            // Add toggle event listeners for each table
+            availableColumns.forEach(function(col) {
+                $('#toggle_' + col).on('change', function() {
+                    var isVisible = this.checked;
+                    // Apply column visibility to all gene tables
+                    Object.keys(geneTables).forEach(function(tableKey) {
+                        var table = geneTables[tableKey];
+                        var column = table.column(col + ':name');
+                        column.visible(isVisible);
+                    });
+                });
+            });
+
+            function showGeneTable(tableKey, tables) {
+                // Hide all tables
+                $('.gene-table-container').removeClass('active');
+                
+                // Show selected table
+                var tableId = 'geneTable_' + tableKey;
+                $('#' + tableId + '_container').addClass('active');
+                
+                // Redraw table to fix column sizing
+                if (tables[tableKey]) {
+                    tables[tableKey].columns.adjust().draw();
+                }
+            }
+
+            // Store current gene table for downloads
+            window.currentGeneTable = currentGeneTable;
+            window.geneTables = geneTables;
+            window.geneSourceData = geneSourceData;
         }
 
         function createCharts(data) {
@@ -1082,21 +1424,34 @@
         {% endif %}
 
         // Excel Download Functions
-        function downloadGeneTable() {
-            var table = $('#geneTable').DataTable();
-            var data = table.rows({search: 'applied'}).data().toArray();
-            var headers = table.columns().header().toArray().map(function(th) {
-                return $(th).text();
-            });
+        function downloadAllGenesTable() {
+            var geneData = window.geneSourceData.all_genes;
+            exportGeneDataToExcel(geneData, 'all_genes');
+        }
 
+        function downloadCurrentGeneSourceTable() {
+            var currentTable = window.currentGeneTable;
+            var geneData = window.geneSourceData[currentTable];
+            exportGeneDataToExcel(geneData, currentTable);
+        }
+
+        function exportGeneDataToExcel(data, tableType) {
+            if (!data || data.length === 0) {
+                alert('No gene data available to export.');
+                return;
+            }
+
+            // Get headers from first row
+            var headers = Object.keys(data[0]);
+            
             // Create workbook
             var wb = XLSX.utils.book_new();
             var ws_data = [headers];
             
             // Add data rows
             data.forEach(function(row) {
-                var rowData = headers.map(function(header, index) {
-                    var value = row[table.column(index).dataSrc()];
+                var rowData = headers.map(function(header) {
+                    var value = row[header];
                     // Clean up HTML and format for Excel
                     if (typeof value === 'string') {
                         value = value.replace(/<[^>]*>/g, ''); // Remove HTML tags
@@ -1125,11 +1480,11 @@
             }
             ws['!cols'] = colWidths;
 
-            XLSX.utils.book_append_sheet(wb, ws, "Gene Panel");
+            XLSX.utils.book_append_sheet(wb, ws, tableType.replace('_', ' ').toUpperCase());
             
             // Generate filename with current date
             var date = new Date();
-            var filename = 'gene_panel_' + date.toISOString().split('T')[0] + '.xlsx';
+            var filename = 'gene_data_' + tableType + '_' + date.toISOString().split('T')[0] + '.xlsx';
             
             XLSX.writeFile(wb, filename);
         }
