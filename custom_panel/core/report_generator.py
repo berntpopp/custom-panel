@@ -126,6 +126,10 @@ class ReportGenerator:
         # Prepare gene source data for tabbed display
         gene_source_data = self._prepare_gene_source_data(table_data, source_stats)
         gene_source_stats = self._calculate_gene_source_statistics(source_stats, basic_stats["total_genes"])
+        
+        # Add panel genes count for second tab
+        panel_genes_count = len([gene for gene in table_data if gene.get("include") == True])
+        gene_source_stats["panel_genes"] = panel_genes_count
 
         # Prepare SNP data if available
         snp_stats = {}
@@ -493,6 +497,15 @@ class ReportGenerator:
         
         # Add "All Genes" table (reuse existing processed data)
         gene_source_data["all_genes"] = table_data
+        
+        # Add "Panel Genes" table (only included genes - second tab)
+        panel_genes = []
+        for gene_record in table_data:
+            if gene_record.get("include") == True:  # Only genes marked for inclusion
+                panel_genes.append(gene_record)
+        
+        if panel_genes:
+            gene_source_data["panel_genes"] = panel_genes
         
         # Create source-specific gene lists by filtering existing data
         for source_stat in source_stats:

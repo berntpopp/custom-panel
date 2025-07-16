@@ -283,6 +283,27 @@
             transform: translateY(-1px);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+        .gene-tab-button.panel-tab {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            font-weight: 600;
+        }
+        .gene-tab-button.panel-tab:not(.active) {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            opacity: 0.8;
+        }
+        .gene-tab-button.panel-tab:not(.active):hover {
+            background: linear-gradient(135deg, #218838, #1fa187);
+            opacity: 1;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+        }
+        .gene-tab-button.panel-tab.active {
+            background: linear-gradient(135deg, #218838, #1fa187);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
+        }
         .gene-table-container {
             display: none;
         }
@@ -442,6 +463,11 @@
                             <button class="gene-tab-button active" data-table="all_genes">
                                 All Genes ({{ "{:,}".format(gene_source_stats.all_genes) }})
                             </button>
+                            {% if gene_source_stats.panel_genes %}
+                            <button class="gene-tab-button panel-tab" data-table="panel_genes">
+                                Panel Genes ({{ "{:,}".format(gene_source_stats.panel_genes) }})
+                            </button>
+                            {% endif %}
                             {% for source in source_stats %}
                             {% set source_key = "genes_" + source.name.lower().replace(' ', '_').replace('-', '_') %}
                             {% if gene_source_stats[source_key] %}
