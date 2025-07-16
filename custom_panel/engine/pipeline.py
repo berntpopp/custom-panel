@@ -639,12 +639,13 @@ class Pipeline:
             # Also pass the ensembl_client for exon coordinate fetching and harmonizer
             ensembl_client = getattr(self.annotator, "ensembl_client", None)
 
-            # Use centralized harmonizer for ClinVar processing
+            # Use centralized harmonizer for ClinVar processing and pass transcript_data
             clinvar_snps = fetch_clinvar_snps(
                 self.config_manager.to_dict(),
                 gene_panel=annotated_df,
                 ensembl_client=ensembl_client,
                 harmonizer=self.snp_harmonizer,
+                transcript_data=self.transcript_data,
             )
 
             if clinvar_snps is not None and not clinvar_snps.empty:

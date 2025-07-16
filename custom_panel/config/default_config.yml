@@ -730,8 +730,10 @@ snp_processing:
   deep_intronic_clinvar:
     enabled: true
     # ClinVar VCF download URL (automatically downloaded if vcf_path not provided)
+    # Note: tabix index (.tbi) is automatically downloaded alongside VCF for optimized access
     vcf_url: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz"
     # ClinVar VCF file path (optional - will auto-download if not provided)
+    # Note: if using local file, ensure corresponding .tbi index file exists
     vcf_path: null # Optional: set in config.local.yml to use local file
     cache_dir: ".cache/clinvar"
     cache_expiry_days: 30
