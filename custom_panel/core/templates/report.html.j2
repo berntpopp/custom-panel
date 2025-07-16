@@ -861,13 +861,32 @@
             // SNP column configuration
             var snpColumnConfig = {
                 'snp': {
-                    title: 'SNP ID',
+                    title: 'VCF ID',
                     render: function(data, type, row) {
-                        if (type === 'display') {
+                        if (type === 'display' && data) {
+                            // Parse chr:pos:ref:alt format for gnomAD URL
+                            var parts = data.split(':');
+                            if (parts.length >= 4) {
+                                var chr = parts[0];
+                                var pos = parts[1];
+                                var ref = parts[2];
+                                var alt = parts[3];
+                                var gnomadId = chr + '-' + pos + '-' + ref + '-' + alt;
+                                var url = 'https://gnomad.broadinstitute.org/variant/' + gnomadId + '?dataset=gnomad_r4';
+                                return '<a href="' + url + '" target="_blank" class="gene-link" title="View variant in gnomAD">' + data + '</a>';
+                            }
+                        }
+                        return data;
+                    }
+                },
+                'rsid': {
+                    title: 'rsID',
+                    render: function(data, type, row) {
+                        if (type === 'display' && data && data !== '') {
                             var url = 'https://www.ncbi.nlm.nih.gov/snp/' + data;
                             return '<a href="' + url + '" target="_blank" class="gene-link" title="View SNP in dbSNP">' + data + '</a>';
                         }
-                        return data;
+                        return data || '';
                     }
                 },
                 'source': { title: 'Source' },

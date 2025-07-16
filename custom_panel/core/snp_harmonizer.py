@@ -102,8 +102,12 @@ class SNPHarmonizer:
         except Exception as e:
             logger.error(f"❌ Failed to batch resolve coordinates: {e}")
 
-        # Step 3: Add coordinates to SNP data
+        # Step 3: Add coordinates to SNP data and generate VCF format IDs
         result_df = snp_df.copy()
+        
+        # Preserve original rsIDs in rsid column if not already present
+        if "rsid" not in result_df.columns:
+            result_df["rsid"] = result_df["snp"].apply(lambda x: x if str(x).startswith("rs") else pd.NA)
 
         for idx, row in result_df.iterrows():
             snp_id = row.get("snp", "")
@@ -115,6 +119,25 @@ class SNPHarmonizer:
                 result_df.at[idx, "hg38_end"] = coords.get("end")
                 result_df.at[idx, "hg38_strand"] = coords.get("strand")
                 result_df.at[idx, "hg38_allele_string"] = coords.get("allele_string")
+                
+                # Generate VCF format ID (chr:pos:ref:alt) when coordinates are available
+                chromosome = coords.get("chromosome")
+                start = coords.get("start")
+                allele_string = coords.get("allele_string")
+                
+                if chromosome and start and allele_string:
+                    # Parse allele string (format: "ref/alt" or "ref/alt1/alt2")
+                    alleles = allele_string.split("/")
+                    if len(alleles) >= 2:
+                        ref_allele = alleles[0]
+                        alt_allele = alleles[1]  # Use first alt allele
+                        vcf_id = f"{chromosome}:{start}:{ref_allele}:{alt_allele}"
+                        result_df.at[idx, "snp"] = vcf_id
+                        logger.debug(f"Generated VCF ID: {vcf_id} for rsID: {snp_id}")
+                
+                # Ensure rsid column contains the original rsID
+                if str(snp_id).startswith("rs"):
+                    result_df.at[idx, "rsid"] = snp_id
 
         self.stats["total_processed"] = len(snp_df)
 
