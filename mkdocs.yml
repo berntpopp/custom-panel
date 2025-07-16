@@ -78,6 +78,8 @@ nav:
       - 'COSMIC Setup': 'user_guide/cosmic_setup.md'
       - 'OMIM / HPO Setup': 'user_guide/omim_setup.md'
     - 'HTML Reports': 'user_guide/html_reports.md'
+    - 'SNP Functionality': 'user_guide/snp_functionality.md'
+  - 'Troubleshooting': 'troubleshooting.md'
   - 'API Reference':
     - 'CLI Interface': 'api/cli.md'
     - 'Core Components':

@@ -257,7 +257,7 @@ If you encounter issues with HTML reports:
 
 1. Check the log files in your output directory
 2. Review the [troubleshooting guide](../troubleshooting.md)
-3. Consult the [API documentation](../api/) for technical details
+3. Consult the [API documentation](../api/cli.md) for technical details
 4. Report issues on the project GitHub repository
 
 ## Best Practices
