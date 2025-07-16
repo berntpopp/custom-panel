@@ -1,6 +1,5 @@
 """Tests for utility functions."""
 
-
 import pytest
 
 from custom_panel.core.utils import get_source_group_from_config, normalize_count

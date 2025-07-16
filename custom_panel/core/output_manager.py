@@ -259,9 +259,11 @@ class OutputManager:
         metadata = {
             "source_statistics": source_stats,
             "total_records": len(data),
-            "unique_genes": data["approved_symbol"].nunique()
-            if "approved_symbol" in data.columns
-            else 0,
+            "unique_genes": (
+                data["approved_symbol"].nunique()
+                if "approved_symbol" in data.columns
+                else 0
+            ),
         }
 
         return self.save_intermediate_data(

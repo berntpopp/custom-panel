@@ -394,9 +394,9 @@ class PanelMerger:
 
         summary = {
             "total_genes": len(df),
-            "genes_with_inclusion": df["include"].sum()
-            if "include" in df.columns
-            else 0,
+            "genes_with_inclusion": (
+                df["include"].sum() if "include" in df.columns else 0
+            ),
         }
 
         # Score distributions

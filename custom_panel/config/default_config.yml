@@ -623,21 +623,15 @@ snp_processing:
   # SNP harmonization settings
   harmonization:
     enabled: true
-    gnomad_api:
-      base_url: "https://gnomad.broadinstitute.org/api"
-      rate_limit: 5  # requests per second
+    ensembl_api:
       timeout: 30
-      retry_attempts: 3
+      max_retries: 3
+      retry_delay: 1.0
+    ensembl_batch_size: 25
     caching:
       enabled: true
-      cache_dir: ".cache/gnomad"
+      cache_dir: ".cache/ensembl"
       ttl_days: 30
-    rsid_resolution:
-      enabled: true
-      fallback_to_coordinates: true
-    coordinate_lifting:
-      enabled: true
-      validate_liftover: true
 
   # --- Identity SNPs ---
   # These are simple rsID lists used for sample tracking and identification.

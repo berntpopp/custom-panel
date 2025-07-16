@@ -596,8 +596,8 @@ class TestGeneAnnotatorEdgeCases:
             "FAKEGEN1": "FAKEGEN1",  # Not found, returns original
             "FAKEGEN2": "FAKEGEN2",  # Not found, returns original
         }
-        mock_hgnc.symbol_to_hgnc_id.side_effect = (
-            lambda x: "HGNC:123" if x == "REALGEN1" else None
+        mock_hgnc.symbol_to_hgnc_id.side_effect = lambda x: (
+            "HGNC:123" if x == "REALGEN1" else None
         )
         mock_hgnc.standardize_symbol.side_effect = lambda x: x  # Return original symbol
         mock_hgnc_client.return_value = mock_hgnc

@@ -268,9 +268,11 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
                 detail_parts = [
                     f"Confidence:{confidence}",
                     f"MOI:{mode_of_inheritance}" if mode_of_inheritance else "",
-                    f"Phenotypes:{';'.join(phenotype_names)}"
-                    if phenotype_names
-                    else "",
+                    (
+                        f"Phenotypes:{';'.join(phenotype_names)}"
+                        if phenotype_names
+                        else ""
+                    ),
                     f"PMIDs:{';'.join(publication_ids)}" if publication_ids else "",
                 ]
 

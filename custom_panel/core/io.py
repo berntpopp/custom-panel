@@ -283,9 +283,9 @@ def create_bed_file(
             "chromEnd": df["gene_end"].astype(int),
             "name": df["approved_symbol"],
             "score": 1000,  # Default score
-            "strand": df["gene_strand"].fillna("+")
-            if "gene_strand" in df.columns
-            else "+",
+            "strand": (
+                df["gene_strand"].fillna("+") if "gene_strand" in df.columns else "+"
+            ),
         }
     )
 

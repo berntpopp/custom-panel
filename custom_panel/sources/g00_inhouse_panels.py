@@ -375,9 +375,11 @@ def get_inhouse_panel_summary(config: dict[str, Any]) -> dict[str, Any]:
             "file_path": panel_config.get("file_path", ""),
             "gene_column": panel_config.get("gene_column", ""),
             "evidence_score": panel_config.get("evidence_score", 1.0),
-            "file_exists": Path(panel_config.get("file_path", "")).exists()
-            if panel_config.get("file_path")
-            else False,
+            "file_exists": (
+                Path(panel_config.get("file_path", "")).exists()
+                if panel_config.get("file_path")
+                else False
+            ),
             "validation_errors": validate_inhouse_panel_config(panel_config),
         }
         summary["panels"].append(panel_summary)

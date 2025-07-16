@@ -198,9 +198,11 @@ class ReportGenerator:
                 gene_count = len(source_gene_counts[source])
                 source_stats[source] = {
                     "gene_count": gene_count,
-                    "percentage": round((gene_count / total_genes) * 100, 1)
-                    if total_genes > 0
-                    else 0,
+                    "percentage": (
+                        round((gene_count / total_genes) * 100, 1)
+                        if total_genes > 0
+                        else 0
+                    ),
                 }
 
         # Sort sources by gene count and return top 12
@@ -402,9 +404,11 @@ class ReportGenerator:
             "snp_types": len(snp_type_counts),
             "snp_type_counts": snp_type_counts,
             "annotated_snps": annotated_snps,
-            "annotation_rate": f"{(annotated_snps / total_snps * 100):.1f}%"
-            if total_snps > 0
-            else "0.0%",
+            "annotation_rate": (
+                f"{(annotated_snps / total_snps * 100):.1f}%"
+                if total_snps > 0
+                else "0.0%"
+            ),
         }
 
     def _prepare_snp_table_data(

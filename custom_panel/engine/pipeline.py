@@ -5,11 +5,10 @@ This module provides the main Pipeline class that encapsulates the entire
 data processing workflow from fetching sources to annotation with better
 modularization and use of DRY principles.
 
-The pipeline features a centralized SNP harmonization workflow that:
+The pipeline features a simple, centralized SNP harmonization workflow that:
 - Fetches raw SNP data from all sources
-- Performs batch harmonization for efficiency
-- Optimizes coordinate resolution using Ensembl batch API
-- Uses gnomAD liftover only as a fallback for missing builds
+- Performs batch coordinate resolution for hg38 using Ensembl API
+- Eliminates complex dual-build logic for improved efficiency
 """
 
 import logging
@@ -22,7 +21,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from ..core.config_manager import ConfigManager
 from ..core.ensembl_client import EnsemblClient
-from ..core.gnomad_client import GnomADClient
 from ..core.output_manager import OutputManager
 from ..core.snp_harmonizer import SNPHarmonizer
 from ..core.utils import normalize_count
@@ -77,23 +75,10 @@ class Pipeline:
                 self._initialize_snp_harmonizer(harmonization_config)
 
     def _initialize_snp_harmonizer(self, harmonization_config: dict[str, Any]) -> None:
-        """Initialize SNP harmonizer with configured clients."""
+        """Initialize simplified SNP harmonizer with Ensembl client only."""
         try:
-            logger.info("Initializing centralized SNP harmonization system...")
-
-            # Initialize gnomAD client
-            gnomad_config = harmonization_config.get("gnomad_api", {})
-            cache_config = harmonization_config.get("caching", {})
-
-            gnomad_client = GnomADClient(
-                base_url=gnomad_config.get(
-                    "base_url", "https://gnomad.broadinstitute.org/api"
-                ),
-                rate_limit=gnomad_config.get("rate_limit", 5),
-                timeout=gnomad_config.get("timeout", 30),
-                retry_attempts=gnomad_config.get("retry_attempts", 3),
-                cache_dir=cache_config.get("cache_dir", ".cache/gnomad"),
-                cache_ttl_days=cache_config.get("ttl_days", 30),
+            logger.info(
+                "Initializing simplified SNP harmonization system (hg38 only)..."
             )
 
             # Initialize Ensembl client for batch variation API
@@ -104,11 +89,9 @@ class Pipeline:
                 retry_delay=ensembl_config.get("retry_delay", 1.0),
             )
 
-            # Initialize harmonizer
-            self.snp_harmonizer = SNPHarmonizer(
-                gnomad_client, ensembl_client, harmonization_config
-            )
-            logger.info("Centralized SNP harmonization system initialized successfully")
+            # Initialize simplified harmonizer
+            self.snp_harmonizer = SNPHarmonizer(ensembl_client, harmonization_config)
+            logger.info("Simplified SNP harmonization system initialized successfully")
 
         except Exception as e:
             logger.error(f"Failed to initialize SNP harmonization system: {e}")
@@ -510,10 +493,9 @@ class Pipeline:
         4. Splits harmonized data back into type-specific datasets
         5. Saves processed data for each SNP type
 
-        Benefits of centralized approach:
+        Benefits of simplified approach:
         - Reduces redundant API calls through batch processing
-        - Optimizes coordinate resolution using Ensembl batch endpoint
-        - Uses gnomAD liftover only as fallback for missing genome builds
+        - Simple hg38-only coordinate resolution using Ensembl batch API
         - Ensures consistent harmonization across all SNP sources
         """
         snp_config = self.config_manager.to_dict().get("snp_processing", {})

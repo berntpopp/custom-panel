@@ -303,9 +303,11 @@ def _generate_snp_bed_files(
                 "chromEnd": pd.to_numeric(
                     bed_data_clean["hg38_end"], errors="coerce"
                 ).astype(int),
-                "name": bed_data_clean["snp"]
-                if "snp" in bed_data_clean.columns
-                else bed_data_clean.index,
+                "name": (
+                    bed_data_clean["snp"]
+                    if "snp" in bed_data_clean.columns
+                    else bed_data_clean.index
+                ),
                 "score": 1000,  # Default score
                 "strand": ".",  # Unknown strand for SNPs
             }
