@@ -677,22 +677,6 @@ snp_processing:
   prs:
     enabled: true
     panels:
-      - name: "BCAC_313_PRS"
-        # The URL is ephemeral. We will assume the user downloads it.
-        file_path: "data/snp/prs/BCAC_313_PRS.prs"
-        parser: "bcac_313_prs"
-        # Genome build for coordinates (BCAC uses hg19/GRCh37)
-        genome_build: "hg19"
-        # Column mappings for the actual BCAC format
-        chr_column: "Chromosome"
-        pos_column: "Position"
-        ref_allele_column: "Reference_Allele"
-        effect_allele_column: "Effect_Allele"
-        effect_freq_column: "Effect_Allele_Frequency"
-        log_odds_ratio_column: "Log_Odds_Ratio"
-        # Note: For complete functionality, coordinate liftover from hg19 to hg38
-        # would be needed. This can be implemented using pyliftover or similar tools.
-
       # --- PGS Catalog API-based fetching (recommended) ---
       # Automatically fetch and parse PGS scores from PGS Catalog API
       - name: "PGS_Catalog_Clinical_Panel"

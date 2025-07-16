@@ -8,18 +8,7 @@ multi-genome build coordinate systems and complex metadata structures.
 
 The PRS parsing system supports multiple data sources and formats:
 
-### 1. BCAC 313 Parser (BCAC313Parser)
-- **Source**: Breast Cancer Association Consortium 313-variant PRS
-- **Format**: CSV with header containing alpha value
-- **Genome Build**: hg19/GRCh37 by default
-- **Coordinates**: Original coordinates from file, with optional Ensembl API enhancement
-- **Enhancement**: Can obtain hg38 coordinates and rsIDs via Ensembl REST API
-- **Features**:
-  - Supports alpha value extraction from header
-  - Creates chr:pos:ref:alt identifiers when rsIDs unavailable
-  - Rate-limited Ensembl API calls for coordinate conversion
-
-### 2. PGS Catalog Parser (PGSCatalogParser)
+### 1. PGS Catalog Parser (PGSCatalogParser)
 - **Source**: PGS Catalog harmonized scoring files
 - **Format**: Tab-separated with extensive header metadata
 - **Genome Builds**: Supports both hg19/GRCh37 and hg38/GRCh38
@@ -31,7 +20,7 @@ The PRS parsing system supports multiple data sources and formats:
   - Multi-strategy variant identifier creation
   - Robust handling of missing rsID fields
 
-### 3. PGS Catalog Fetcher (PGSCatalogFetcher)
+### 2. PGS Catalog Fetcher (PGSCatalogFetcher)
 - **Source**: PGS Catalog API with automatic download
 - **Caching**: Local file caching with configurable TTL
 - **Multi-build Support**: Downloads both hg19 and hg38 versions when available
@@ -119,310 +108,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
-from ..core.ensembl_variant_client import EnsemblVariantClient
 from ..core.pgs_catalog_client import PGSCatalogClient
 from .base_snp_parser import BaseSNPParser
 
 logger = logging.getLogger(__name__)
-
-
-class BCAC313Parser(BaseSNPParser):
-    """
-    Parser for BCAC 313 PRS files.
-
-    This parser handles the specific format used by BCAC 313 PRS files:
-    - Header line with alpha value
-    - CSV with columns: Chromosome,Position,Reference_Allele,Effect_Allele,Effect_Allele_Frequency,Log_Odds_Ratio
-    - No rsID column - variants identified by chr:pos:ref:alt
-    - Coordinates are in hg19/GRCh37
-    """
-
-    def parse(self) -> pd.DataFrame:
-        """
-        Parse a BCAC 313 PRS CSV file.
-
-        Returns:
-            DataFrame with columns: rsid, source, category, plus PRS metadata
-        """
-        self.validate_file_exists()
-
-        logger.info(f"Parsing BCAC 313 PRS file: {self.file_path}")
-
-        # Get column mappings from config
-        chr_column = self.config.get("chr_column", "Chromosome")
-        pos_column = self.config.get("pos_column", "Position")
-        ref_allele_column = self.config.get("ref_allele_column", "Reference_Allele")
-        effect_allele_column = self.config.get("effect_allele_column", "Effect_Allele")
-        effect_freq_column = self.config.get(
-            "effect_freq_column", "Effect_Allele_Frequency"
-        )
-        log_odds_ratio_column = self.config.get(
-            "log_odds_ratio_column", "Log_Odds_Ratio"
-        )
-        genome_build = self.config.get("genome_build", "hg19")
-
-        try:
-            # Read file content and handle header
-            with open(self.file_path) as f:
-                first_line = f.readline().strip()
-
-            # Check if first line contains alpha value
-            alpha_value = None
-            skip_rows = 0
-            if "alpha" in first_line.lower():
-                alpha_value = self._extract_alpha_value(first_line)
-                skip_rows = 1
-                logger.info(f"Found alpha value: {alpha_value}")
-
-            # Read CSV file, skipping header line if present
-            df = pd.read_csv(self.file_path, skiprows=skip_rows)
-
-            # Check for required columns
-            required_columns = [
-                chr_column,
-                pos_column,
-                ref_allele_column,
-                effect_allele_column,
-            ]
-            missing_columns = [col for col in required_columns if col not in df.columns]
-            if missing_columns:
-                raise ValueError(
-                    f"Required columns {missing_columns} not found. Available columns: {list(df.columns)}"
-                )
-
-            # Remove rows with missing data in key columns
-            df = df.dropna(subset=required_columns)
-
-            if df.empty:
-                logger.warning(f"No valid variants found in {self.file_path}")
-                return pd.DataFrame(columns=["rsid", "source", "category"])
-
-            # Create variant identifiers (chr:pos:ref:alt format)
-            variant_ids = (
-                df[chr_column].astype(str)
-                + ":"
-                + df[pos_column].astype(str)
-                + ":"
-                + df[ref_allele_column].astype(str)
-                + ":"
-                + df[effect_allele_column].astype(str)
-            )
-
-            # Create base DataFrame with required columns
-            result_df = pd.DataFrame(
-                {
-                    "snp": variant_ids,  # Using chr:pos:ref:alt as identifier
-                    "rsid": variant_ids,  # Duplicate for compatibility
-                    "source": self.name,
-                    "category": "prs",
-                    "chromosome": df[chr_column].astype(str),
-                    "position": df[pos_column].astype(int),
-                    "reference_allele": df[ref_allele_column].astype(str),
-                    "effect_allele": df[effect_allele_column].astype(str),
-                    "genome_build": genome_build,
-                }
-            )
-
-            # Add standardized coordinate columns for pipeline compatibility
-            if genome_build.lower() in ["hg19", "grch37"]:
-                # hg19 coordinates
-                result_df["hg19_chromosome"] = df[chr_column].astype(str)
-                result_df["hg19_chr"] = df[chr_column].astype(str)
-                result_df["hg19_start"] = df[pos_column].astype(int)
-                result_df["hg19_pos"] = df[pos_column].astype(int)
-                result_df["hg19_end"] = df[pos_column].astype(
-                    int
-                )  # SNVs have same start/end
-                result_df["hg19_strand"] = 1  # Default positive strand
-                result_df["hg19_allele_string"] = (
-                    df[ref_allele_column].astype(str)
-                    + "/"
-                    + df[effect_allele_column].astype(str)
-                )
-
-                # Empty hg38 columns (will need liftover for complete annotation)
-                result_df["hg38_chromosome"] = ""
-                result_df["hg38_chr"] = ""
-                result_df["hg38_start"] = ""
-                result_df["hg38_pos"] = ""
-                result_df["hg38_end"] = ""
-                result_df["hg38_strand"] = ""
-                result_df["hg38_allele_string"] = ""
-            else:
-                # hg38 coordinates (if ever needed)
-                result_df["hg38_chromosome"] = df[chr_column].astype(str)
-                result_df["hg38_chr"] = df[chr_column].astype(str)
-                result_df["hg38_start"] = df[pos_column].astype(int)
-                result_df["hg38_pos"] = df[pos_column].astype(int)
-                result_df["hg38_end"] = df[pos_column].astype(int)
-                result_df["hg38_strand"] = 1
-                result_df["hg38_allele_string"] = (
-                    df[ref_allele_column].astype(str)
-                    + "/"
-                    + df[effect_allele_column].astype(str)
-                )
-
-                # Empty hg19 columns
-                result_df["hg19_chromosome"] = ""
-                result_df["hg19_chr"] = ""
-                result_df["hg19_start"] = ""
-                result_df["hg19_pos"] = ""
-                result_df["hg19_end"] = ""
-                result_df["hg19_strand"] = ""
-                result_df["hg19_allele_string"] = ""
-
-            # Add optional PRS metadata columns if available
-            if effect_freq_column in df.columns:
-                result_df["effect_allele_frequency"] = pd.to_numeric(
-                    df[effect_freq_column], errors="coerce"
-                )
-
-            if log_odds_ratio_column in df.columns:
-                result_df["log_odds_ratio"] = pd.to_numeric(
-                    df[log_odds_ratio_column], errors="coerce"
-                )
-                # Convert log OR to OR
-                result_df["odds_ratio"] = result_df["log_odds_ratio"].apply(
-                    lambda x: np.exp(x) if pd.notna(x) else x
-                )
-
-            # Add alpha value if found
-            if alpha_value is not None:
-                result_df["alpha"] = alpha_value
-
-            logger.info(
-                f"Successfully parsed {len(result_df)} PRS variants from {self.file_path}"
-            )
-
-            # Enhance with Ensembl API if enabled
-            enhance_with_ensembl = self.config.get("enhance_with_ensembl", True)
-            if enhance_with_ensembl and genome_build.lower() in ["hg19", "grch37"]:
-                logger.info(
-                    "Enhancing BCAC variants with Ensembl API (hg19→hg38 conversion + rsID lookup)"
-                )
-                result_df = self._enhance_with_ensembl_api(result_df)
-
-            # Validate and standardize output
-            return self.validate_output_format(result_df)
-
-        except Exception as e:
-            logger.error(f"Error parsing BCAC 313 PRS file {self.file_path}: {e}")
-            raise ValueError(f"Failed to parse BCAC 313 PRS file: {e}") from e
-
-    def _extract_alpha_value(self, header_line: str) -> float | None:
-        """
-        Extract alpha value from header line.
-
-        Args:
-            header_line: First line of the file that may contain alpha value
-
-        Returns:
-            Alpha value as float or None if not found
-        """
-        import re
-
-        # Look for alpha = value pattern
-        match = re.search(r"alpha\s*=\s*([0-9.]+)", header_line, re.IGNORECASE)
-        if match:
-            try:
-                return float(match.group(1))
-            except ValueError:
-                logger.warning(f"Could not parse alpha value: {match.group(1)}")
-
-        return None
-
-    def _enhance_with_ensembl_api(self, result_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Enhance BCAC variants with Ensembl API for coordinate conversion and rsID lookup.
-
-        Args:
-            result_df: DataFrame with BCAC variants
-
-        Returns:
-            Enhanced DataFrame with hg38 coordinates and rsIDs
-        """
-        try:
-            # Initialize Ensembl client
-            ensembl_client = EnsemblVariantClient(
-                cache_enabled=True, rate_limit_delay=0.1
-            )
-
-            # Prepare variants for enhancement
-            variants_to_enhance = []
-            for _, row in result_df.iterrows():
-                if pd.notna(row.get("hg19_chromosome")) and pd.notna(
-                    row.get("hg19_start")
-                ):
-                    variant = {
-                        "chromosome": row["hg19_chromosome"],
-                        "position": row["hg19_start"],
-                        "ref": row.get("reference_allele", ""),
-                        "alt": row.get("effect_allele", ""),
-                        "original_index": row.name,
-                    }
-                    variants_to_enhance.append(variant)
-
-            if not variants_to_enhance:
-                logger.warning("No valid hg19 coordinates found for enhancement")
-                return result_df
-
-            logger.info(
-                f"Enhancing {len(variants_to_enhance)} variants with Ensembl API"
-            )
-
-            # Convert coordinates from hg19 to hg38
-            enhanced_variants = ensembl_client.convert_coordinates(
-                variants_to_enhance, source_assembly="GRCh37", target_assembly="GRCh38"
-            )
-
-            # Lookup rsIDs
-            enhanced_variants = ensembl_client.lookup_rsids(enhanced_variants)
-
-            # Update the result DataFrame with enhanced data
-            for enhanced in enhanced_variants:
-                idx = enhanced.get("original_index")
-                if idx is not None and idx in result_df.index:
-                    # Update hg38 coordinates
-                    if "grch38_chromosome" in enhanced:
-                        result_df.at[idx, "hg38_chromosome"] = enhanced[
-                            "grch38_chromosome"
-                        ]
-                        result_df.at[idx, "hg38_chr"] = enhanced["grch38_chromosome"]
-                    if "grch38_position" in enhanced:
-                        result_df.at[idx, "hg38_start"] = enhanced["grch38_position"]
-                        result_df.at[idx, "hg38_pos"] = enhanced["grch38_position"]
-                        result_df.at[idx, "hg38_end"] = enhanced[
-                            "grch38_position"
-                        ]  # SNVs have same start/end
-
-                    # Update rsID if found
-                    if "rsid" in enhanced and enhanced["rsid"]:
-                        result_df.at[idx, "snp"] = enhanced["rsid"]
-                        result_df.at[idx, "rsid"] = enhanced["rsid"]
-
-                    # Set other hg38 metadata
-                    result_df.at[idx, "hg38_strand"] = 1
-                    if enhanced.get("ref") and enhanced.get("alt"):
-                        result_df.at[
-                            idx, "hg38_allele_string"
-                        ] = f"{enhanced['ref']}/{enhanced['alt']}"
-
-            # Count successful enhancements
-            hg38_coords_added = result_df["hg38_chromosome"].notna().sum()
-            rsids_added = result_df["snp"].str.startswith("rs", na=False).sum()
-
-            logger.info(f"✓ Added hg38 coordinates for {hg38_coords_added} variants")
-            logger.info(f"✓ Added rsIDs for {rsids_added} variants")
-
-            return result_df
-
-        except Exception as e:
-            logger.warning(f"Ensembl API enhancement failed: {e}")
-            logger.info("Continuing with original BCAC data")
-            return result_df
 
 
 class BCACParser(BaseSNPParser):
@@ -430,7 +121,7 @@ class BCACParser(BaseSNPParser):
     Legacy parser for BCAC (Breast Cancer Association Consortium) PRS files.
 
     This parser handles older BCAC formats with rsID columns.
-    For new BCAC 313 format, use BCAC313Parser instead.
+    Note: For modern PRS processing, use PGS Catalog fetcher instead.
     """
 
     def parse(self) -> pd.DataFrame:
@@ -1272,9 +963,7 @@ def create_prs_parser(file_path: Path, config: dict[str, Any]) -> BaseSNPParser:
     """
     parser_type = config.get("parser", "bcac_prs")
 
-    if parser_type == "bcac_313_prs":
-        return BCAC313Parser(file_path, config)
-    elif parser_type == "bcac_prs":
+    if parser_type == "bcac_prs":
         return BCACParser(file_path, config)
     elif parser_type == "generic_prs":
         return GenericPRSParser(file_path, config)

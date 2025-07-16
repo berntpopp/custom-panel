@@ -13,9 +13,9 @@ snp_processing:
   prs:
     enabled: true
     sources:
-      - name: "BCAC_313_PRS"
-        parser: "bcac_313"
-        file_path: "data/snp/prs/BCAC_313_PRS.prs"
+      - name: "PGS_Catalog_Clinical_Panel"
+        parser: "pgs_catalog_fetcher"
+        pgs_ids: ["PGS000004", "PGS000005", "PGS000006"]
         enhance_with_ensembl: true
       - name: "PGS_Catalog_Breast_Cancer"
         parser: "pgs_catalog_fetcher"

@@ -338,7 +338,9 @@ def _get_clinvar_vcf_with_index(
             logger.info(f"Using provided ClinVar VCF file: {vcf_path}")
             return vcf_file, tbi_file
         else:
-            logger.warning(f"Provided ClinVar VCF or index file not found or corrupted: {vcf_path}")
+            logger.warning(
+                f"Provided ClinVar VCF or index file not found or corrupted: {vcf_path}"
+            )
 
     # Download ClinVar VCF and index if not provided or not found
     vcf_url = config.get("vcf_url")
@@ -361,7 +363,9 @@ def _get_clinvar_vcf_with_index(
         if _validate_vcf_file(downloaded_vcf, downloaded_tbi):
             return downloaded_vcf, downloaded_tbi
         else:
-            logger.warning("Downloaded ClinVar files are corrupted, removing cache and retrying...")
+            logger.warning(
+                "Downloaded ClinVar files are corrupted, removing cache and retrying..."
+            )
             # Remove corrupted files
             if downloaded_vcf.exists():
                 downloaded_vcf.unlink()
@@ -369,10 +373,18 @@ def _get_clinvar_vcf_with_index(
                 downloaded_tbi.unlink()
 
             # Retry download once
-            downloaded_vcf = _download_clinvar_vcf(vcf_url, cache_dir, cache_expiry_days)
-            downloaded_tbi = _download_clinvar_index(vcf_url, cache_dir, cache_expiry_days)
+            downloaded_vcf = _download_clinvar_vcf(
+                vcf_url, cache_dir, cache_expiry_days
+            )
+            downloaded_tbi = _download_clinvar_index(
+                vcf_url, cache_dir, cache_expiry_days
+            )
 
-            if downloaded_vcf and downloaded_tbi and _validate_vcf_file(downloaded_vcf, downloaded_tbi):
+            if (
+                downloaded_vcf
+                and downloaded_tbi
+                and _validate_vcf_file(downloaded_vcf, downloaded_tbi)
+            ):
                 return downloaded_vcf, downloaded_tbi
 
     return None, None
