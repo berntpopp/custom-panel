@@ -588,13 +588,13 @@ class Pipeline:
     def _apply_genomic_targeting_flags(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Apply genomic targeting flags to the annotated gene DataFrame.
-        
+
         This method adds a 'genomic_targeting' column to indicate which genes
         are marked for complete genomic targeting based on external configuration.
-        
+
         Args:
             df: Annotated DataFrame with gene data
-            
+
         Returns:
             DataFrame with genomic_targeting column added
         """

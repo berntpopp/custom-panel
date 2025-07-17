@@ -466,8 +466,8 @@ class ConfigManager:
             File path string for genomic targeting flags
         """
         return self.get_nested(
-            "genomic_targeting", 
-            "file_path", 
+            "genomic_targeting",
+            "file_path",
             default="data/manual/genomic_targeting_flags.xlsx"
         )
 

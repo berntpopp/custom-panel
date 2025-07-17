@@ -40,7 +40,7 @@ def fetch_genomic_targeting_flags(config: dict[str, Any]) -> dict[str, bool]:
         return {}
 
     file_path = Path(file_path)
-    
+
     # Handle missing file gracefully
     allow_missing_file = targeting_config.get("allow_missing_file", True)
     if not file_path.exists():
@@ -84,7 +84,7 @@ def process_targeting_file(
 
     # Read file based on extension
     file_extension = file_path.suffix.lower()
-    
+
     try:
         if file_extension in [".xlsx", ".xls"]:
             df = pd.read_excel(file_path)
@@ -100,36 +100,36 @@ def process_targeting_file(
             return {}
 
     except Exception as e:
-        raise ValueError(f"Error reading genomic targeting file: {e}")
+        raise ValueError(f"Error reading genomic targeting file: {e}") from e
 
     # Validate required columns
     if gene_column not in df.columns:
         raise ValueError(f"Gene column '{gene_column}' not found in targeting file")
-    
+
     if targeting_column not in df.columns:
         raise ValueError(f"Targeting column '{targeting_column}' not found in targeting file")
 
     # Clean and process the data
     df = df.dropna(subset=[gene_column, targeting_column])
-    
+
     if df.empty:
         logger.warning("No valid data found in genomic targeting file after cleanup")
         return {}
 
     # Convert gene symbols to strings and strip whitespace
     df[gene_column] = df[gene_column].astype(str).str.strip()
-    
+
     # Convert targeting values to boolean
     targeting_flags = {}
-    
+
     for _, row in df.iterrows():
         gene_symbol = row[gene_column]
         targeting_value = row[targeting_column]
-        
+
         # Skip empty gene symbols
         if not gene_symbol or gene_symbol.lower() in ["", "nan", "none"]:
             continue
-        
+
         # Convert targeting value to boolean
         targeting_bool = convert_to_boolean(targeting_value, default_value)
         targeting_flags[gene_symbol] = targeting_bool
@@ -158,13 +158,13 @@ def convert_to_boolean(value: Any, default: bool = False) -> bool:
     """
     if pd.isna(value):
         return default
-    
+
     if isinstance(value, bool):
         return value
-    
-    if isinstance(value, (int, float)):
+
+    if isinstance(value, int | float):
         return bool(value)
-    
+
     if isinstance(value, str):
         value_lower = value.lower().strip()
         if value_lower in ["true", "yes", "1", "y", "t"]:
@@ -174,7 +174,7 @@ def convert_to_boolean(value: Any, default: bool = False) -> bool:
         else:
             logger.warning(f"Unrecognized targeting value '{value}', using default: {default}")
             return default
-    
+
     logger.warning(f"Cannot convert targeting value '{value}' to boolean, using default: {default}")
     return default
 
@@ -207,7 +207,7 @@ def apply_genomic_targeting_flags(
 
     # Fetch targeting flags
     targeting_flags = fetch_genomic_targeting_flags(config)
-    
+
     # Get default value from config
     config_manager = ConfigManager(config)
     default_value = config_manager.get_nested(
@@ -217,10 +217,10 @@ def apply_genomic_targeting_flags(
     # Apply targeting flags
     df_with_targeting = df.copy()
     targeting_values = []
-    
+
     genes_found = 0
     genes_not_found = 0
-    
+
     for gene_symbol in df_with_targeting["approved_symbol"]:
         if pd.isna(gene_symbol) or not gene_symbol:
             targeting_values.append(default_value)

@@ -135,7 +135,7 @@ class ReportGenerator:
 
         # Add panel genes count for second tab
         panel_genes_count = len(
-            [gene for gene in table_data if gene.get("include") == True]
+            [gene for gene in table_data if gene.get("include") is True]
         )
         gene_source_stats["panel_genes"] = panel_genes_count
 
@@ -635,7 +635,7 @@ class ReportGenerator:
         # Add "Panel Genes" table (only included genes - second tab)
         panel_genes = []
         for gene_record in table_data:
-            if gene_record.get("include") == True:  # Only genes marked for inclusion
+            if gene_record.get("include") is True:  # Only genes marked for inclusion
                 panel_genes.append(gene_record)
 
         if panel_genes:
