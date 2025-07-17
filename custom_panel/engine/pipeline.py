@@ -36,6 +36,7 @@ from ..sources.g04_cosmic_germline import fetch_cosmic_germline_data
 from ..sources.g05_clingen import fetch_clingen_data
 from ..sources.g06_gencc import fetch_gencc_data
 from ..sources.g07_regions import fetch_regions_data
+from ..sources.genomic_targeting import apply_genomic_targeting_flags
 from ..sources_snp.clinvar_snps import fetch_clinvar_snps
 from ..sources_snp.ethnicity_snps import fetch_ethnicity_snps
 from ..sources_snp.identity_snps import fetch_identity_snps
@@ -572,6 +573,9 @@ class Pipeline:
         """Annotate the master DataFrame and save intermediate data."""
         annotated_df = self.annotator.annotate_genes(master_df)
 
+        # Apply genomic targeting flags as a post-annotation enhancement
+        annotated_df = self._apply_genomic_targeting_flags(annotated_df)
+
         # Store transcript data for later use in output generation
         self.transcript_data = getattr(self.annotator, "transcript_data", {})
 
@@ -580,6 +584,48 @@ class Pipeline:
         self.output_manager.save_annotated_data(annotated_df, annotation_summary)
 
         return annotated_df
+
+    def _apply_genomic_targeting_flags(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply genomic targeting flags to the annotated gene DataFrame.
+        
+        This method adds a 'genomic_targeting' column to indicate which genes
+        are marked for complete genomic targeting based on external configuration.
+        
+        Args:
+            df: Annotated DataFrame with gene data
+            
+        Returns:
+            DataFrame with genomic_targeting column added
+        """
+        if self.config_manager.is_genomic_targeting_enabled():
+            logger.info("Applying genomic targeting flags...")
+            try:
+                df_with_targeting = apply_genomic_targeting_flags(
+                    df, self.config_manager.to_dict()
+                )
+                # Log summary of targeting flags applied
+                if "genomic_targeting" in df_with_targeting.columns:
+                    targeting_count = df_with_targeting["genomic_targeting"].sum()
+                    total_genes = len(df_with_targeting)
+                    logger.info(
+                        f"Genomic targeting flags applied: {targeting_count}/{total_genes} genes marked for targeting"
+                    )
+                    console.print(
+                        f"[green]Applied genomic targeting flags: {targeting_count}/{total_genes} genes marked for targeting[/green]"
+                    )
+                return df_with_targeting
+            except Exception as e:
+                logger.error(f"Error applying genomic targeting flags: {e}")
+                console.print(f"[red]Error applying genomic targeting flags: {e}[/red]")
+                # Add default targeting column on error
+                df["genomic_targeting"] = self.config_manager.get_genomic_targeting_default_value()
+                return df
+        else:
+            logger.info("Genomic targeting flags are disabled, skipping")
+            # Add default targeting column when disabled
+            df["genomic_targeting"] = self.config_manager.get_genomic_targeting_default_value()
+            return df
 
     def _process_snps(self) -> None:
         """

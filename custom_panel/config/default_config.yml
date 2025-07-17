@@ -770,3 +770,28 @@ regions_processing:
   stripy_regions:
     enabled: true
     file_path: "data/regions/stripy_variant_catalog.json"
+
+#=======================================================
+# GENOMIC TARGETING CONFIGURATION
+#=======================================================
+# Configuration for marking genes for complete genomic targeting
+genomic_targeting:
+  # Master switch to enable or disable genomic targeting flags
+  enabled: false  # Disabled by default - enable in local config as needed
+  
+  # Path to the genomic targeting file
+  file_path: "data/manual/genomic_targeting_flags.xlsx"
+  
+  # Column names in the targeting file
+  gene_column: "gene_symbol"      # Column containing gene symbols (should match HGNC approved symbols)
+  targeting_column: "targeting"   # Column containing targeting flags (yes/no, true/false, 1/0)
+  
+  # Default value for genes not found in the targeting file
+  default_value: false           # Use false (no targeting) as default
+  
+  # Error handling and validation
+  allow_missing_file: true       # Don't fail if targeting file is missing
+  validate_gene_symbols: false   # Whether to validate gene symbols against HGNC (optional)
+  
+  # Note: The targeting flag will be added as a 'genomic_targeting' column to the final gene panel
+  # and will appear in all output formats (Excel, CSV, Parquet, HTML reports)

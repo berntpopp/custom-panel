@@ -286,6 +286,7 @@ class ReportGenerator:
             "mane_clinical_coverage",
             "score",
             "include",
+            "genomic_targeting",
             "source_count",
             "veto_reasons",
             "inclusion_reason",
@@ -297,6 +298,7 @@ class ReportGenerator:
             "mane_select_coverage",
             "score",
             "include",
+            "genomic_targeting",
             "source_count",
             "inclusion_reason",
         ]

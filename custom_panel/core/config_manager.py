@@ -440,6 +440,82 @@ class ConfigManager:
                 result[key] = value
         return result
 
+    def get_genomic_targeting_config(self) -> dict[str, Any]:
+        """
+        Get genomic targeting configuration section.
+
+        Returns:
+            Genomic targeting configuration dictionary
+        """
+        return self.get_nested("genomic_targeting", default={})
+
+    def is_genomic_targeting_enabled(self) -> bool:
+        """
+        Check if genomic targeting flags are enabled.
+
+        Returns:
+            True if genomic targeting is enabled
+        """
+        return self.get_nested("genomic_targeting", "enabled", default=False)
+
+    def get_genomic_targeting_file_path(self) -> str:
+        """
+        Get genomic targeting file path.
+
+        Returns:
+            File path string for genomic targeting flags
+        """
+        return self.get_nested(
+            "genomic_targeting", 
+            "file_path", 
+            default="data/manual/genomic_targeting_flags.xlsx"
+        )
+
+    def get_genomic_targeting_gene_column(self) -> str:
+        """
+        Get column name for gene symbols in targeting file.
+
+        Returns:
+            Column name string for gene symbols
+        """
+        return self.get_nested("genomic_targeting", "gene_column", default="gene_symbol")
+
+    def get_genomic_targeting_column(self) -> str:
+        """
+        Get column name for targeting flags in targeting file.
+
+        Returns:
+            Column name string for targeting flags
+        """
+        return self.get_nested("genomic_targeting", "targeting_column", default="targeting")
+
+    def get_genomic_targeting_default_value(self) -> bool:
+        """
+        Get default value for genes not found in targeting file.
+
+        Returns:
+            Default targeting flag value (boolean)
+        """
+        return self.get_nested("genomic_targeting", "default_value", default=False)
+
+    def is_genomic_targeting_missing_file_allowed(self) -> bool:
+        """
+        Check if missing targeting file is allowed.
+
+        Returns:
+            True if missing targeting file should not cause failure
+        """
+        return self.get_nested("genomic_targeting", "allow_missing_file", default=True)
+
+    def is_genomic_targeting_validation_enabled(self) -> bool:
+        """
+        Check if gene symbol validation is enabled for targeting file.
+
+        Returns:
+            True if gene symbols should be validated against HGNC
+        """
+        return self.get_nested("genomic_targeting", "validate_gene_symbols", default=False)
+
     def to_dict(self) -> dict[str, Any]:
         """
         Get the full configuration as a dictionary.
