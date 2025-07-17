@@ -233,37 +233,53 @@ class Pipeline:
         aggregation_rules = {
             # Core identification - take first non-null value
             "rsid": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-
             # Source information - merge all sources
             "source": lambda x: "; ".join(sorted(x.dropna().unique())),
             "category": lambda x: "; ".join(sorted(x.dropna().unique())),
             "snp_type": lambda x: "; ".join(sorted(x.dropna().unique())),
-
             # Coordinate information - take first valid coordinate
-            "hg38_chromosome": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-            "hg38_start": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "hg38_chromosome": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
+            "hg38_start": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
             "hg38_end": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-            "hg38_strand": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-
+            "hg38_strand": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
             # Allele information - take first valid allele
-            "ref_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-            "alt_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-            "effect_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-            "other_allele": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-
+            "ref_allele": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
+            "alt_allele": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
+            "effect_allele": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
+            "other_allele": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
             # Metadata - take first valid value or merge as appropriate
-            "effect_weight": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "effect_weight": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
             "pgs_id": lambda x: "; ".join(sorted(x.dropna().unique())),
             "pgs_name": lambda x: "; ".join(sorted(x.dropna().unique())),
             "trait": lambda x: "; ".join(sorted(x.dropna().unique())),
             "pmid": lambda x: "; ".join(sorted(x.dropna().unique())),
             "gene": lambda x: "; ".join(sorted(x.dropna().unique())),
             "gene_id": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
-            "variant_id": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "variant_id": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
             "clinical_significance": lambda x: "; ".join(sorted(x.dropna().unique())),
             "review_status": lambda x: "; ".join(sorted(x.dropna().unique())),
             "consequence": lambda x: "; ".join(sorted(x.dropna().unique())),
-            "distance_to_exon": lambda x: x.dropna().iloc[0] if not x.dropna().empty else None,
+            "distance_to_exon": lambda x: x.dropna().iloc[0]
+            if not x.dropna().empty
+            else None,
             "panel_name": lambda x: "; ".join(sorted(x.dropna().unique())),
             "panel_description": lambda x: "; ".join(sorted(x.dropna().unique())),
         }
@@ -296,7 +312,9 @@ class Pipeline:
                 f"{final_count} unique variants from {initial_count} total entries[/yellow]"
             )
         else:
-            logger.info(f"No duplicate SNPs found in pipeline - {final_count} unique variants")
+            logger.info(
+                f"No duplicate SNPs found in pipeline - {final_count} unique variants"
+            )
 
         return deduplicated_df
 
@@ -619,12 +637,16 @@ class Pipeline:
                 logger.error(f"Error applying genomic targeting flags: {e}")
                 console.print(f"[red]Error applying genomic targeting flags: {e}[/red]")
                 # Add default targeting column on error
-                df["genomic_targeting"] = self.config_manager.get_genomic_targeting_default_value()
+                df[
+                    "genomic_targeting"
+                ] = self.config_manager.get_genomic_targeting_default_value()
                 return df
         else:
             logger.info("Genomic targeting flags are disabled, skipping")
             # Add default targeting column when disabled
-            df["genomic_targeting"] = self.config_manager.get_genomic_targeting_default_value()
+            df[
+                "genomic_targeting"
+            ] = self.config_manager.get_genomic_targeting_default_value()
             return df
 
     def _process_snps(self) -> None:
@@ -810,13 +832,17 @@ class Pipeline:
 
                 # Remove the temporary snp_type column
                 if "snp_type" in deduplicated_clinvar.columns:
-                    deduplicated_clinvar = deduplicated_clinvar.drop(columns=["snp_type"])
+                    deduplicated_clinvar = deduplicated_clinvar.drop(
+                        columns=["snp_type"]
+                    )
 
                 # Store deduplicated ClinVar SNP data
                 self.snp_data["deep_intronic_clinvar"] = deduplicated_clinvar
 
                 # Save deduplicated ClinVar SNP data
-                self.output_manager.save_snp_data(deduplicated_clinvar, "deep_intronic_clinvar")
+                self.output_manager.save_snp_data(
+                    deduplicated_clinvar, "deep_intronic_clinvar"
+                )
 
                 console.print(
                     f"[green]✓ Deep intronic ClinVar: {len(deduplicated_clinvar)} SNPs[/green]"

@@ -120,11 +120,21 @@ class ConfigManager:
                 "output", "bed_files", "exons", "enabled", default=False
             )
         # Support for new master BED file types
-        if bed_type in ["complete_panel", "complete_panel_exons", "complete_panel_genes", "genes_all", "genes_included", "snps_all", "regions_all"]:
+        if bed_type in [
+            "complete_panel",
+            "complete_panel_exons",
+            "complete_panel_genes",
+            "genes_all",
+            "genes_included",
+            "snps_all",
+            "regions_all",
+        ]:
             return self.get_nested("output", "bed_files", bed_type, default=False)
         # Support for individual category files
         if bed_type == "individual_categories":
-            return self.get_nested("output", "bed_files", "individual_categories", default=True)
+            return self.get_nested(
+                "output", "bed_files", "individual_categories", default=True
+            )
         return self.get_nested("output", "bed_files", bed_type, default=False)
 
     def get_bed_padding(self) -> int:
@@ -468,7 +478,7 @@ class ConfigManager:
         return self.get_nested(
             "genomic_targeting",
             "file_path",
-            default="data/manual/genomic_targeting_flags.xlsx"
+            default="data/manual/genomic_targeting_flags.xlsx",
         )
 
     def get_genomic_targeting_gene_column(self) -> str:
@@ -478,7 +488,9 @@ class ConfigManager:
         Returns:
             Column name string for gene symbols
         """
-        return self.get_nested("genomic_targeting", "gene_column", default="gene_symbol")
+        return self.get_nested(
+            "genomic_targeting", "gene_column", default="gene_symbol"
+        )
 
     def get_genomic_targeting_column(self) -> str:
         """
@@ -487,7 +499,9 @@ class ConfigManager:
         Returns:
             Column name string for targeting flags
         """
-        return self.get_nested("genomic_targeting", "targeting_column", default="targeting")
+        return self.get_nested(
+            "genomic_targeting", "targeting_column", default="targeting"
+        )
 
     def get_genomic_targeting_default_value(self) -> bool:
         """
@@ -514,7 +528,9 @@ class ConfigManager:
         Returns:
             True if gene symbols should be validated against HGNC
         """
-        return self.get_nested("genomic_targeting", "validate_gene_symbols", default=False)
+        return self.get_nested(
+            "genomic_targeting", "validate_gene_symbols", default=False
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """

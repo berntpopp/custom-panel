@@ -570,4 +570,3 @@ class TestHTMLReportIntegration:
         assert table_data[0]["genomic_targeting"] == 1.0  # True -> 1.0
         assert table_data[1]["genomic_targeting"] == 1.0  # True -> 1.0
         assert table_data[2]["genomic_targeting"] == 0.0  # False -> 0.0
-

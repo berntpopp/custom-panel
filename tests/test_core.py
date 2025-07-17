@@ -744,16 +744,18 @@ class TestSNPDeduplication:
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
 
         # Create test data with duplicate VCF IDs from different sources
-        df = pd.DataFrame({
-            "snp": ["19:11091630:G:T", "19:11091630:G:T", "rs123456"],
-            "rsid": [pd.NA, "rs6511720", "rs123456"],
-            "source": ["PGS_Catalog", "Manual_SNPs", "Identity_SNPs"],
-            "category": ["prs", "manual", "identity"],
-            "snp_type": ["prs", "manual_snps", "identity"],
-            "hg38_chromosome": ["19", "19", "1"],
-            "hg38_start": [11091630, 11091630, 1000000],
-            "hg38_end": [11091630, 11091630, 1000000],
-        })
+        df = pd.DataFrame(
+            {
+                "snp": ["19:11091630:G:T", "19:11091630:G:T", "rs123456"],
+                "rsid": [pd.NA, "rs6511720", "rs123456"],
+                "source": ["PGS_Catalog", "Manual_SNPs", "Identity_SNPs"],
+                "category": ["prs", "manual", "identity"],
+                "snp_type": ["prs", "manual_snps", "identity"],
+                "hg38_chromosome": ["19", "19", "1"],
+                "hg38_start": [11091630, 11091630, 1000000],
+                "hg38_end": [11091630, 11091630, 1000000],
+            }
+        )
 
         result = _deduplicate_snps(df)
 
@@ -763,7 +765,9 @@ class TestSNPDeduplication:
         # Check the deduplicated entry for 19:11091630:G:T
         dup_entry = result[result["snp"] == "19:11091630:G:T"].iloc[0]
         assert dup_entry["rsid"] == "rs6511720"  # Should take first non-null rsID
-        assert dup_entry["source"] == "Manual_SNPs; PGS_Catalog"  # Sources merged and sorted
+        assert (
+            dup_entry["source"] == "Manual_SNPs; PGS_Catalog"
+        )  # Sources merged and sorted
         assert dup_entry["category"] == "manual; prs"  # Categories merged and sorted
         assert dup_entry["snp_type"] == "manual_snps; prs"  # Types merged and sorted
         assert dup_entry["source_count"] == 2  # Two sources
@@ -783,13 +787,15 @@ class TestSNPDeduplication:
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
 
         # Create test data with no duplicates
-        df = pd.DataFrame({
-            "snp": ["19:11091630:G:T", "rs123456", "1:1000000:A:G"],
-            "rsid": ["rs6511720", "rs123456", "rs789012"],
-            "source": ["PGS_Catalog", "Manual_SNPs", "Identity_SNPs"],
-            "category": ["prs", "manual", "identity"],
-            "snp_type": ["prs", "manual_snps", "identity"],
-        })
+        df = pd.DataFrame(
+            {
+                "snp": ["19:11091630:G:T", "rs123456", "1:1000000:A:G"],
+                "rsid": ["rs6511720", "rs123456", "rs789012"],
+                "source": ["PGS_Catalog", "Manual_SNPs", "Identity_SNPs"],
+                "category": ["prs", "manual", "identity"],
+                "snp_type": ["prs", "manual_snps", "identity"],
+            }
+        )
 
         result = _deduplicate_snps(df)
 
@@ -820,10 +826,12 @@ class TestSNPDeduplication:
         pipeline = Pipeline({"output": {"directory": "/tmp"}})
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
 
-        df = pd.DataFrame({
-            "rsid": ["rs123456", "rs789012"],
-            "source": ["Source1", "Source2"],
-        })
+        df = pd.DataFrame(
+            {
+                "rsid": ["rs123456", "rs789012"],
+                "source": ["Source1", "Source2"],
+            }
+        )
 
         result = _deduplicate_snps(df)
 
@@ -840,20 +848,22 @@ class TestSNPDeduplication:
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
 
         # Create test data with various metadata columns
-        df = pd.DataFrame({
-            "snp": ["19:11091630:G:T", "19:11091630:G:T", "19:11091630:G:T"],
-            "rsid": [pd.NA, "rs6511720", pd.NA],
-            "source": ["PGS_Catalog_Clinical", "Manual_SNPs", "PGS_Catalog_Other"],
-            "category": ["prs", "manual", "prs"],
-            "snp_type": ["prs", "manual_snps", "prs"],
-            "pgs_id": ["PGS000765", pd.NA, "PGS000066"],
-            "pgs_name": ["Breast Cancer PRS", pd.NA, "Prostate Cancer PRS"],
-            "trait": ["breast_cancer", "pharmacogenomics", "prostate_cancer"],
-            "effect_weight": [0.5, pd.NA, 0.3],
-            "effect_allele": ["T", "T", "T"],
-            "hg38_chromosome": ["19", "19", "19"],
-            "hg38_start": [11091630, 11091630, 11091630],
-        })
+        df = pd.DataFrame(
+            {
+                "snp": ["19:11091630:G:T", "19:11091630:G:T", "19:11091630:G:T"],
+                "rsid": [pd.NA, "rs6511720", pd.NA],
+                "source": ["PGS_Catalog_Clinical", "Manual_SNPs", "PGS_Catalog_Other"],
+                "category": ["prs", "manual", "prs"],
+                "snp_type": ["prs", "manual_snps", "prs"],
+                "pgs_id": ["PGS000765", pd.NA, "PGS000066"],
+                "pgs_name": ["Breast Cancer PRS", pd.NA, "Prostate Cancer PRS"],
+                "trait": ["breast_cancer", "pharmacogenomics", "prostate_cancer"],
+                "effect_weight": [0.5, pd.NA, 0.3],
+                "effect_allele": ["T", "T", "T"],
+                "hg38_chromosome": ["19", "19", "19"],
+                "hg38_start": [11091630, 11091630, 11091630],
+            }
+        )
 
         result = _deduplicate_snps(df)
 
@@ -863,11 +873,17 @@ class TestSNPDeduplication:
         entry = result.iloc[0]
         assert entry["snp"] == "19:11091630:G:T"
         assert entry["rsid"] == "rs6511720"  # First non-null value
-        assert entry["source"] == "Manual_SNPs; PGS_Catalog_Clinical; PGS_Catalog_Other"  # Sorted
+        assert (
+            entry["source"] == "Manual_SNPs; PGS_Catalog_Clinical; PGS_Catalog_Other"
+        )  # Sorted
         assert entry["category"] == "manual; prs"  # Unique categories sorted
         assert entry["pgs_id"] == "PGS000066; PGS000765"  # Merged PGS IDs sorted
-        assert entry["pgs_name"] == "Breast Cancer PRS; Prostate Cancer PRS"  # Merged names sorted
-        assert entry["trait"] == "breast_cancer; pharmacogenomics; prostate_cancer"  # Sorted
+        assert (
+            entry["pgs_name"] == "Breast Cancer PRS; Prostate Cancer PRS"
+        )  # Merged names sorted
+        assert (
+            entry["trait"] == "breast_cancer; pharmacogenomics; prostate_cancer"
+        )  # Sorted
         assert entry["effect_weight"] == 0.5  # First non-null value
         assert entry["effect_allele"] == "T"  # First non-null value
         assert entry["source_count"] == 3
@@ -881,13 +897,15 @@ class TestSNPDeduplication:
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
 
         # Create test data where rsID appears in different positions
-        df = pd.DataFrame({
-            "snp": ["19:11091630:G:T", "19:11091630:G:T", "19:11091630:G:T"],
-            "rsid": [pd.NA, "rs6511720", "rs9999999"],  # Different rsIDs
-            "source": ["Source1", "Source2", "Source3"],
-            "category": ["cat1", "cat2", "cat3"],
-            "snp_type": ["type1", "type2", "type3"],
-        })
+        df = pd.DataFrame(
+            {
+                "snp": ["19:11091630:G:T", "19:11091630:G:T", "19:11091630:G:T"],
+                "rsid": [pd.NA, "rs6511720", "rs9999999"],  # Different rsIDs
+                "source": ["Source1", "Source2", "Source3"],
+                "category": ["cat1", "cat2", "cat3"],
+                "snp_type": ["type1", "type2", "type3"],
+            }
+        )
 
         result = _deduplicate_snps(df)
 
@@ -904,19 +922,21 @@ class TestSNPDeduplication:
         _deduplicate_snps = pipeline._deduplicate_snps_in_pipeline
 
         # Create test data with coordinate information
-        df = pd.DataFrame({
-            "snp": ["19:11091630:G:T", "19:11091630:G:T"],
-            "rsid": [pd.NA, "rs6511720"],
-            "source": ["Source1", "Source2"],
-            "category": ["cat1", "cat2"],
-            "snp_type": ["type1", "type2"],
-            "hg38_chromosome": ["19", "19"],
-            "hg38_start": [11091630, 11091630],
-            "hg38_end": [11091630, 11091630],
-            "hg38_strand": ["+", "+"],
-            "ref_allele": ["G", "G"],
-            "alt_allele": ["T", "T"],
-        })
+        df = pd.DataFrame(
+            {
+                "snp": ["19:11091630:G:T", "19:11091630:G:T"],
+                "rsid": [pd.NA, "rs6511720"],
+                "source": ["Source1", "Source2"],
+                "category": ["cat1", "cat2"],
+                "snp_type": ["type1", "type2"],
+                "hg38_chromosome": ["19", "19"],
+                "hg38_start": [11091630, 11091630],
+                "hg38_end": [11091630, 11091630],
+                "hg38_strand": ["+", "+"],
+                "ref_allele": ["G", "G"],
+                "alt_allele": ["T", "T"],
+            }
+        )
 
         result = _deduplicate_snps(df)
 
@@ -1004,18 +1024,22 @@ class TestNewBEDFileGeneration:
 
         # Create test SNP data
         snp_data = {
-            "identity": pd.DataFrame({
-                "snp": ["rs1234", "rs5678"],
-                "hg38_chromosome": ["1", "2"],
-                "hg38_start": [1000, 2000],
-                "hg38_end": [1000, 2000],
-            }),
-            "ethnicity": pd.DataFrame({
-                "snp": ["rs9876", "rs5432"],
-                "hg38_chromosome": ["3", "4"],
-                "hg38_start": [3000, 4000],
-                "hg38_end": [3000, 4000],
-            }),
+            "identity": pd.DataFrame(
+                {
+                    "snp": ["rs1234", "rs5678"],
+                    "hg38_chromosome": ["1", "2"],
+                    "hg38_start": [1000, 2000],
+                    "hg38_end": [1000, 2000],
+                }
+            ),
+            "ethnicity": pd.DataFrame(
+                {
+                    "snp": ["rs9876", "rs5432"],
+                    "hg38_chromosome": ["3", "4"],
+                    "hg38_start": [3000, 4000],
+                    "hg38_end": [3000, 4000],
+                }
+            ),
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1041,18 +1065,22 @@ class TestNewBEDFileGeneration:
 
         # Create test regions data
         regions_data = {
-            "manual": pd.DataFrame({
-                "region_name": ["region1", "region2"],
-                "chromosome": ["chr1", "chr2"],
-                "start": [1000, 2000],
-                "end": [2000, 3000],
-            }),
-            "stripy": pd.DataFrame({
-                "region_name": ["region3", "region4"],
-                "chromosome": ["chr3", "chr4"],
-                "start": [3000, 4000],
-                "end": [4000, 5000],
-            }),
+            "manual": pd.DataFrame(
+                {
+                    "region_name": ["region1", "region2"],
+                    "chromosome": ["chr1", "chr2"],
+                    "start": [1000, 2000],
+                    "end": [2000, 3000],
+                }
+            ),
+            "stripy": pd.DataFrame(
+                {
+                    "region_name": ["region3", "region4"],
+                    "chromosome": ["chr3", "chr4"],
+                    "start": [3000, 4000],
+                    "end": [4000, 5000],
+                }
+            ),
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1090,22 +1118,26 @@ class TestNewBEDFileGeneration:
 
         # Create test SNP data
         snp_data = {
-            "identity": pd.DataFrame({
-                "snp": ["rs1234"],
-                "hg38_chromosome": ["1"],
-                "hg38_start": [1000],
-                "hg38_end": [1000],
-            }),
+            "identity": pd.DataFrame(
+                {
+                    "snp": ["rs1234"],
+                    "hg38_chromosome": ["1"],
+                    "hg38_start": [1000],
+                    "hg38_end": [1000],
+                }
+            ),
         }
 
         # Create test regions data
         regions_data = {
-            "manual": pd.DataFrame({
-                "region_name": ["region1"],
-                "chromosome": ["chr1"],
-                "start": [2000],
-                "end": [3000],
-            }),
+            "manual": pd.DataFrame(
+                {
+                    "region_name": ["region1"],
+                    "chromosome": ["chr1"],
+                    "start": [2000],
+                    "end": [3000],
+                }
+            ),
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1259,9 +1291,21 @@ class TestNewBEDFileGeneration:
                     {
                         "id": "ENST00000357654",
                         "Exon": [
-                            {"seq_region_name": "17", "start": 43044295, "end": 43044395, "strand": 1, "rank": 1},
-                            {"seq_region_name": "17", "start": 43045000, "end": 43045100, "strand": 1, "rank": 2},
-                        ]
+                            {
+                                "seq_region_name": "17",
+                                "start": 43044295,
+                                "end": 43044395,
+                                "strand": 1,
+                                "rank": 1,
+                            },
+                            {
+                                "seq_region_name": "17",
+                                "start": 43045000,
+                                "end": 43045100,
+                                "strand": 1,
+                                "rank": 2,
+                            },
+                        ],
                     }
                 ]
             }
@@ -1269,27 +1313,33 @@ class TestNewBEDFileGeneration:
 
         # Create test SNP data
         snp_data = {
-            "identity": pd.DataFrame({
-                "snp": ["rs1234"],
-                "hg38_chromosome": ["1"],
-                "hg38_start": [1000],
-                "hg38_end": [1000],
-            }),
+            "identity": pd.DataFrame(
+                {
+                    "snp": ["rs1234"],
+                    "hg38_chromosome": ["1"],
+                    "hg38_start": [1000],
+                    "hg38_end": [1000],
+                }
+            ),
         }
 
         # Create test regions data
         regions_data = {
-            "manual": pd.DataFrame({
-                "region_name": ["region1"],
-                "chromosome": ["chr1"],
-                "start": [2000],
-                "end": [3000],
-            }),
+            "manual": pd.DataFrame(
+                {
+                    "region_name": ["region1"],
+                    "chromosome": ["chr1"],
+                    "start": [2000],
+                    "end": [3000],
+                }
+            ),
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:
             bed_path = Path(tmpdir) / "complete_panel_exons.bed"
-            create_complete_panel_exons_bed(df, transcript_data, snp_data, regions_data, bed_path, padding=0)
+            create_complete_panel_exons_bed(
+                df, transcript_data, snp_data, regions_data, bed_path, padding=0
+            )
 
             # Should include exons from included genes + SNPs + regions
             with open(bed_path) as f:
@@ -1322,27 +1372,33 @@ class TestNewBEDFileGeneration:
 
         # Create test SNP data
         snp_data = {
-            "identity": pd.DataFrame({
-                "snp": ["rs1234"],
-                "hg38_chromosome": ["1"],
-                "hg38_start": [1000],
-                "hg38_end": [1000],
-            }),
+            "identity": pd.DataFrame(
+                {
+                    "snp": ["rs1234"],
+                    "hg38_chromosome": ["1"],
+                    "hg38_start": [1000],
+                    "hg38_end": [1000],
+                }
+            ),
         }
 
         # Create test regions data
         regions_data = {
-            "manual": pd.DataFrame({
-                "region_name": ["region1"],
-                "chromosome": ["chr1"],
-                "start": [2000],
-                "end": [3000],
-            }),
+            "manual": pd.DataFrame(
+                {
+                    "region_name": ["region1"],
+                    "chromosome": ["chr1"],
+                    "start": [2000],
+                    "end": [3000],
+                }
+            ),
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:
             bed_path = Path(tmpdir) / "complete_panel_genes.bed"
-            create_complete_panel_genes_bed(df, snp_data, regions_data, bed_path, padding=0)
+            create_complete_panel_genes_bed(
+                df, snp_data, regions_data, bed_path, padding=0
+            )
 
             # Should include full genomic regions from included genes + SNPs + regions
             with open(bed_path) as f:

@@ -788,7 +788,9 @@ def create_complete_panel_bed(
         if not gene_missing_cols:
             # Filter for ONLY included genes with valid coordinates
             included_genes = df[df["include"]]
-            gene_df = included_genes.dropna(subset=["chromosome", "gene_start", "gene_end"])
+            gene_df = included_genes.dropna(
+                subset=["chromosome", "gene_start", "gene_end"]
+            )
 
             if not gene_df.empty:
                 # Create gene BED records for included genes only
@@ -985,9 +987,14 @@ def create_complete_panel_exons_bed(
             exon_bed_df = pd.DataFrame(
                 {
                     "chrom": [f"chr{exon['chromosome']}" for exon in all_exons],
-                    "chromStart": [max(0, exon["start"] - 1 - padding) for exon in all_exons],
+                    "chromStart": [
+                        max(0, exon["start"] - 1 - padding) for exon in all_exons
+                    ],
                     "chromEnd": [exon["end"] + padding for exon in all_exons],
-                    "name": [f"{exon['gene_symbol']}_exon{exon['rank']}" for exon in all_exons],
+                    "name": [
+                        f"{exon['gene_symbol']}_exon{exon['rank']}"
+                        for exon in all_exons
+                    ],
                     "score": 1000,
                     "strand": [exon.get("strand", "+") for exon in all_exons],
                     "element_type": "exon",
@@ -1029,7 +1036,8 @@ def create_complete_panel_exons_bed(
                     "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
                         bed_data_clean["hg38_start"], errors="coerce"
-                    ).astype(int) - 1,
+                    ).astype(int)
+                    - 1,
                     "chromEnd": pd.to_numeric(
                         bed_data_clean["hg38_end"], errors="coerce"
                     ).astype(int),
@@ -1076,7 +1084,8 @@ def create_complete_panel_exons_bed(
                     "chrom": "chr" + bed_data_clean["chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
                         bed_data_clean["start"], errors="coerce"
-                    ).astype(int) - 1,
+                    ).astype(int)
+                    - 1,
                     "chromEnd": pd.to_numeric(
                         bed_data_clean["end"], errors="coerce"
                     ).astype(int),
@@ -1095,7 +1104,9 @@ def create_complete_panel_exons_bed(
 
     # Combine all records
     if not all_bed_records:
-        logger.warning("No valid genomic elements found for complete panel exons BED file")
+        logger.warning(
+            "No valid genomic elements found for complete panel exons BED file"
+        )
         return
 
     combined_bed_df = pd.concat(all_bed_records, ignore_index=True)
@@ -1139,7 +1150,9 @@ def create_complete_panel_genes_bed(
 
         if not gene_missing_cols:
             included_genes = df[df["include"]]
-            gene_df = included_genes.dropna(subset=["chromosome", "gene_start", "gene_end"])
+            gene_df = included_genes.dropna(
+                subset=["chromosome", "gene_start", "gene_end"]
+            )
 
             if not gene_df.empty:
                 gene_bed_df = pd.DataFrame(
@@ -1199,7 +1212,8 @@ def create_complete_panel_genes_bed(
                     "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
                         bed_data_clean["hg38_start"], errors="coerce"
-                    ).astype(int) - 1,
+                    ).astype(int)
+                    - 1,
                     "chromEnd": pd.to_numeric(
                         bed_data_clean["hg38_end"], errors="coerce"
                     ).astype(int),
@@ -1246,7 +1260,8 @@ def create_complete_panel_genes_bed(
                     "chrom": "chr" + bed_data_clean["chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
                         bed_data_clean["start"], errors="coerce"
-                    ).astype(int) - 1,
+                    ).astype(int)
+                    - 1,
                     "chromEnd": pd.to_numeric(
                         bed_data_clean["end"], errors="coerce"
                     ).astype(int),
@@ -1265,7 +1280,9 @@ def create_complete_panel_genes_bed(
 
     # Combine all records
     if not all_bed_records:
-        logger.warning("No valid genomic elements found for complete panel genes BED file")
+        logger.warning(
+            "No valid genomic elements found for complete panel genes BED file"
+        )
         return
 
     combined_bed_df = pd.concat(all_bed_records, ignore_index=True)

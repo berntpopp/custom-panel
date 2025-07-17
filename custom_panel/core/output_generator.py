@@ -406,7 +406,9 @@ def _generate_bed_files(
     # Generate complete panel exons BED file (exons from included genes + SNPs + regions)
     if config_manager.is_bed_enabled("complete_panel_exons"):
         bed_path = output_dir / "complete_panel_exons.bed"
-        create_complete_panel_exons_bed(df, transcript_data, snp_data, regions_data, bed_path, padding)
+        create_complete_panel_exons_bed(
+            df, transcript_data, snp_data, regions_data, bed_path, padding
+        )
 
     # Generate complete panel genes BED file (full genomic regions from included genes + SNPs + regions)
     if config_manager.is_bed_enabled("complete_panel_genes"):

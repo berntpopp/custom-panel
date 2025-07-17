@@ -45,7 +45,9 @@ def fetch_genomic_targeting_flags(config: dict[str, Any]) -> dict[str, bool]:
     allow_missing_file = targeting_config.get("allow_missing_file", True)
     if not file_path.exists():
         if allow_missing_file:
-            logger.warning(f"Genomic targeting file not found: {file_path} - using defaults")
+            logger.warning(
+                f"Genomic targeting file not found: {file_path} - using defaults"
+            )
             return {}
         else:
             raise FileNotFoundError(f"Genomic targeting file not found: {file_path}")
@@ -54,7 +56,9 @@ def fetch_genomic_targeting_flags(config: dict[str, Any]) -> dict[str, bool]:
 
     try:
         targeting_flags = process_targeting_file(file_path, targeting_config)
-        logger.info(f"Successfully loaded {len(targeting_flags)} genomic targeting flags")
+        logger.info(
+            f"Successfully loaded {len(targeting_flags)} genomic targeting flags"
+        )
         return targeting_flags
     except Exception as e:
         logger.error(f"Failed to process genomic targeting file: {e}")
@@ -107,7 +111,9 @@ def process_targeting_file(
         raise ValueError(f"Gene column '{gene_column}' not found in targeting file")
 
     if targeting_column not in df.columns:
-        raise ValueError(f"Targeting column '{targeting_column}' not found in targeting file")
+        raise ValueError(
+            f"Targeting column '{targeting_column}' not found in targeting file"
+        )
 
     # Clean and process the data
     df = df.dropna(subset=[gene_column, targeting_column])
@@ -172,10 +178,14 @@ def convert_to_boolean(value: Any, default: bool = False) -> bool:
         elif value_lower in ["false", "no", "0", "n", "f"]:
             return False
         else:
-            logger.warning(f"Unrecognized targeting value '{value}', using default: {default}")
+            logger.warning(
+                f"Unrecognized targeting value '{value}', using default: {default}"
+            )
             return default
 
-    logger.warning(f"Cannot convert targeting value '{value}' to boolean, using default: {default}")
+    logger.warning(
+        f"Cannot convert targeting value '{value}' to boolean, using default: {default}"
+    )
     return default
 
 
@@ -202,7 +212,9 @@ def apply_genomic_targeting_flags(
 
     # Check if gene symbol column exists
     if "approved_symbol" not in df.columns:
-        logger.error("approved_symbol column not found - cannot apply genomic targeting flags")
+        logger.error(
+            "approved_symbol column not found - cannot apply genomic targeting flags"
+        )
         return df
 
     # Fetch targeting flags
@@ -333,7 +345,9 @@ def get_genomic_targeting_summary(config: dict[str, Any]) -> dict[str, Any]:
             targeting_flags = fetch_genomic_targeting_flags(config)
             summary["total_genes"] = len(targeting_flags)
             summary["genes_with_targeting"] = sum(targeting_flags.values())
-            summary["genes_without_targeting"] = len(targeting_flags) - sum(targeting_flags.values())
+            summary["genes_without_targeting"] = len(targeting_flags) - sum(
+                targeting_flags.values()
+            )
         except Exception as e:
             summary["error"] = str(e)
             summary["total_genes"] = 0
