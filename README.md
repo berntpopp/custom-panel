@@ -20,19 +20,38 @@ A modern Python tool for gene panel curation and aggregation from multiple genom
 - **Gene standardization**: Automatic gene symbol standardization using HGNC
 - **Genomic annotation**: Rich annotation with Ensembl coordinates, transcripts, and MANE information
 - **Flexible output formats**: Excel, CSV, Parquet, and BED file generation
-- **Modern architecture**: Built with Python 3.10+, Poetry, and comprehensive type hints
+- **Modern architecture**: Built with Python 3.10+, uv, and comprehensive type hints
 
 ## Quick Start
 
 ```bash
-# Install with Poetry
-poetry install
+# Set up development environment (installs all dependencies)
+make dev-setup
 
 # Run the complete pipeline
-custom-panel run --output-dir results
+make run ARGS="run --output-dir results"
 
 # Check configuration
-custom-panel config-check
+make config-check
+
+# Development workflow
+make help       # Show all available commands
+make quality    # Run linting and type checking
+make test       # Run tests
+make docs-serve # Serve documentation locally
+```
+
+### Installation Options
+
+```bash
+# Install main dependencies only
+make install
+
+# Install all dependencies including dev tools
+make install-dev
+
+# Install with scrapers dependencies (for web scraping)
+make install-scrapers
 ```
 
 ## Documentation

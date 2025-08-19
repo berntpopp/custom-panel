@@ -4,7 +4,7 @@ import hashlib
 import logging
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import requests
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class PanelDownloader:
     """Handles downloading panel files from various sources."""
 
-    def __init__(self, cache_dir: Optional[Path] = None) -> None:
+    def __init__(self, cache_dir: Path | None = None) -> None:
         """Initialize the downloader with optional cache directory.
 
         Args:
@@ -30,7 +30,7 @@ class PanelDownloader:
         """
         self.cache_dir = cache_dir or Path("data/snp/downloads")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._driver: Optional[webdriver.Chrome] = None
+        self._driver: webdriver.Chrome | None = None
 
     def _get_cache_filename(self, url: str, extension: str) -> Path:
         """Generate a cache filename based on URL hash.

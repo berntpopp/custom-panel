@@ -384,9 +384,9 @@ def test_cli_dry_run(runner: CliRunner, test_environment: dict):
                 output_files = list(final_output_dir.glob("*.csv")) + list(
                     final_output_dir.glob("*.xlsx")
                 )
-                assert (
-                    len(output_files) == 0
-                ), "Output files were created in dry run mode"
+                assert len(output_files) == 0, (
+                    "Output files were created in dry run mode"
+                )
 
 
 def test_cli_config_check(runner: CliRunner, test_environment: dict):

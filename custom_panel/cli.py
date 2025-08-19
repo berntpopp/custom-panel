@@ -9,7 +9,7 @@ import logging
 import sys
 import warnings
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 import typer
@@ -52,7 +52,7 @@ def setup_logging(log_level: str = "INFO") -> None:
     )
 
 
-def load_config_manager(config_file: Optional[str] = None) -> ConfigManager:
+def load_config_manager(config_file: str | None = None) -> ConfigManager:
     """Load configuration from files and create a ConfigManager instance."""
     try:
         default_path = Path(__file__).parent / "config" / "default_config.yml"
@@ -77,13 +77,13 @@ def load_config_manager(config_file: Optional[str] = None) -> ConfigManager:
 
 @app.command()
 def run(
-    config_file: Optional[str] = typer.Option(
+    config_file: str | None = typer.Option(
         None, "--config-file", "-c", help="Configuration file path"
     ),
-    output_dir: Optional[str] = typer.Option(
+    output_dir: str | None = typer.Option(
         None, "--output-dir", "-o", help="Output directory"
     ),
-    score_threshold: Optional[float] = typer.Option(
+    score_threshold: float | None = typer.Option(
         None,
         "--score-threshold",
         help="Override the evidence score threshold for gene inclusion",
@@ -97,7 +97,7 @@ def run(
     save_intermediate: bool = typer.Option(
         False, "--save-intermediate", help="Save intermediate files for debugging"
     ),
-    intermediate_format: Optional[str] = typer.Option(
+    intermediate_format: str | None = typer.Option(
         None,
         "--intermediate-format",
         help="Format for intermediate files (csv, excel, parquet, json)",
@@ -218,7 +218,7 @@ def _print_completion_messages(pipeline: Pipeline, dry_run: bool) -> None:
 @app.command()
 def fetch(
     source: str = typer.Argument(..., help="This command is deprecated."),
-    config_file: Optional[str] = typer.Option(
+    config_file: str | None = typer.Option(
         None, "--config-file", "-c", help="Configuration file path"
     ),
     output_dir: str = typer.Option(
@@ -243,7 +243,7 @@ def fetch(
 
 @app.command()
 def config_check(
-    config_file: Optional[str] = typer.Option(
+    config_file: str | None = typer.Option(
         None, "--config-file", "-c", help="Configuration file path"
     ),
 ) -> None:
@@ -371,7 +371,7 @@ def _display_scoring_configuration(config_manager: ConfigManager) -> None:
 @app.command()
 def search_panels(
     query: str = typer.Argument(..., help="Search term for panel names"),
-    config_file: Optional[str] = typer.Option(
+    config_file: str | None = typer.Option(
         None, "--config-file", "-c", help="Configuration file path"
     ),
     log_level: str = typer.Option("INFO", "--log-level", help="Log level"),

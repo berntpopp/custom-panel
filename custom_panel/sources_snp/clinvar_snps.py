@@ -11,7 +11,7 @@ import logging
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 import requests
@@ -55,10 +55,10 @@ class IntervalTree:
 
 def fetch_clinvar_snps(
     config: dict[str, Any],
-    gene_panel: Optional[pd.DataFrame] = None,
-    ensembl_client: Optional[Any] = None,
-    harmonizer: Optional[Any] = None,
-    transcript_data: Optional[dict[str, Any]] = None,
+    gene_panel: pd.DataFrame | None = None,
+    ensembl_client: Any | None = None,
+    harmonizer: Any | None = None,
+    transcript_data: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """
     Fetch deep intronic ClinVar SNPs using optimized tabix-based streaming.
@@ -239,7 +239,7 @@ def _extract_exon_regions_from_transcript_data(
 
 def _find_transcript_by_id(
     transcripts: list[dict[str, Any]], transcript_id: str
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Find transcript by ID in the transcripts list."""
     for transcript in transcripts:
         if transcript.get("id") == transcript_id:
@@ -321,7 +321,7 @@ def _validate_vcf_file(vcf_file: Path, tbi_file: Path) -> bool:
 
 def _get_clinvar_vcf_with_index(
     config: dict[str, Any],
-) -> tuple[Optional[Path], Optional[Path]]:
+) -> tuple[Path | None, Path | None]:
     """
     Get ClinVar VCF file and tabix index - either from local path or by downloading.
 
@@ -395,7 +395,7 @@ def _get_clinvar_vcf_with_index(
 
 def _download_clinvar_vcf(
     url: str, cache_dir: Path, cache_expiry_days: int
-) -> Optional[Path]:
+) -> Path | None:
     """Download ClinVar VCF file with caching."""
     # Determine filename from URL
     filename = url.split("/")[-1]
@@ -432,7 +432,7 @@ def _download_clinvar_vcf(
 
 def _download_clinvar_index(
     vcf_url: str, cache_dir: Path, cache_expiry_days: int
-) -> Optional[Path]:
+) -> Path | None:
     """Download ClinVar tabix index file with caching."""
     # Construct index URL
     index_url = vcf_url + ".tbi"
@@ -540,7 +540,7 @@ def _stream_clinvar_variants_by_genes(
         return
 
 
-def _parse_vcf_record(record: str) -> Optional[dict[str, Any]]:
+def _parse_vcf_record(record: str) -> dict[str, Any] | None:
     """Parse a VCF record string into a variant dictionary."""
     try:
         # Handle encoding issues if record is bytes
@@ -664,7 +664,7 @@ def _filter_deep_intronic_streaming(
 
 
 def _convert_to_snp_format(
-    variants: list[dict[str, Any]], harmonizer: Optional[Any] = None
+    variants: list[dict[str, Any]], harmonizer: Any | None = None
 ) -> pd.DataFrame:
     """Convert ClinVar variants to standardized SNP format."""
     if not variants:
@@ -758,7 +758,7 @@ def _convert_to_snp_format(
     return snp_data
 
 
-def _extract_gene_symbol(geneinfo: str) -> Optional[str]:
+def _extract_gene_symbol(geneinfo: str) -> str | None:
     """Extract gene symbol from GENEINFO field."""
     if not geneinfo or pd.isna(geneinfo):
         return None

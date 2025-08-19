@@ -148,7 +148,7 @@ GET /score/{pgs_id}/scoring_file/download
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -273,12 +273,12 @@ class PGSCatalogClient:
                             if total_size > 0:
                                 progress = (downloaded_size / total_size) * 100
                                 logger.info(
-                                    f"Downloaded {downloaded_size // (1024*1024)}MB / "
-                                    f"{total_size // (1024*1024)}MB ({progress:.1f}%)"
+                                    f"Downloaded {downloaded_size // (1024 * 1024)}MB / "
+                                    f"{total_size // (1024 * 1024)}MB ({progress:.1f}%)"
                                 )
                             else:
                                 logger.info(
-                                    f"Downloaded {downloaded_size // (1024*1024)}MB"
+                                    f"Downloaded {downloaded_size // (1024 * 1024)}MB"
                                 )
 
             logger.info(f"Successfully downloaded PGS file to: {cache_path}")
@@ -290,7 +290,7 @@ class PGSCatalogClient:
 
     def get_scoring_file_url(
         self, pgs_metadata: dict[str, Any], pgs_id: str, genome_build: str = "GRCh38"
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Extract the appropriate scoring file URL from PGS metadata.
 

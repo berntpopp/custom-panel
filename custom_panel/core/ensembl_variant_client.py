@@ -194,7 +194,7 @@ enhanced_df = client.enhance_bcac_with_hg38_coordinates(bcac_df)
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 import requests
@@ -291,7 +291,7 @@ class EnsemblVariantClient:
 
     def _convert_single_variant(
         self, variant: dict[str, Any], source_assembly: str, target_assembly: str
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Convert a single variant between assemblies."""
 
         chromosome = str(variant["chromosome"]).replace("chr", "")
@@ -353,7 +353,7 @@ class EnsemblVariantClient:
                 self._cache[cache_key] = None
             return None
 
-    def _lookup_single_rsid(self, variant: dict[str, Any]) -> Optional[str]:
+    def _lookup_single_rsid(self, variant: dict[str, Any]) -> str | None:
         """Lookup rsID for a single variant."""
 
         # Try different coordinate fields
@@ -373,7 +373,7 @@ class EnsemblVariantClient:
                             return rsid
         return None
 
-    def _query_variant_rsid(self, chromosome: str, position: int) -> Optional[str]:
+    def _query_variant_rsid(self, chromosome: str, position: int) -> str | None:
         """Query Ensembl for rsID at specific position."""
 
         cache_key = f"rsid:{chromosome}:{position}"

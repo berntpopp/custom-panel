@@ -10,7 +10,7 @@ This module provides simple, efficient SNP harmonization including:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -27,7 +27,7 @@ class SNPHarmonizer:
     """
 
     def __init__(
-        self, ensembl_client: EnsemblClient, config: Optional[dict[str, Any]] = None
+        self, ensembl_client: EnsemblClient, config: dict[str, Any] | None = None
     ):
         """
         Initialize SNP harmonizer.

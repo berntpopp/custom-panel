@@ -13,7 +13,7 @@ The pipeline features a simple, centralized SNP harmonization workflow that:
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 from rich.console import Console
@@ -50,7 +50,7 @@ console = Console()
 class Pipeline:
     """Orchestrates the gene panel curation pipeline with improved modularity."""
 
-    def __init__(self, config: dict[str, Any], output_dir_path: Optional[Path] = None):
+    def __init__(self, config: dict[str, Any], output_dir_path: Path | None = None):
         """
         Initialize the pipeline with configuration.
 
@@ -65,7 +65,7 @@ class Pipeline:
         self.output_manager = OutputManager(config, self.output_dir_path)
         self.annotator = GeneAnnotator(config)
         self.merger = PanelMerger(config)
-        self.snp_harmonizer: Optional[SNPHarmonizer] = None
+        self.snp_harmonizer: SNPHarmonizer | None = None
         self.transcript_data: dict[str, Any] = {}
         self.snp_data: dict[str, pd.DataFrame] = {}
         self.regions_data: dict[str, pd.DataFrame] = {}
@@ -386,7 +386,7 @@ class Pipeline:
     def _standardize_symbols(
         self,
         raw_dataframes: list[pd.DataFrame],
-        progress: Optional[Progress] = None,
+        progress: Progress | None = None,
         task_id: Any = None,
     ) -> tuple[pd.DataFrame, dict[str, dict[str, Any]]]:
         """Centralized gene symbol standardization."""
@@ -637,16 +637,16 @@ class Pipeline:
                 logger.error(f"Error applying genomic targeting flags: {e}")
                 console.print(f"[red]Error applying genomic targeting flags: {e}[/red]")
                 # Add default targeting column on error
-                df[
-                    "genomic_targeting"
-                ] = self.config_manager.get_genomic_targeting_default_value()
+                df["genomic_targeting"] = (
+                    self.config_manager.get_genomic_targeting_default_value()
+                )
                 return df
         else:
             logger.info("Genomic targeting flags are disabled, skipping")
             # Add default targeting column when disabled
-            df[
-                "genomic_targeting"
-            ] = self.config_manager.get_genomic_targeting_default_value()
+            df["genomic_targeting"] = (
+                self.config_manager.get_genomic_targeting_default_value()
+            )
             return df
 
     def _process_snps(self) -> None:

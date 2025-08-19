@@ -6,7 +6,7 @@ with type safety and default handling.
 """
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -173,7 +173,7 @@ class ConfigManager:
         """
         return self.get_nested("scoring", default={})
 
-    def get_score_threshold(self) -> Optional[float]:
+    def get_score_threshold(self) -> float | None:
         """
         Get score threshold for gene inclusion.
 
@@ -182,7 +182,7 @@ class ConfigManager:
         """
         return self.get_nested("scoring", "thresholds", "score_threshold")
 
-    def get_min_sources(self) -> Optional[int]:
+    def get_min_sources(self) -> int | None:
         """
         Get minimum number of sources required.
 
@@ -407,8 +407,8 @@ class ConfigManager:
     def from_files(
         cls,
         default_path: Path,
-        override_path: Optional[Path] = None,
-        local_path: Optional[Path] = None,
+        override_path: Path | None = None,
+        local_path: Path | None = None,
     ) -> "ConfigManager":
         """Load configuration from files and create a ConfigManager instance."""
         if not default_path.exists():

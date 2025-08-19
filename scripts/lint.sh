@@ -4,15 +4,15 @@
 echo "🧹 Running code quality checks..."
 
 echo "📦 Checking import sorting..."
-poetry run ruff check . --select I001 --fix
+uv run ruff check . --select I001 --fix
 
 echo "🔍 Running Ruff linter..."
-poetry run ruff check .
+uv run ruff check .
 
 echo "🎨 Running Ruff formatter..."
-poetry run ruff format .
+uv run ruff format .
 
 echo "🔬 Running MyPy type checker..."
-poetry run mypy custom_panel/
+uv run mypy custom_panel/
 
 echo "✅ Code quality checks complete!"
