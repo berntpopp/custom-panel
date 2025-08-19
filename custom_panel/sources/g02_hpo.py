@@ -106,10 +106,11 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
         if omim_genemap2_url:
             # Download from URL
             logger.info(f"DEBUG: Using OMIM genemap2 URL: {omim_genemap2_url}")
-            cache_dir = Path(hpo_config.get("cache_dir", ".cache/hpo"))
-            cache_dir.mkdir(parents=True, exist_ok=True)
+            # Use separate cache directory for OMIM files
+            omim_cache_dir = Path(".cache/omim")
+            omim_cache_dir.mkdir(parents=True, exist_ok=True)
 
-            genemap2_cache_path = cache_dir / "genemap2.txt"
+            genemap2_cache_path = omim_cache_dir / "genemap2.txt"
             cache_expiry_days = hpo_config.get("cache_expiry_days", 30)
             logger.info(f"DEBUG: Cache path will be: {genemap2_cache_path}")
 
@@ -137,24 +138,30 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
                 f"DEBUG: Parsed {len(omim_df)} entries from cached file: {genemap2_cache_path}"
             )
 
-        elif omim_genemap2_path:
-            # Use local file
-            logger.info(f"DEBUG: Using OMIM genemap2 local path: {omim_genemap2_path}")
-            omim_path = Path(omim_genemap2_path)
-            if not omim_path.exists():
-                logger.error(f"OMIM genemap2 file not found: {omim_path}")
-                return pd.DataFrame()
-
-            omim_df = client.parse_omim_genemap2(omim_path)
-            logger.info(
-                f"DEBUG: Parsed {len(omim_df)} entries from local file: {omim_path}"
-            )
-
         else:
-            logger.error("DEBUG: No OMIM genemap2 URL or file path configured")
-            logger.error("Please set 'omim_genemap2_url' in your config.local.yml file")
-            logger.error("Get your access token from: https://omim.org/downloads")
-            return pd.DataFrame()
+            # Check cache directory first, then fallback to configured path
+            omim_cache_dir = Path(".cache/omim")
+            cached_genemap2_path = omim_cache_dir / "genemap2.txt"
+            cache_expiry_days = hpo_config.get("cache_expiry_days", 30)
+            
+            if cached_genemap2_path.exists() and client.is_cache_valid(cached_genemap2_path, cache_expiry_days):
+                logger.info(f"DEBUG: Using cached OMIM genemap2 file: {cached_genemap2_path}")
+                omim_df = client.parse_omim_genemap2(cached_genemap2_path)
+                logger.info(f"DEBUG: Parsed {len(omim_df)} entries from cache: {cached_genemap2_path}")
+            elif omim_genemap2_path:
+                # Use configured local file as fallback
+                logger.info(f"DEBUG: Using OMIM genemap2 local path: {omim_genemap2_path}")
+                omim_path = Path(omim_genemap2_path)
+                if not omim_path.exists():
+                    logger.error(f"OMIM genemap2 file not found: {omim_path}")
+                    return pd.DataFrame()
+                omim_df = client.parse_omim_genemap2(omim_path)
+                logger.info(f"DEBUG: Parsed {len(omim_df)} entries from local file: {omim_path}")
+            else:
+                logger.error("DEBUG: No OMIM genemap2 URL, cache, or file path available")
+                logger.error("Please put genemap2.txt in .cache/omim/ or set 'omim_genemap2_url' in your config.local.yml")
+                logger.error("Get your access token from: https://omim.org/downloads")
+                return pd.DataFrame()
 
         # Step 5: Extract genes associated with neoplasm OMIM IDs
         all_genes = _extract_genes_from_omim(

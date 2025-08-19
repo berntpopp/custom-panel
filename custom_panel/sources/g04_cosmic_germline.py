@@ -310,10 +310,10 @@ def _download_cosmic_census(url: str, cache_path: Path) -> None:
 
 def _load_cosmic_census(cache_path: Path) -> pd.DataFrame:
     """
-    Load and validate COSMIC Cancer Gene Census file.
+    Load and validate COSMIC Cancer Gene Census file (CSV or TSV format).
 
     Args:
-        cache_path: Path to the cached CSV file
+        cache_path: Path to the cached CSV or TSV file
 
     Returns:
         Loaded DataFrame
@@ -326,7 +326,15 @@ def _load_cosmic_census(cache_path: Path) -> pd.DataFrame:
         raise FileNotFoundError(f"COSMIC census file not found: {cache_path}")
 
     try:
-        df = pd.read_csv(cache_path)
+        # Determine separator based on file extension
+        if cache_path.suffix.lower() == '.tsv':
+            separator = '\t'
+            logger.info(f"Loading COSMIC census TSV file: {cache_path}")
+        else:
+            separator = ','
+            logger.info(f"Loading COSMIC census CSV file: {cache_path}")
+            
+        df = pd.read_csv(cache_path, sep=separator)
         logger.info(f"Loaded COSMIC census with {len(df)} genes")
 
         # Validate required columns
@@ -371,6 +379,28 @@ def _load_cosmic_census(cache_path: Path) -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Failed to load COSMIC census: {e}")
         raise ValueError(f"Invalid COSMIC census format: {e}") from e
+
+
+def _find_cosmic_census_file(cache_dir: Path) -> Path | None:
+    """
+    Find COSMIC census file in cache directory (CSV or TSV format).
+    
+    Args:
+        cache_dir: Cache directory to search
+        
+    Returns:
+        Path to found file or None if not found
+    """
+    # Check for both CSV and TSV files
+    csv_path = cache_dir / "cosmic_gene_census.csv"
+    tsv_path = cache_dir / "cosmic_gene_census.tsv"
+    
+    if tsv_path.exists():
+        return tsv_path
+    elif csv_path.exists():
+        return csv_path
+    else:
+        return None
 
 
 def _is_cache_valid(cache_path: Path, expiry_days: int) -> bool:
@@ -496,10 +526,16 @@ def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
 
     cache_dir = Path(cosmic_config.get("cache_dir", ".cache/cosmic"))
     cache_expiry_days = cosmic_config.get("cache_expiry_days", 30)
-    cache_path = cache_dir / "cosmic_gene_census.csv"
-
-    # Check cache and download if needed
-    if not _is_cache_valid(cache_path, cache_expiry_days):
+    
+    # Look for existing cache file (CSV or TSV)
+    cached_file = _find_cosmic_census_file(cache_dir)
+    
+    if cached_file and _is_cache_valid(cached_file, cache_expiry_days):
+        logger.info(f"Using valid cached COSMIC file: {cached_file}")
+        cache_path = cached_file
+    else:
+        # Default to CSV for downloads
+        cache_path = cache_dir / "cosmic_gene_census.csv"
         logger.info("COSMIC cache expired or missing, downloading new data...")
 
         # Try authenticated download first
@@ -530,22 +566,29 @@ def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
                     _download_cosmic_census(census_url, cache_path)
                 except requests.RequestException as e:
                     logger.error(f"Legacy download failed: {e}")
-                    if cache_path.exists():
-                        logger.warning("Using expired cache file")
+                    # Check for any existing cache file (even if expired)
+                    cached_file = _find_cosmic_census_file(cache_dir)
+                    if cached_file:
+                        logger.warning(f"Using expired cache file: {cached_file}")
+                        cache_path = cached_file
                     else:
                         logger.error("No cache file available, cannot proceed")
                         return pd.DataFrame()
             else:
                 logger.error("No COSMIC credentials or legacy URL configured")
-                logger.error("Please add COSMIC credentials to config.local.yml:")
-                logger.error("data_sources:")
-                logger.error("  cosmic:")
-                logger.error("    enabled: true")
-                logger.error("    email: your-cosmic-email@example.com")
-                logger.error("    password: your-cosmic-password")
-                return pd.DataFrame()
-    else:
-        logger.info(f"Using cached COSMIC census: {cache_path}")
+                # Check for any existing cache file as final fallback
+                cached_file = _find_cosmic_census_file(cache_dir)
+                if cached_file:
+                    logger.warning(f"Using existing cache file despite configuration issues: {cached_file}")
+                    cache_path = cached_file
+                else:
+                    logger.error("Please add COSMIC credentials to config.local.yml:")
+                    logger.error("data_sources:")
+                    logger.error("  cosmic:")
+                    logger.error("    enabled: true")
+                    logger.error("    email: your-cosmic-email@example.com")
+                    logger.error("    password: your-cosmic-password")
+                    return pd.DataFrame()
 
     # Load the census data
     try:

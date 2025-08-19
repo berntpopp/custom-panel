@@ -119,7 +119,7 @@ data_sources:
     census_url: "https://cancer.sanger.ac.uk/cosmic/file_download/GRCh38/cosmic/v97/cancer_gene_census.csv"
     # Cache settings
     cache_dir: ".cache/cosmic"
-    cache_expiry_days: 30
+    cache_expiry_days: 365
     # Germline scoring configuration
     germline_scoring:
       enabled: true
@@ -172,11 +172,11 @@ data_sources:
     omim_genemap2_url: null  # Set this in local config or environment
     
     # Option 2: Provide local file path if you've already downloaded it
-    omim_genemap2_path: "data/omim/genemap2.txt"
+    omim_genemap2_path: ".cache/omim/genemap2.txt"
     
     # Cache settings for both phenotype.hpoa and genemap2 files
     cache_dir: ".cache/hpo"
-    cache_expiry_days: 30
+    cache_expiry_days: 365
     
     # Note: The neoplasm root term HP:0002664 is automatically used
 
@@ -405,9 +405,9 @@ performance:
   enable_caching: true
   # Cache directory (relative to working directory)
   cache_dir: ".cache"
-  # Cache time-to-live in seconds (default: 30 days)
+  # Cache time-to-live in seconds (default: 365 days for HPO/OMIM/COSMIC)
   # Set to 0 to disable expiry (cache forever)
-  cache_ttl: 2592000
+  cache_ttl: 31536000
 
 # Directory structure for outputs
 directory_structure:

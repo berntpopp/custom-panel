@@ -21,7 +21,7 @@ class CacheManager:
     def __init__(
         self,
         cache_dir: str = ".cache",
-        cache_ttl: int = 2592000,  # 30 days in seconds
+        cache_ttl: int = 31536000,  # 365 days in seconds
         enabled: bool = True,
     ):
         """
@@ -50,6 +50,9 @@ class CacheManager:
         (self.cache_dir / "gencc").mkdir(exist_ok=True)
         (self.cache_dir / "acmg").mkdir(exist_ok=True)
         (self.cache_dir / "panelapp").mkdir(exist_ok=True)
+        (self.cache_dir / "omim").mkdir(exist_ok=True)
+        (self.cache_dir / "hpo").mkdir(exist_ok=True)
+        (self.cache_dir / "cosmic").mkdir(exist_ok=True)
 
     def _generate_cache_key(
         self,
