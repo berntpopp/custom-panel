@@ -10,6 +10,7 @@ This module provides simple, efficient SNP harmonization including:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import pandas as pd
@@ -115,6 +116,16 @@ class SNPHarmonizer:
                         coordinate_cache[rsid] = coordinates
                         self.stats["coordinates_resolved"] += 1
 
+            # Fallback: Use source coordinates for unresolved rsIDs
+            unresolved_rsids = [rsid for rsid in unique_rsids if rsid not in coordinate_cache]
+            if unresolved_rsids:
+                source_coordinates = self._extract_source_coordinates(unresolved_rsids, snp_df)
+                for rsid, coords in source_coordinates.items():
+                    if coords:
+                        coordinate_cache[rsid] = coords
+                        self.stats["coordinates_resolved"] += 1
+                        logger.debug(f"📍 Used source coordinates for {rsid}")
+
         except Exception as e:
             logger.error(f"❌ Failed to batch resolve coordinates: {e}")
 
@@ -164,6 +175,114 @@ class SNPHarmonizer:
         )
 
         return result_df
+
+    def _extract_source_coordinates(self, rsids: list[str], snp_df: pd.DataFrame) -> dict[str, dict[str, Any] | None]:
+        """
+        Extract genomic coordinates from source data when Ensembl lookup fails.
+
+        Supports multiple coordinate formats:
+        - NCBI RefSeq: NC_000010.11:94949144 (PharmGKB format)
+        - Direct coordinates: chr10:94949144
+
+        Args:
+            rsids: List of rsIDs to find coordinates for
+            snp_df: Original DataFrame with source coordinate information
+
+        Returns:
+            Dictionary mapping rsID to coordinate information
+        """
+        coordinate_cache = {}
+
+        for rsid in rsids:
+            # Find matching row(s) in source data
+            matching_rows = snp_df[snp_df["snp"] == rsid]
+            if matching_rows.empty:
+                coordinate_cache[rsid] = None
+                continue
+
+            row = matching_rows.iloc[0]  # Use first match
+
+            # Look for coordinate information in various columns
+            location = None
+            for col in ["location", "genomic_location", "coordinates", "position"]:
+                if col in row and pd.notna(row[col]) and str(row[col]).strip():
+                    location = str(row[col]).strip()
+                    break
+
+            if not location:
+                coordinate_cache[rsid] = None
+                continue
+
+            # Parse coordinate formats
+            coords = self._parse_genomic_location(location)
+            coordinate_cache[rsid] = coords
+
+        return coordinate_cache
+
+    def _parse_genomic_location(self, location: str) -> dict[str, Any] | None:
+        """
+        Parse genomic location from various formats.
+
+        Supported formats:
+        - NCBI RefSeq: NC_000010.11:94949144
+        - Direct: chr10:94949144
+        - With range: chr10:94949144-94949144
+
+        Args:
+            location: Genomic location string
+
+        Returns:
+            Dictionary with parsed coordinates or None if parsing fails
+        """
+        if not location:
+            return None
+
+        try:
+            # Handle NCBI RefSeq format (NC_000010.11:94949144)
+            if location.startswith("NC_"):
+                # Extract chromosome number from NC_000010.11
+                chr_match = re.match(r"NC_0+(\d+)\..*?:(\d+)", location)
+                if chr_match:
+                    chromosome = chr_match.group(1)
+                    position = int(chr_match.group(2))
+
+                    return {
+                        "chromosome": chromosome,
+                        "start": position,
+                        "end": position,
+                        "strand": 1,
+                        "allele_string": "N/N",  # Unknown alleles
+                        "assembly": "GRCh38"
+                    }
+
+            # Handle direct chromosome format (chr10:94949144)
+            elif ":" in location:
+                parts = location.split(":")
+                if len(parts) >= 2:
+                    chr_part = parts[0].replace("chr", "")
+                    pos_part = parts[1]
+
+                    # Handle position ranges (94949144-94949144)
+                    if "-" in pos_part:
+                        pos_start, pos_end = pos_part.split("-", 1)
+                        start_pos = int(pos_start)
+                        end_pos = int(pos_end)
+                    else:
+                        start_pos = end_pos = int(pos_part)
+
+                    return {
+                        "chromosome": chr_part,
+                        "start": start_pos,
+                        "end": end_pos,
+                        "strand": 1,
+                        "allele_string": "N/N",  # Unknown alleles
+                        "assembly": "GRCh38"
+                    }
+
+        except (ValueError, AttributeError) as e:
+            logger.debug(f"Failed to parse genomic location '{location}': {e}")
+
+        return None
 
     def get_stats(self) -> dict[str, Any]:
         """Get harmonization statistics."""
