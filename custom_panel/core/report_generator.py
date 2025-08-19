@@ -116,6 +116,9 @@ class ReportGenerator:
         # Calculate basic statistics
         basic_stats = self._calculate_basic_statistics(df)
 
+        # Calculate gene coverage statistics for panel genes
+        gene_coverage_stats = self._calculate_gene_coverage_statistics(df)
+
         # Calculate source statistics
         source_stats, unique_sources = self._calculate_source_statistics(
             df, basic_stats["total_genes"]
@@ -156,6 +159,7 @@ class ReportGenerator:
             "generation_date": datetime.now().strftime("%B %d, %Y at %I:%M %p"),
             **basic_stats,
             **source_diversity,
+            "gene_coverage_stats": gene_coverage_stats,
             "source_stats": source_stats,
             "top_genes": top_genes,
             "table_data": json.dumps(table_data),
@@ -185,6 +189,65 @@ class ReportGenerator:
             "annotated_count": safe_column_count(df, "chromosome"),
             "mane_select_count": safe_column_count(df, "mane_select_transcript"),
             "mane_clinical_count": safe_column_count(df, "mane_clinical_transcript"),
+        }
+
+    def _calculate_gene_coverage_statistics(self, df: pd.DataFrame) -> dict[str, Any]:
+        """
+        Calculate total coverage for panel genes based on genomic targeting strategy.
+
+        For genes with genomic_targeting = 1: use gene_size
+        For genes with genomic_targeting = 0 or missing: use mane_select_coverage
+        Only includes genes where include = True
+        """
+        total_bp = 0
+        panel_genes_count = 0
+        genomic_targeted_count = 0
+        mane_targeted_count = 0
+
+        # Filter to only included genes (panel genes)
+        if "include" in df.columns:
+            panel_df = df[df["include"]].copy()
+        else:
+            panel_df = df.copy()
+
+        panel_genes_count = len(panel_df)
+
+        for _, row in panel_df.iterrows():
+            # Check genomic targeting flag
+            genomic_targeting_value = row.get("genomic_targeting")
+            genomic_targeting = (
+                genomic_targeting_value == 1
+                or genomic_targeting_value is True
+                or (isinstance(genomic_targeting_value, str) and genomic_targeting_value.lower() in ["true", "1", "yes"])
+            )
+
+            if genomic_targeting:
+                # Use gene size for genomically targeted genes
+                gene_size = safe_int_conversion(row.get("gene_size"))
+                if gene_size is not None:
+                    total_bp += gene_size
+                    genomic_targeted_count += 1
+            else:
+                # Use MANE select coverage for transcript-targeted genes
+                mane_coverage = safe_int_conversion(row.get("mane_select_coverage"))
+                if mane_coverage is not None:
+                    total_bp += mane_coverage
+                    mane_targeted_count += 1
+
+        # Format coverage in human-readable format
+        if total_bp >= 1_000_000:
+            total_mb = f"{total_bp / 1_000_000:.1f} MB"
+        elif total_bp >= 1_000:
+            total_mb = f"{total_bp / 1_000:.1f} KB"
+        else:
+            total_mb = f"{total_bp} bp"
+
+        return {
+            "total_bp": total_bp,
+            "total_mb": total_mb,
+            "panel_genes_count": panel_genes_count,
+            "genomic_targeted_count": genomic_targeted_count,
+            "mane_targeted_count": mane_targeted_count,
         }
 
     def _calculate_source_diversity(
