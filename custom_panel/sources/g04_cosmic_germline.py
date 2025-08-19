@@ -327,13 +327,13 @@ def _load_cosmic_census(cache_path: Path) -> pd.DataFrame:
 
     try:
         # Determine separator based on file extension
-        if cache_path.suffix.lower() == '.tsv':
-            separator = '\t'
+        if cache_path.suffix.lower() == ".tsv":
+            separator = "\t"
             logger.info(f"Loading COSMIC census TSV file: {cache_path}")
         else:
-            separator = ','
+            separator = ","
             logger.info(f"Loading COSMIC census CSV file: {cache_path}")
-            
+
         df = pd.read_csv(cache_path, sep=separator)
         logger.info(f"Loaded COSMIC census with {len(df)} genes")
 
@@ -384,17 +384,17 @@ def _load_cosmic_census(cache_path: Path) -> pd.DataFrame:
 def _find_cosmic_census_file(cache_dir: Path) -> Path | None:
     """
     Find COSMIC census file in cache directory (CSV or TSV format).
-    
+
     Args:
         cache_dir: Cache directory to search
-        
+
     Returns:
         Path to found file or None if not found
     """
     # Check for both CSV and TSV files
     csv_path = cache_dir / "cosmic_gene_census.csv"
     tsv_path = cache_dir / "cosmic_gene_census.tsv"
-    
+
     if tsv_path.exists():
         return tsv_path
     elif csv_path.exists():
@@ -526,10 +526,10 @@ def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
 
     cache_dir = Path(cosmic_config.get("cache_dir", ".cache/cosmic"))
     cache_expiry_days = cosmic_config.get("cache_expiry_days", 30)
-    
+
     # Look for existing cache file (CSV or TSV)
     cached_file = _find_cosmic_census_file(cache_dir)
-    
+
     if cached_file and _is_cache_valid(cached_file, cache_expiry_days):
         logger.info(f"Using valid cached COSMIC file: {cached_file}")
         cache_path = cached_file
@@ -579,7 +579,9 @@ def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
                 # Check for any existing cache file as final fallback
                 cached_file = _find_cosmic_census_file(cache_dir)
                 if cached_file:
-                    logger.warning(f"Using existing cache file despite configuration issues: {cached_file}")
+                    logger.warning(
+                        f"Using existing cache file despite configuration issues: {cached_file}"
+                    )
                     cache_path = cached_file
                 else:
                     logger.error("Please add COSMIC credentials to config.local.yml:")

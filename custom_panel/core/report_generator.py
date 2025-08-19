@@ -134,9 +134,7 @@ class ReportGenerator:
         )
 
         # Add panel genes count for second tab
-        panel_genes_count = len(
-            [gene for gene in table_data if gene.get("include") is True]
-        )
+        panel_genes_count = len([gene for gene in table_data if gene.get("include")])
         gene_source_stats["panel_genes"] = panel_genes_count
 
         # Prepare SNP data if available
@@ -635,7 +633,9 @@ class ReportGenerator:
         # Add "Panel Genes" table (only included genes - second tab)
         panel_genes = []
         for gene_record in table_data:
-            if gene_record.get("include") is True:  # Only genes marked for inclusion
+            if gene_record.get(
+                "include"
+            ):  # Only genes marked for inclusion (truthy values)
                 panel_genes.append(gene_record)
 
         if panel_genes:

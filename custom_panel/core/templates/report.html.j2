@@ -329,6 +329,31 @@
             background: linear-gradient(135deg, #138496, #117a8b);
             transform: scale(1.05);
         }
+        .column-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin: 3px;
+            padding: 5px 10px;
+            background: white;
+            border: 1px solid #d0d7de;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .column-toggle:hover {
+            background: #f6f8fa;
+            border-color: #0969da;
+        }
+        .column-toggle input[type="checkbox"] {
+            margin: 0;
+            cursor: pointer;
+        }
+        .column-toggle label {
+            cursor: pointer;
+            margin: 0;
+            user-select: none;
+        }
     </style>
     <!-- DataTables CSS -->
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
@@ -1097,6 +1122,20 @@
                     }
                 }
             };
+
+            // Create column toggles
+            var togglesContainer = $('#columnToggles');
+            togglesContainer.empty(); // Clear any existing toggles
+            availableColumns.forEach(function(col) {
+                var isVisible = defaultVisible.includes(col);
+                var displayName = columnConfig[col] ? columnConfig[col].title : col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+                var toggleHtml = '<div class="column-toggle">' +
+                    '<input type="checkbox" id="toggle_' + col + '" ' + (isVisible ? 'checked' : '') + '>' +
+                    '<label for="toggle_' + col + '">' + displayName + '</label>' +
+                    '</div>';
+                togglesContainer.append(toggleHtml);
+            });
 
             // Create tables for each gene source
             Object.keys(geneSourceData).forEach(function(tableKey) {
