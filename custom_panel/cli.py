@@ -44,7 +44,11 @@ def version_callback(value: bool) -> None:
 @app.callback()
 def main(
     version: bool = typer.Option(
-        False, "--version", "-v", help="Show version and exit", callback=version_callback
+        False,
+        "--version",
+        "-v",
+        help="Show version and exit",
+        callback=version_callback,
     ),
 ) -> None:
     """Custom Panel - Gene panel curation and aggregation tool."""

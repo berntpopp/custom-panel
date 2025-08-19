@@ -22,9 +22,9 @@ Variants are filtered based on clinical relevance:
 ### 3. Data Structure
 Original PharmGKB format:
 ```
-Variant ID    Variant Name    Gene IDs    Gene Symbols    Location    
-Variant Annotation count    Clinical Annotation count    
-Level 1/2 Clinical Annotation count    Guideline Annotation count    
+Variant ID    Variant Name    Gene IDs    Gene Symbols    Location
+Variant Annotation count    Clinical Annotation count
+Level 1/2 Clinical Annotation count    Guideline Annotation count
 Label Annotation count    Synonyms
 ```
 
@@ -119,7 +119,9 @@ def fetch_pharmacogenomics_snps(config: dict[str, Any]) -> pd.DataFrame | None:
             logger.warning("No valid SNPs extracted from PharmGKB data")
             return None
 
-        logger.info(f"Successfully fetched {len(snp_df)} pharmacogenomics SNPs from PharmGKB")
+        logger.info(
+            f"Successfully fetched {len(snp_df)} pharmacogenomics SNPs from PharmGKB"
+        )
         return snp_df
 
     except Exception as e:
@@ -187,7 +189,7 @@ def _download_pharmgkb_variants(
         DataFrame with variants data or None if failed
     """
     zip_path = cache_dir / "variants.zip"
-    tsv_path = cache_dir / "variants.tsv"
+    cache_dir / "variants.tsv"
     timeout = config.get("timeout", 300)  # 5 minutes default
 
     try:
@@ -197,42 +199,53 @@ def _download_pharmgkb_variants(
         response.raise_for_status()
 
         # Save ZIP file with progress logging
-        total_size = int(response.headers.get('content-length', 0))
+        total_size = int(response.headers.get("content-length", 0))
         downloaded_size = 0
 
-        with open(zip_path, 'wb') as f:
+        with open(zip_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
                     downloaded_size += len(chunk)
-                    
+
                     # Log progress every 10MB
-                    if downloaded_size > 0 and downloaded_size % (10 * 1024 * 1024) < 8192:
+                    if (
+                        downloaded_size > 0
+                        and downloaded_size % (10 * 1024 * 1024) < 8192
+                    ):
                         if total_size > 0:
                             progress = (downloaded_size / total_size) * 100
-                            logger.info(f"Downloaded {downloaded_size // (1024 * 1024)}MB / "
-                                      f"{total_size // (1024 * 1024)}MB ({progress:.1f}%)")
+                            logger.info(
+                                f"Downloaded {downloaded_size // (1024 * 1024)}MB / "
+                                f"{total_size // (1024 * 1024)}MB ({progress:.1f}%)"
+                            )
                         else:
-                            logger.info(f"Downloaded {downloaded_size // (1024 * 1024)}MB")
+                            logger.info(
+                                f"Downloaded {downloaded_size // (1024 * 1024)}MB"
+                            )
 
-        logger.info(f"Successfully downloaded {downloaded_size // (1024 * 1024)}MB ZIP file")
+        logger.info(
+            f"Successfully downloaded {downloaded_size // (1024 * 1024)}MB ZIP file"
+        )
 
         # Extract TSV file
         logger.info("Extracting variants.tsv from ZIP file")
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
             # Look for variants.tsv file
-            tsv_files = [name for name in zip_ref.namelist() if name.endswith('variants.tsv')]
-            
+            tsv_files = [
+                name for name in zip_ref.namelist() if name.endswith("variants.tsv")
+            ]
+
             if not tsv_files:
                 raise ValueError("No variants.tsv file found in ZIP archive")
-            
+
             tsv_filename = tsv_files[0]
             logger.info(f"Extracting {tsv_filename}")
-            
+
             with zip_ref.open(tsv_filename) as tsv_file:
                 # Read TSV data directly from ZIP
-                df = pd.read_csv(tsv_file, sep='\t', low_memory=False)
-                
+                df = pd.read_csv(tsv_file, sep="\t", low_memory=False)
+
         logger.info(f"Successfully loaded {len(df)} variants from PharmGKB")
         return df
 
@@ -274,16 +287,16 @@ def _filter_clinically_relevant_variants(
     # Ensure annotation count columns exist and are numeric
     required_columns = [
         "Guideline Annotation count",
-        "Level 1/2 Clinical Annotation count"
+        "Level 1/2 Clinical Annotation count",
     ]
 
     for col in required_columns:
         if col not in df.columns:
             logger.error(f"Required column '{col}' not found in PharmGKB data")
             return pd.DataFrame()
-        
+
         # Convert to numeric, replacing non-numeric values with 0
-        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     # Apply filters
     guideline_mask = df["Guideline Annotation count"] >= min_guideline
@@ -291,24 +304,32 @@ def _filter_clinically_relevant_variants(
 
     if filter_logic == "AND":
         final_mask = guideline_mask & level12_mask
-        logger.info(f"Using AND logic: guideline >= {min_guideline} AND level1/2 >= {min_level12}")
+        logger.info(
+            f"Using AND logic: guideline >= {min_guideline} AND level1/2 >= {min_level12}"
+        )
     else:  # OR logic (default)
         final_mask = guideline_mask | level12_mask
-        logger.info(f"Using OR logic: guideline >= {min_guideline} OR level1/2 >= {min_level12}")
+        logger.info(
+            f"Using OR logic: guideline >= {min_guideline} OR level1/2 >= {min_level12}"
+        )
 
     filtered_df = df[final_mask].copy()
     filtered_count = len(filtered_df)
 
-    logger.info(f"Filtered to {filtered_count} clinically relevant variants "
-               f"({filtered_count/initial_count*100:.1f}% of total)")
-    
+    logger.info(
+        f"Filtered to {filtered_count} clinically relevant variants "
+        f"({filtered_count/initial_count*100:.1f}% of total)"
+    )
+
     # Log filter breakdown
     guideline_only = len(df[guideline_mask & ~level12_mask])
     level12_only = len(df[level12_mask & ~guideline_mask])
     both = len(df[guideline_mask & level12_mask])
-    
-    logger.info(f"Filter breakdown: {guideline_only} guideline-only, "
-               f"{level12_only} level1/2-only, {both} both")
+
+    logger.info(
+        f"Filter breakdown: {guideline_only} guideline-only, "
+        f"{level12_only} level1/2-only, {both} both"
+    )
 
     return filtered_df
 
@@ -331,7 +352,7 @@ def _transform_to_snp_format(df: pd.DataFrame) -> pd.DataFrame:
         try:
             # Extract rsID from Variant Name
             rsid = _extract_rsid(row.get("Variant Name", ""))
-            
+
             if not rsid:
                 continue  # Skip variants without valid rsIDs
 
@@ -343,16 +364,24 @@ def _transform_to_snp_format(df: pd.DataFrame) -> pd.DataFrame:
                 "category": "pharmacogenomics",
                 "gene": str(row.get("Gene Symbols", "")).strip(),
                 "pharmgkb_id": str(row.get("Variant ID", "")).strip(),
-                "clinical_annotation_count": int(row.get("Clinical Annotation count", 0)),
-                "guideline_annotation_count": int(row.get("Guideline Annotation count", 0)),
-                "level12_clinical_annotation_count": int(row.get("Level 1/2 Clinical Annotation count", 0)),
+                "clinical_annotation_count": int(
+                    row.get("Clinical Annotation count", 0)
+                ),
+                "guideline_annotation_count": int(
+                    row.get("Guideline Annotation count", 0)
+                ),
+                "level12_clinical_annotation_count": int(
+                    row.get("Level 1/2 Clinical Annotation count", 0)
+                ),
                 "location": str(row.get("Location", "")).strip(),
             }
 
             snp_records.append(snp_record)
 
         except Exception as e:
-            logger.warning(f"Failed to process variant {row.get('Variant ID', 'unknown')}: {e}")
+            logger.warning(
+                f"Failed to process variant {row.get('Variant ID', 'unknown')}: {e}"
+            )
             continue
 
     if not snp_records:
@@ -398,7 +427,7 @@ def _extract_rsid(variant_name: str) -> str | None:
     variant_name = str(variant_name).strip()
 
     # Look for rsIDs using regex
-    rsid_pattern = r'\b(rs\d+)\b'
+    rsid_pattern = r"\b(rs\d+)\b"
     matches = re.findall(rsid_pattern, variant_name, re.IGNORECASE)
 
     if matches:
@@ -425,10 +454,10 @@ def _is_cache_valid(cache_path: Path, ttl_days: int) -> bool:
     try:
         # Get file modification time
         mtime = datetime.fromtimestamp(cache_path.stat().st_mtime)
-        
+
         # Check if file is within TTL
         expiry_time = mtime + timedelta(days=ttl_days)
-        
+
         return datetime.now() < expiry_time
 
     except Exception:
@@ -462,9 +491,9 @@ def get_pharmacogenomics_snps_summary(df: pd.DataFrame) -> dict[str, Any]:
         for genes_str in df["gene"].dropna():
             if genes_str and genes_str != "":
                 # Split on common separators
-                genes = re.split(r'[;,|]', str(genes_str))
+                genes = re.split(r"[;,|]", str(genes_str))
                 all_genes.extend([g.strip() for g in genes if g.strip()])
-        
+
         if all_genes:
             gene_counts = pd.Series(all_genes).value_counts()
             summary["gene_breakdown"] = gene_counts.head(10).to_dict()  # Top 10 genes
@@ -474,7 +503,7 @@ def get_pharmacogenomics_snps_summary(df: pd.DataFrame) -> dict[str, Any]:
     annotation_cols = [
         "clinical_annotation_count",
         "guideline_annotation_count",
-        "level12_clinical_annotation_count"
+        "level12_clinical_annotation_count",
     ]
 
     for col in annotation_cols:
@@ -483,14 +512,16 @@ def get_pharmacogenomics_snps_summary(df: pd.DataFrame) -> dict[str, Any]:
                 "mean": float(df[col].mean()),
                 "max": int(df[col].max()),
                 "min": int(df[col].min()),
-                "total": int(df[col].sum())
+                "total": int(df[col].sum()),
             }
 
     # High-evidence variants
     if "guideline_annotation_count" in df.columns:
         summary["with_guidelines"] = int((df["guideline_annotation_count"] > 0).sum())
-    
+
     if "level12_clinical_annotation_count" in df.columns:
-        summary["with_level12_clinical"] = int((df["level12_clinical_annotation_count"] > 0).sum())
+        summary["with_level12_clinical"] = int(
+            (df["level12_clinical_annotation_count"] > 0).sum()
+        )
 
     return summary

@@ -38,10 +38,8 @@ sys.stderr = _temp_stderr
 
 # Import everything else now
 try:
-    pass  # Package-level imports would go here
+    # Import version from centralized location
+    from ._version import __version__  # noqa: E402
 finally:
     # Restore original stderr
     sys.stderr = _temp_stderr._original_stderr
-
-# Import version from centralized location
-from ._version import __version__

@@ -562,9 +562,9 @@ class TestPanelMerger:
         merger = PanelMerger(config)
         result_df = merger._apply_decision_logic(df)
 
-        assert result_df["include"].tolist() == expected_inclusions, (
-            f"Failed for test case: {test_id}"
-        )
+        assert (
+            result_df["include"].tolist() == expected_inclusions
+        ), f"Failed for test case: {test_id}"
 
 
 class TestGeneAnnotatorEdgeCases:

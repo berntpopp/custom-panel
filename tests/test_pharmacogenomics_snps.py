@@ -7,10 +7,9 @@ import tempfile
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, patch
 
 import pandas as pd
-import pytest
 import requests
 
 from custom_panel.sources_snp.pharmacogenomics_snps import (
@@ -45,31 +44,39 @@ class TestFetchPharmacogenomicsSnps:
         result = fetch_pharmacogenomics_snps(config)
         assert result is None
 
-    @patch("custom_panel.sources_snp.pharmacogenomics_snps._download_and_process_pharmgkb_data")
-    @patch("custom_panel.sources_snp.pharmacogenomics_snps._filter_clinically_relevant_variants")
+    @patch(
+        "custom_panel.sources_snp.pharmacogenomics_snps._download_and_process_pharmgkb_data"
+    )
+    @patch(
+        "custom_panel.sources_snp.pharmacogenomics_snps._filter_clinically_relevant_variants"
+    )
     @patch("custom_panel.sources_snp.pharmacogenomics_snps._transform_to_snp_format")
     def test_successful_fetch(self, mock_transform, mock_filter, mock_download):
         """Test successful SNP fetching."""
         # Setup mocks
-        mock_variants_df = pd.DataFrame({
-            "Variant ID": ["PA166156302"],
-            "Variant Name": ["rs4244285"],
-            "Gene Symbols": ["CYP2C19"],
-            "Guideline Annotation count": [2],
-            "Level 1/2 Clinical Annotation count": [1],
-        })
+        mock_variants_df = pd.DataFrame(
+            {
+                "Variant ID": ["PA166156302"],
+                "Variant Name": ["rs4244285"],
+                "Gene Symbols": ["CYP2C19"],
+                "Guideline Annotation count": [2],
+                "Level 1/2 Clinical Annotation count": [1],
+            }
+        )
         mock_download.return_value = mock_variants_df
 
         mock_filtered_df = mock_variants_df.copy()
         mock_filter.return_value = mock_filtered_df
 
-        mock_snp_df = pd.DataFrame({
-            "snp": ["rs4244285"],
-            "rsid": ["rs4244285"],
-            "source": ["PharmGKB"],
-            "category": ["pharmacogenomics"],
-            "gene": ["CYP2C19"],
-        })
+        mock_snp_df = pd.DataFrame(
+            {
+                "snp": ["rs4244285"],
+                "rsid": ["rs4244285"],
+                "source": ["PharmGKB"],
+                "category": ["pharmacogenomics"],
+                "gene": ["CYP2C19"],
+            }
+        )
         mock_transform.return_value = mock_snp_df
 
         config = {
@@ -88,7 +95,9 @@ class TestFetchPharmacogenomicsSnps:
         mock_filter.assert_called_once()
         mock_transform.assert_called_once()
 
-    @patch("custom_panel.sources_snp.pharmacogenomics_snps._download_and_process_pharmgkb_data")
+    @patch(
+        "custom_panel.sources_snp.pharmacogenomics_snps._download_and_process_pharmgkb_data"
+    )
     def test_download_failure(self, mock_download):
         """Test handling of download failure."""
         mock_download.return_value = None
@@ -103,7 +112,9 @@ class TestFetchPharmacogenomicsSnps:
         result = fetch_pharmacogenomics_snps(config)
         assert result is None
 
-    @patch("custom_panel.sources_snp.pharmacogenomics_snps._download_and_process_pharmgkb_data")
+    @patch(
+        "custom_panel.sources_snp.pharmacogenomics_snps._download_and_process_pharmgkb_data"
+    )
     def test_exception_handling(self, mock_download):
         """Test exception handling in main fetch function."""
         mock_download.side_effect = Exception("Test error")
@@ -138,7 +149,10 @@ class TestDownloadAndProcessPharmgkbData:
                 "cache_ttl_days": 7,
             }
 
-            with patch("custom_panel.sources_snp.pharmacogenomics_snps._is_cache_valid", return_value=True):
+            with patch(
+                "custom_panel.sources_snp.pharmacogenomics_snps._is_cache_valid",
+                return_value=True,
+            ):
                 result = _download_and_process_pharmgkb_data(config)
 
             assert result is not None
@@ -158,7 +172,10 @@ class TestDownloadAndProcessPharmgkbData:
                 "download_url": "https://test.com/variants.zip",
             }
 
-            with patch("custom_panel.sources_snp.pharmacogenomics_snps._is_cache_valid", return_value=False):
+            with patch(
+                "custom_panel.sources_snp.pharmacogenomics_snps._is_cache_valid",
+                return_value=False,
+            ):
                 result = _download_and_process_pharmgkb_data(config)
 
             assert result is not None
@@ -193,10 +210,12 @@ class TestDownloadPharmgkbVariants:
         mock_zipfile.return_value.__exit__ = Mock(return_value=None)
 
         # Mock pandas read_csv
-        mock_df = pd.DataFrame({
-            "Variant ID": ["PA166156302"],
-            "Variant Name": ["rs4244285"],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "Variant ID": ["PA166156302"],
+                "Variant Name": ["rs4244285"],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -240,8 +259,10 @@ class TestDownloadPharmgkbVariants:
             cache_dir = Path(temp_dir)
             config = {"timeout": 300}
 
-            with patch("custom_panel.sources_snp.pharmacogenomics_snps.zipfile.ZipFile", 
-                      side_effect=zipfile.BadZipFile("Corrupted ZIP")):
+            with patch(
+                "custom_panel.sources_snp.pharmacogenomics_snps.zipfile.ZipFile",
+                side_effect=zipfile.BadZipFile("Corrupted ZIP"),
+            ):
                 result = _download_pharmgkb_variants(
                     "https://test.com/variants.zip", cache_dir, config
                 )
@@ -254,11 +275,13 @@ class TestFilterClinicallyRelevantVariants:
 
     def test_or_filtering(self):
         """Test OR logic filtering."""
-        df = pd.DataFrame({
-            "Guideline Annotation count": [0, 1, 0, 2],
-            "Level 1/2 Clinical Annotation count": [1, 0, 0, 1],
-            "Variant ID": ["PA1", "PA2", "PA3", "PA4"],
-        })
+        df = pd.DataFrame(
+            {
+                "Guideline Annotation count": [0, 1, 0, 2],
+                "Level 1/2 Clinical Annotation count": [1, 0, 0, 1],
+                "Variant ID": ["PA1", "PA2", "PA3", "PA4"],
+            }
+        )
 
         config = {
             "filters": {
@@ -277,11 +300,13 @@ class TestFilterClinicallyRelevantVariants:
 
     def test_and_filtering(self):
         """Test AND logic filtering."""
-        df = pd.DataFrame({
-            "Guideline Annotation count": [0, 1, 0, 2],
-            "Level 1/2 Clinical Annotation count": [1, 0, 0, 1],
-            "Variant ID": ["PA1", "PA2", "PA3", "PA4"],
-        })
+        df = pd.DataFrame(
+            {
+                "Guideline Annotation count": [0, 1, 0, 2],
+                "Level 1/2 Clinical Annotation count": [1, 0, 0, 1],
+                "Variant ID": ["PA1", "PA2", "PA3", "PA4"],
+            }
+        )
 
         config = {
             "filters": {
@@ -299,10 +324,12 @@ class TestFilterClinicallyRelevantVariants:
 
     def test_missing_columns(self):
         """Test handling of missing required columns."""
-        df = pd.DataFrame({
-            "Variant ID": ["PA1", "PA2"],
-            "Other Column": [1, 2],
-        })
+        df = pd.DataFrame(
+            {
+                "Variant ID": ["PA1", "PA2"],
+                "Other Column": [1, 2],
+            }
+        )
 
         config = {"filters": {}}
 
@@ -311,11 +338,13 @@ class TestFilterClinicallyRelevantVariants:
 
     def test_non_numeric_values(self):
         """Test handling of non-numeric annotation counts."""
-        df = pd.DataFrame({
-            "Guideline Annotation count": ["N/A", "1", "not_a_number"],
-            "Level 1/2 Clinical Annotation count": [1, "invalid", 2],
-            "Variant ID": ["PA1", "PA2", "PA3"],
-        })
+        df = pd.DataFrame(
+            {
+                "Guideline Annotation count": ["N/A", "1", "not_a_number"],
+                "Level 1/2 Clinical Annotation count": [1, "invalid", 2],
+                "Variant ID": ["PA1", "PA2", "PA3"],
+            }
+        )
 
         config = {
             "filters": {
@@ -328,7 +357,7 @@ class TestFilterClinicallyRelevantVariants:
         result = _filter_clinically_relevant_variants(df, config)
 
         # PA1: guideline=0 (converted from N/A), level1/2=1 -> included
-        # PA2: guideline=1, level1/2=0 (converted from invalid) -> included  
+        # PA2: guideline=1, level1/2=0 (converted from invalid) -> included
         # PA3: guideline=0 (converted), level1/2=2 -> included
         assert len(result) == 3
 
@@ -338,15 +367,17 @@ class TestTransformToSnpFormat:
 
     def test_successful_transformation(self):
         """Test successful transformation."""
-        df = pd.DataFrame({
-            "Variant ID": ["PA166156302", "PA166156303"],
-            "Variant Name": ["rs4244285", "rs1234567"],
-            "Gene Symbols": ["CYP2C19", "CYP2D6"],
-            "Location": ["chr10:94842866", "chr22:42522500"],
-            "Clinical Annotation count": [5, 3],
-            "Guideline Annotation count": [2, 1],
-            "Level 1/2 Clinical Annotation count": [3, 2],
-        })
+        df = pd.DataFrame(
+            {
+                "Variant ID": ["PA166156302", "PA166156303"],
+                "Variant Name": ["rs4244285", "rs1234567"],
+                "Gene Symbols": ["CYP2C19", "CYP2D6"],
+                "Location": ["chr10:94842866", "chr22:42522500"],
+                "Clinical Annotation count": [5, 3],
+                "Guideline Annotation count": [2, 1],
+                "Level 1/2 Clinical Annotation count": [3, 2],
+            }
+        )
 
         result = _transform_to_snp_format(df)
 
@@ -358,15 +389,17 @@ class TestTransformToSnpFormat:
 
     def test_duplicate_handling(self):
         """Test handling of duplicate rsIDs."""
-        df = pd.DataFrame({
-            "Variant ID": ["PA1", "PA2"],
-            "Variant Name": ["rs4244285", "rs4244285"],  # Same rsID
-            "Gene Symbols": ["CYP2C19", "CYP2C19"],
-            "Location": ["chr10:94842866", "chr10:94842866"],
-            "Clinical Annotation count": [3, 5],  # Different annotation counts
-            "Guideline Annotation count": [1, 2],
-            "Level 1/2 Clinical Annotation count": [2, 3],
-        })
+        df = pd.DataFrame(
+            {
+                "Variant ID": ["PA1", "PA2"],
+                "Variant Name": ["rs4244285", "rs4244285"],  # Same rsID
+                "Gene Symbols": ["CYP2C19", "CYP2C19"],
+                "Location": ["chr10:94842866", "chr10:94842866"],
+                "Clinical Annotation count": [3, 5],  # Different annotation counts
+                "Guideline Annotation count": [1, 2],
+                "Level 1/2 Clinical Annotation count": [2, 3],
+            }
+        )
 
         result = _transform_to_snp_format(df)
 
@@ -377,15 +410,17 @@ class TestTransformToSnpFormat:
 
     def test_invalid_variant_names(self):
         """Test handling of variants without valid rsIDs."""
-        df = pd.DataFrame({
-            "Variant ID": ["PA1", "PA2", "PA3"],
-            "Variant Name": ["rs4244285", "invalid_name", None],
-            "Gene Symbols": ["CYP2C19", "CYP2D6", "TPMT"],
-            "Location": ["chr10:94842866", "chr22:42522500", "chr6:18130918"],
-            "Clinical Annotation count": [5, 3, 2],
-            "Guideline Annotation count": [2, 1, 1],
-            "Level 1/2 Clinical Annotation count": [3, 2, 1],
-        })
+        df = pd.DataFrame(
+            {
+                "Variant ID": ["PA1", "PA2", "PA3"],
+                "Variant Name": ["rs4244285", "invalid_name", None],
+                "Gene Symbols": ["CYP2C19", "CYP2D6", "TPMT"],
+                "Location": ["chr10:94842866", "chr22:42522500", "chr6:18130918"],
+                "Clinical Annotation count": [5, 3, 2],
+                "Guideline Annotation count": [2, 1, 1],
+                "Level 1/2 Clinical Annotation count": [3, 2, 1],
+            }
+        )
 
         result = _transform_to_snp_format(df)
 
@@ -432,7 +467,7 @@ class TestIsCacheValid:
         """Test valid cache file."""
         with tempfile.NamedTemporaryFile() as temp_file:
             cache_path = Path(temp_file.name)
-            
+
             # File exists and is recent
             assert _is_cache_valid(cache_path, ttl_days=7) is True
 
@@ -440,13 +475,15 @@ class TestIsCacheValid:
         """Test expired cache file."""
         with tempfile.NamedTemporaryFile() as temp_file:
             cache_path = Path(temp_file.name)
-            
+
             # Mock old file
             old_time = datetime.now() - timedelta(days=10)
-            with patch("custom_panel.sources_snp.pharmacogenomics_snps.datetime") as mock_dt:
+            with patch(
+                "custom_panel.sources_snp.pharmacogenomics_snps.datetime"
+            ) as mock_dt:
                 mock_dt.fromtimestamp.return_value = old_time
                 mock_dt.now.return_value = datetime.now()
-                
+
                 assert _is_cache_valid(cache_path, ttl_days=7) is False
 
     def test_cache_nonexistent(self):
@@ -466,23 +503,33 @@ class TestGetPharmacogenomicsSnpsSummary:
 
     def test_complete_summary(self):
         """Test complete summary generation."""
-        df = pd.DataFrame({
-            "rsid": ["rs4244285", "rs1234567", "rs4244285"],  # One duplicate
-            "source": ["PharmGKB", "PharmGKB", "PharmGKB"],
-            "category": ["pharmacogenomics", "pharmacogenomics", "pharmacogenomics"],
-            "gene": ["CYP2C19", "CYP2D6;TPMT", "CYP2C19"],
-            "clinical_annotation_count": [5, 3, 4],
-            "guideline_annotation_count": [2, 0, 1],
-            "level12_clinical_annotation_count": [3, 2, 2],
-        })
+        df = pd.DataFrame(
+            {
+                "rsid": ["rs4244285", "rs1234567", "rs4244285"],  # One duplicate
+                "source": ["PharmGKB", "PharmGKB", "PharmGKB"],
+                "category": [
+                    "pharmacogenomics",
+                    "pharmacogenomics",
+                    "pharmacogenomics",
+                ],
+                "gene": ["CYP2C19", "CYP2D6;TPMT", "CYP2C19"],
+                "clinical_annotation_count": [5, 3, 4],
+                "guideline_annotation_count": [2, 0, 1],
+                "level12_clinical_annotation_count": [3, 2, 2],
+            }
+        )
 
         summary = get_pharmacogenomics_snps_summary(df)
 
         assert summary["total_snps"] == 3
         assert summary["unique_rsids"] == 2
         assert summary["unique_genes"] == 3  # CYP2C19, CYP2D6, TPMT
-        assert summary["with_guidelines"] == 2  # Two have guideline_annotation_count > 0
-        assert summary["with_level12_clinical"] == 3  # All have level12_clinical_annotation_count > 0
+        assert (
+            summary["with_guidelines"] == 2
+        )  # Two have guideline_annotation_count > 0
+        assert (
+            summary["with_level12_clinical"] == 3
+        )  # All have level12_clinical_annotation_count > 0
 
         # Check statistics
         assert summary["clinical_annotation_count_stats"]["mean"] == 4.0
@@ -491,12 +538,18 @@ class TestGetPharmacogenomicsSnpsSummary:
 
     def test_gene_parsing(self):
         """Test parsing of multiple genes."""
-        df = pd.DataFrame({
-            "rsid": ["rs1", "rs2", "rs3"],
-            "source": ["PharmGKB", "PharmGKB", "PharmGKB"],
-            "category": ["pharmacogenomics", "pharmacogenomics", "pharmacogenomics"],
-            "gene": ["CYP2C19", "CYP2D6;TPMT", "CYP2C19,CYP3A4|UGT1A1"],
-        })
+        df = pd.DataFrame(
+            {
+                "rsid": ["rs1", "rs2", "rs3"],
+                "source": ["PharmGKB", "PharmGKB", "PharmGKB"],
+                "category": [
+                    "pharmacogenomics",
+                    "pharmacogenomics",
+                    "pharmacogenomics",
+                ],
+                "gene": ["CYP2C19", "CYP2D6;TPMT", "CYP2C19,CYP3A4|UGT1A1"],
+            }
+        )
 
         summary = get_pharmacogenomics_snps_summary(df)
 
@@ -530,19 +583,25 @@ class TestPharmacogenomicsIntegration:
         mock_zipfile.return_value.__exit__ = Mock(return_value=None)
 
         # Mock PharmGKB data
-        mock_pharmgkb_data = pd.DataFrame({
-            "Variant ID": ["PA166156302", "PA166156303", "PA166156304"],
-            "Variant Name": ["rs4244285", "rs1234567", "no_rsid_variant"],
-            "Gene IDs": ["PA128", "PA129", "PA130"],
-            "Gene Symbols": ["CYP2C19", "CYP2D6", "TPMT"],
-            "Location": ["NC_000010.11:94842866", "NC_000022.11:42522500", "NC_000006.12:18130918"],
-            "Variant Annotation count": [10, 8, 5],
-            "Clinical Annotation count": [5, 3, 1],
-            "Level 1/2 Clinical Annotation count": [3, 2, 0],
-            "Guideline Annotation count": [2, 0, 1],
-            "Label Annotation count": [1, 1, 0],
-            "Synonyms": ["synonym1", "synonym2", "synonym3"],
-        })
+        mock_pharmgkb_data = pd.DataFrame(
+            {
+                "Variant ID": ["PA166156302", "PA166156303", "PA166156304"],
+                "Variant Name": ["rs4244285", "rs1234567", "no_rsid_variant"],
+                "Gene IDs": ["PA128", "PA129", "PA130"],
+                "Gene Symbols": ["CYP2C19", "CYP2D6", "TPMT"],
+                "Location": [
+                    "NC_000010.11:94842866",
+                    "NC_000022.11:42522500",
+                    "NC_000006.12:18130918",
+                ],
+                "Variant Annotation count": [10, 8, 5],
+                "Clinical Annotation count": [5, 3, 1],
+                "Level 1/2 Clinical Annotation count": [3, 2, 0],
+                "Guideline Annotation count": [2, 0, 1],
+                "Label Annotation count": [1, 1, 0],
+                "Synonyms": ["synonym1", "synonym2", "synonym3"],
+            }
+        )
         mock_read_csv.return_value = mock_pharmgkb_data
 
         config = {
@@ -563,7 +622,10 @@ class TestPharmacogenomicsIntegration:
             }
         }
 
-        with patch("custom_panel.sources_snp.pharmacogenomics_snps._is_cache_valid", return_value=False):
+        with patch(
+            "custom_panel.sources_snp.pharmacogenomics_snps._is_cache_valid",
+            return_value=False,
+        ):
             result = fetch_pharmacogenomics_snps(config)
 
         # Should get 2 SNPs (rs4244285 and rs1234567)
@@ -571,15 +633,15 @@ class TestPharmacogenomicsIntegration:
         # PA166156303 should be included despite guideline_count=0 because level12_clinical_count=2 >= 1
         assert result is not None
         assert len(result) == 2
-        
+
         rsids = set(result["rsid"])
         assert "rs4244285" in rsids
         assert "rs1234567" in rsids
-        
+
         # Check data integrity
         assert all(result["category"] == "pharmacogenomics")
         assert all(result["source"] == "PharmGKB")
-        
+
         # Check that filtering worked correctly
         cyp2c19_row = result[result["gene"] == "CYP2C19"].iloc[0]
         assert cyp2c19_row["guideline_annotation_count"] == 2
