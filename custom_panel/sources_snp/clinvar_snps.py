@@ -97,8 +97,8 @@ def fetch_clinvar_snps(
         return pd.DataFrame()
 
     # Filter to only genes included in the final panel
-    if "include_in_panel" in gene_panel.columns:
-        panel_genes = gene_panel[gene_panel["include_in_panel"]].copy()
+    if "include" in gene_panel.columns:
+        panel_genes = gene_panel[gene_panel["include"]].copy()
     else:
         panel_genes = gene_panel.copy()
 
