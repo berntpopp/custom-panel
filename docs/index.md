@@ -13,7 +13,7 @@ Custom Panel is a comprehensive bioinformatics tool for creating, managing, and 
 - **Gene standardization**: Automatic gene symbol standardization using HGNC
 - **Genomic annotation**: Rich annotation with Ensembl coordinates, transcripts, and MANE information
 - **Flexible output formats**: Excel, CSV, Parquet, and BED file generation
-- **Modern architecture**: Built with Python 3.10+, Poetry, and comprehensive type hints
+- **Modern architecture**: Built with Python 3.10+, uv, and comprehensive type hints
 - **Interactive HTML reports**: Rich, interactive web reports with charts, filtering, and export capabilities
 
 ## Getting Started

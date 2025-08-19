@@ -2,6 +2,15 @@
 
 Learn how to use Custom Panel's command-line interface to create gene panels.
 
+## Command Options
+
+Custom Panel can be run in two ways:
+
+- **Make commands (recommended)**: `make run ARGS="..."`
+- **Direct commands**: `uv run custom-panel ...`
+
+Make commands provide a consistent development workflow and are the recommended approach.
+
 ## Quick Start
 
 ### 1. Basic Pipeline Run
@@ -9,7 +18,11 @@ Learn how to use Custom Panel's command-line interface to create gene panels.
 Run the complete pipeline with default settings:
 
 ```bash
-custom-panel run --output-dir results
+# Using Make (recommended)
+make run ARGS="run --output-dir results"
+
+# Or directly
+uv run custom-panel run --output-dir results
 ```
 
 This will:
@@ -22,7 +35,11 @@ This will:
 Before running, verify your configuration:
 
 ```bash
-custom-panel config-check
+# Using Make
+make config-check
+
+# Or directly
+uv run custom-panel config-check
 ```
 
 ### 3. Search Available Panels
@@ -30,7 +47,11 @@ custom-panel config-check
 Find relevant panels in PanelApp:
 
 ```bash
-custom-panel search-panels "cancer"
+# Using Make
+make run ARGS="search-panels cancer"
+
+# Or directly
+uv run custom-panel search-panels "cancer"
 ```
 
 ## Main Commands
@@ -52,16 +73,20 @@ custom-panel run [OPTIONS]
 
 ```bash
 # Basic run with custom output directory
-custom-panel run --output-dir my_results
+make run ARGS="run --output-dir my_results"
+# Or: uv run custom-panel run --output-dir my_results
 
-# Use custom configuration
-custom-panel run -c my_config.yml --output-dir results
+# Use custom configuration  
+make run ARGS="run -c my_config.yml --output-dir results"
+# Or: uv run custom-panel run -c my_config.yml --output-dir results
 
 # Debug mode with lower threshold
-custom-panel run --log-level DEBUG --score-threshold 1.0
+make run ARGS="run --log-level DEBUG --score-threshold 1.0"
+# Or: uv run custom-panel run --log-level DEBUG --score-threshold 1.0
 
 # Preview mode (no files created)
-custom-panel run --dry-run
+make run ARGS="run --dry-run"  
+# Or: uv run custom-panel run --dry-run
 ```
 
 ### `fetch` - Fetch Data from Individual Sources
@@ -85,10 +110,12 @@ custom-panel fetch SOURCE [OPTIONS]
 
 ```bash
 # Fetch PanelApp data only
-custom-panel fetch panelapp --output-dir results/panelapp
+make run ARGS="fetch panelapp --output-dir results/panelapp"
+# Or: uv run custom-panel fetch panelapp --output-dir results/panelapp
 
 # Fetch with specific format
-custom-panel fetch acmg --format csv --output-dir results
+make run ARGS="fetch acmg --format csv --output-dir results"
+# Or: uv run custom-panel fetch acmg --format csv --output-dir results
 ```
 
 ## Output Files
@@ -116,10 +143,12 @@ Adjust inclusion criteria:
 
 ```bash
 # Lower threshold for more genes
-custom-panel run --score-threshold 1.0
+make run ARGS="run --score-threshold 1.0"
+# Or: uv run custom-panel run --score-threshold 1.0
 
 # Higher threshold for stricter filtering  
-custom-panel run --score-threshold 2.5
+make run ARGS="run --score-threshold 2.5"
+# Or: uv run custom-panel run --score-threshold 2.5
 ```
 
 ### Output Formats
@@ -141,10 +170,12 @@ Enable detailed logging:
 
 ```bash
 # Debug mode
-custom-panel run --log-level DEBUG
+make run ARGS="run --log-level DEBUG"
+# Or: uv run custom-panel run --log-level DEBUG
 
-# Save logs to files
-custom-panel run --log-to-file
+# Save logs to files  
+make run ARGS="run --log-to-file"
+# Or: uv run custom-panel run --log-to-file
 ```
 
 ## Advanced Usage
@@ -156,7 +187,8 @@ Create a custom configuration file:
 ```bash
 cp custom_panel/config/default_config.yml my_config.yml
 # Edit my_config.yml as needed
-custom-panel run -c my_config.yml
+make run ARGS="run -c my_config.yml"
+# Or: uv run custom-panel run -c my_config.yml
 ```
 
 ### Batch Processing
@@ -167,7 +199,8 @@ Process multiple configurations:
 #!/bin/bash
 for config in configs/*.yml; do
     output_dir="results/$(basename $config .yml)"
-    custom-panel run -c "$config" --output-dir "$output_dir"
+    make run ARGS="run -c $config --output-dir $output_dir"
+    # Or: uv run custom-panel run -c "$config" --output-dir "$output_dir"
 done
 ```
 

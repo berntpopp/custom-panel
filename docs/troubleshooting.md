@@ -6,20 +6,23 @@ This guide helps you resolve common issues when using the custom-panel tool.
 
 ### Installation Problems
 
-#### Poetry Installation Issues
+#### uv Installation Issues
 
-**Problem**: Poetry installation fails or commands don't work
+**Problem**: uv installation fails or commands don't work
 
 **Solution**:
 ```bash
-# Install Poetry using the official installer
-curl -sSL https://install.python-poetry.org | python3 -
+# Install uv using the official installer
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Or using pip
-pip install poetry
+# On Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Alternative: using pip
+pip install uv
 
 # Verify installation
-poetry --version
+uv --version
 ```
 
 #### Python Version Issues
@@ -27,18 +30,25 @@ poetry --version
 **Problem**: Python version compatibility errors
 
 **Solution**:
-- Ensure you're using Python 3.10 or later
-- Use pyenv or conda to manage Python versions:
+- uv automatically manages Python versions for you
+- To install a specific Python version:
 
 ```bash
-# Check Python version
-python --version
+# Check available Python versions
+uv python list
 
+# Install Python 3.10 (or later)
+uv python install 3.10
+
+# uv will automatically use the correct version for the project
+uv sync
+
+# Alternative: manual version management with pyenv/conda
 # Using pyenv
 pyenv install 3.10.0
 pyenv local 3.10.0
 
-# Using conda
+# Using conda  
 conda create -n custom-panel python=3.10
 conda activate custom-panel
 ```
@@ -49,14 +59,18 @@ conda activate custom-panel
 
 **Solution**:
 ```bash
-# Clear poetry cache
-poetry cache clear --all .
+# Clear uv cache
+uv cache clean
 
-# Install with fresh resolver
-poetry install --no-cache
+# Fresh install
+make install-dev
+
+# Or using uv directly
+uv sync --refresh
 
 # Install specific groups
-poetry install --with dev,scrapers
+uv sync --group dev
+uv sync --group scrapers
 ```
 
 ### Configuration Issues
@@ -83,7 +97,11 @@ cp config/default_config.yml config.local.yml
 - Validate configuration:
 
 ```bash
-custom-panel config-check
+# Using Make (recommended)
+make config-check
+
+# Or directly
+uv run custom-panel config-check
 ```
 
 #### API Key Issues
@@ -181,7 +199,11 @@ data_sources:
 - Enable debug logging:
 
 ```bash
-custom-panel run --log-level DEBUG
+# Using Make
+make run ARGS="run --log-level DEBUG"
+
+# Or directly
+uv run custom-panel run --log-level DEBUG
 ```
 
 #### Data Format Changes
@@ -257,7 +279,8 @@ output:
 - Install openpyxl:
 
 ```bash
-poetry add openpyxl
+# Add missing dependency
+uv add openpyxl
 ```
 
 - Check file permissions
@@ -284,7 +307,11 @@ head -n 5 results/*/06_final_output/germline_panel.bed
 For detailed troubleshooting information:
 
 ```bash
-custom-panel run --log-level DEBUG --output-dir debug_results
+# Using Make
+make run ARGS="run --log-level DEBUG --output-dir debug_results"
+
+# Or directly
+uv run custom-panel run --log-level DEBUG --output-dir debug_results
 ```
 
 ### Check Log Files
@@ -307,11 +334,12 @@ When reporting issues, include:
 ```bash
 # System info
 python --version
-poetry --version
-custom-panel --version  # If available
+uv --version
+make run-help  # Shows application help
 
 # Package info
-poetry show
+uv tree        # Show dependency tree
+uv lock --dry-run  # Show resolved dependencies
 ```
 
 ### Report Issues
