@@ -43,4 +43,5 @@ finally:
     # Restore original stderr
     sys.stderr = _temp_stderr._original_stderr
 
-__version__ = "0.1.0"
+# Import version from centralized location
+from ._version import __version__

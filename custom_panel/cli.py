@@ -16,6 +16,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from ._version import __version__
 from .core.config_manager import ConfigManager
 from .core.output_generator import generate_outputs
 from .engine.pipeline import Pipeline
@@ -31,6 +32,23 @@ app = typer.Typer(
 
 console = Console()
 logger = logging.getLogger(__name__)
+
+
+def version_callback(value: bool) -> None:
+    """Version callback for CLI."""
+    if value:
+        console.print(f"custom-panel version {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False, "--version", "-v", help="Show version and exit", callback=version_callback
+    ),
+) -> None:
+    """Custom Panel - Gene panel curation and aggregation tool."""
+    pass
 
 
 def setup_logging(log_level: str = "INFO") -> None:

@@ -41,6 +41,7 @@ from ..sources_snp.clinvar_snps import fetch_clinvar_snps
 from ..sources_snp.ethnicity_snps import fetch_ethnicity_snps
 from ..sources_snp.identity_snps import fetch_identity_snps
 from ..sources_snp.manual_snps import fetch_manual_snps
+from ..sources_snp.pharmacogenomics_snps import fetch_pharmacogenomics_snps
 from ..sources_snp.prs_snps import fetch_prs_snps
 
 logger = logging.getLogger(__name__)
@@ -678,6 +679,7 @@ class Pipeline:
             "identity": fetch_identity_snps,
             "ethnicity": fetch_ethnicity_snps,
             "prs": fetch_prs_snps,
+            "pharmacogenomics": fetch_pharmacogenomics_snps,
             "manual_snps": fetch_manual_snps,
         }
 

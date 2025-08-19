@@ -738,8 +738,25 @@ snp_processing:
     # Maximum indel size in bp to include (filters out large CNVs and structural variants)
     max_indel_size: 50 
 
+  # --- Pharmacogenomics SNPs ---
+  # PharmGKB-based pharmacogenomics variants for drug response prediction.
+  pharmacogenomics:
+    enabled: true
+    source: "pharmgkb"
+    download_url: "https://api.pharmgkb.org/v1/download/file/data/variants.zip"
+    cache_dir: ".cache/pharmgkb"
+    cache_ttl_days: 7
+    timeout: 300  # 5 minutes for large file download
+    filters:
+      min_guideline_annotations: 1
+      min_level12_clinical_annotations: 1
+      filter_logic: "OR"  # OR/AND - variants must meet one or both criteria
+    # Optional gene filtering (empty lists = include all)
+    include_genes: []  # e.g., ["CYP2C19", "CYP2D6", "TPMT", "DPYD"]
+    exclude_genes: []  # e.g., ["DEPRECATED_GENE"]
+
   # --- Manually Added SNPs ---
-  # For adding specific SNPs for any reason (e.g., PGx).
+  # For adding specific SNPs for any reason (e.g., additional PGx).
   manual_snps:
     enabled: true
     lists:
