@@ -318,7 +318,7 @@ def _filter_clinically_relevant_variants(
 
     logger.info(
         f"Filtered to {filtered_count} clinically relevant variants "
-        f"({filtered_count/initial_count*100:.1f}% of total)"
+        f"({filtered_count / initial_count * 100:.1f}% of total)"
     )
 
     # Log filter breakdown

@@ -362,10 +362,10 @@ class GeneAnnotator:
             for symbol in batch:
                 gene_data = batch_data.get(symbol)
                 if gene_data:
-                    annotations[
-                        symbol
-                    ] = self._build_gene_annotation_from_expanded_data(
-                        symbol, gene_data
+                    annotations[symbol] = (
+                        self._build_gene_annotation_from_expanded_data(
+                            symbol, gene_data
+                        )
                     )
                 else:
                     annotations[symbol] = self._build_empty_annotation(symbol)
@@ -491,10 +491,10 @@ class GeneAnnotator:
         # Calculate gene size and coverage
         if gene_data.get("start") and gene_data.get("end"):
             annotation["gene_size"] = gene_data["end"] - gene_data["start"] + 1
-            annotation[
-                "gene_coverage_with_padding"
-            ] = self.ensembl_client.calculate_gene_coverage(
-                gene_data["start"], gene_data["end"], self.gene_padding
+            annotation["gene_coverage_with_padding"] = (
+                self.ensembl_client.calculate_gene_coverage(
+                    gene_data["start"], gene_data["end"], self.gene_padding
+                )
             )
 
         # Extract transcript information from expanded data
@@ -506,10 +506,10 @@ class GeneAnnotator:
             # Calculate canonical transcript coverage if we have the full transcript data
             canonical_full = gene_data.get("canonical_transcript_full")
             if canonical_full:
-                annotation[
-                    "canonical_transcript_coverage"
-                ] = self.ensembl_client.calculate_transcript_coverage(
-                    canonical_full, self.transcript_padding
+                annotation["canonical_transcript_coverage"] = (
+                    self.ensembl_client.calculate_transcript_coverage(
+                        canonical_full, self.transcript_padding
+                    )
                 )
 
         if self.include_mane:
@@ -522,10 +522,10 @@ class GeneAnnotator:
             # Calculate MANE Select coverage
             mane_select_full = gene_data.get("mane_select_full")
             if mane_select_full:
-                annotation[
-                    "mane_select_coverage"
-                ] = self.ensembl_client.calculate_transcript_coverage(
-                    mane_select_full, self.transcript_padding
+                annotation["mane_select_coverage"] = (
+                    self.ensembl_client.calculate_transcript_coverage(
+                        mane_select_full, self.transcript_padding
+                    )
                 )
 
             # MANE Plus Clinical transcript
@@ -539,10 +539,10 @@ class GeneAnnotator:
             # Calculate MANE Clinical coverage
             mane_clinical_full = gene_data.get("mane_clinical_full")
             if mane_clinical_full:
-                annotation[
-                    "mane_clinical_coverage"
-                ] = self.ensembl_client.calculate_transcript_coverage(
-                    mane_clinical_full, self.transcript_padding
+                annotation["mane_clinical_coverage"] = (
+                    self.ensembl_client.calculate_transcript_coverage(
+                        mane_clinical_full, self.transcript_padding
+                    )
                 )
 
         # Store all transcripts data for exon BED file generation
@@ -578,10 +578,10 @@ class GeneAnnotator:
         # Calculate gene size and coverage
         if coords.get("start") and coords.get("end"):
             annotation["gene_size"] = coords["end"] - coords["start"] + 1
-            annotation[
-                "gene_coverage_with_padding"
-            ] = self.ensembl_client.calculate_gene_coverage(
-                coords["start"], coords["end"], self.gene_padding
+            annotation["gene_coverage_with_padding"] = (
+                self.ensembl_client.calculate_gene_coverage(
+                    coords["start"], coords["end"], self.gene_padding
+                )
             )
 
         # For fallback, we can't get transcript info without additional API calls
