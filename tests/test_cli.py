@@ -97,13 +97,10 @@ output:
     html:
       enabled: true
   bed_files:
-    germline:
-      enabled: true
-    exons:
-      enabled: true
-      transcript_types:
-        canonical: true
-        mane_select: true
+    germline: true
+    genes_included: true
+    exons_canonical_transcript: true
+    exons_mane_select_transcript: true
 """
     config_path = tmp_path / "test_config.yml"
     config_path.write_text(config_content)
@@ -310,7 +307,7 @@ def test_cli_run_success(
     assert (final_output_dir / "master_panel.csv").exists()
     assert (final_output_dir / "master_panel.parquet").exists()
     assert (final_output_dir / "panel_report.html").exists()
-    assert (final_output_dir / "germline_panel.bed").exists()
+    assert (final_output_dir / "genes_included.bed").exists()
     assert (run_dir / "run_summary.json").exists()
 
     # 3. Assert the content of output files
@@ -334,7 +331,7 @@ def test_cli_run_success(
     assert mlh1_row.iloc[0]["inclusion_reason"] == "below_threshold"
 
     # Check BED file content
-    bed_content = (final_output_dir / "germline_panel.bed").read_text()
+    bed_content = (final_output_dir / "genes_included.bed").read_text()
     bed_lines = bed_content.strip().split("\n")
     # Should have 4 included genes (BRCA1, TP53, KRAS, VETO_GENE)
     assert len(bed_lines) == 4

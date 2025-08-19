@@ -271,16 +271,16 @@ class TestFlagApplication:
 
             # Check specific targeting flags
             brca1_row = result[result["approved_symbol"] == "BRCA1"]
-            assert brca1_row["genomic_targeting"].iloc[0] is True
+            assert brca1_row["genomic_targeting"].iloc[0]
 
             tp53_row = result[result["approved_symbol"] == "TP53"]
-            assert tp53_row["genomic_targeting"].iloc[0] is True
+            assert tp53_row["genomic_targeting"].iloc[0]
 
             brca2_row = result[result["approved_symbol"] == "BRCA2"]
-            assert brca2_row["genomic_targeting"].iloc[0] is False  # Default value
+            assert not brca2_row["genomic_targeting"].iloc[0]  # Default value
 
             apc_row = result[result["approved_symbol"] == "APC"]
-            assert apc_row["genomic_targeting"].iloc[0] is False  # Default value
+            assert not apc_row["genomic_targeting"].iloc[0]  # Default value
 
         finally:
             temp_path.unlink()
