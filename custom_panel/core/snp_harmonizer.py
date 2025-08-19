@@ -86,9 +86,25 @@ class SNPHarmonizer:
                 unique_rsids, batch_size=self.batch_size
             )
 
+            # Build mapping from original rsIDs to canonical rsIDs (handles merged rsIDs)
+            rsid_mapping = {}
+            for original_rsid in unique_rsids:
+                # First check if original rsID is directly in response (not merged)
+                if original_rsid in variations:
+                    rsid_mapping[original_rsid] = original_rsid
+                else:
+                    # Check if it's a synonym of any canonical rsID
+                    for canonical_rsid, variation_data in variations.items():
+                        synonyms = variation_data.get('synonyms', [])
+                        if original_rsid in synonyms:
+                            rsid_mapping[original_rsid] = canonical_rsid
+                            logger.debug(f"📍 Mapped merged rsID {original_rsid} → {canonical_rsid}")
+                            break
+
             for rsid in unique_rsids:
-                if rsid in variations:
-                    variation_data = variations[rsid]
+                canonical_rsid = rsid_mapping.get(rsid)
+                if canonical_rsid and canonical_rsid in variations:
+                    variation_data = variations[canonical_rsid]
                     coordinates = (
                         self.ensembl_client.extract_coordinates_from_variation(
                             variation_data, preferred_assembly="GRCh38"
