@@ -1584,9 +1584,24 @@
         }
 
         function downloadCurrentGeneSourceTable() {
-            var currentTable = window.currentGeneTable;
-            var geneData = window.geneSourceData[currentTable];
-            exportGeneDataToExcel(geneData, currentTable);
+            // Find the currently active gene tab (same approach as SNP/regions)
+            var activeTab = $('.gene-tab-button.active').data('table');
+            
+            if (!activeTab) {
+                alert('No active gene tab found. Please select a tab first.');
+                return;
+            }
+            
+            var geneData = window.geneSourceData[activeTab];
+            
+            if (geneData && geneData.length > 0) {
+                console.log('Downloading gene data for tab:', activeTab, 'with', geneData.length, 'genes');
+                exportGeneDataToExcel(geneData, activeTab);
+            } else {
+                console.error('Gene data not found for tab:', activeTab);
+                console.log('Available tabs:', Object.keys(window.geneSourceData || {}));
+                alert('No gene data available for current tab: ' + activeTab);
+            }
         }
 
         function exportGeneDataToExcel(data, tableType) {
@@ -1636,9 +1651,11 @@
 
             XLSX.utils.book_append_sheet(wb, ws, tableType.replace('_', ' ').toUpperCase());
             
-            // Generate filename with current date
+            // Generate descriptive filename with current date
             var date = new Date();
-            var filename = 'gene_data_' + tableType + '_' + date.toISOString().split('T')[0] + '.xlsx';
+            var dateStr = date.toISOString().split('T')[0];
+            var displayName = tableType.replace(/genes_/g, '').replace(/_/g, '-');
+            var filename = 'GenePanelReport_' + displayName + '_' + dateStr + '.xlsx';
             
             XLSX.writeFile(wb, filename);
         }
