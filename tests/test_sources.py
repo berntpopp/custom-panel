@@ -560,9 +560,9 @@ class TestACMGIncidentalFindings:
         # Check that essential cancer genes are present (these should be in any ACMG list)
         essential_genes = ["BRCA1", "BRCA2", "TP53", "APC"]
         for gene in essential_genes:
-            assert gene in df["approved_symbol"].values, (
-                f"Essential gene {gene} missing"
-            )
+            assert (
+                gene in df["approved_symbol"].values
+            ), f"Essential gene {gene} missing"
 
         # Verify data structure
         expected_columns = [

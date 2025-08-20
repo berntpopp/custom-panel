@@ -218,7 +218,10 @@ class ReportGenerator:
             genomic_targeting = (
                 genomic_targeting_value == 1
                 or genomic_targeting_value is True
-                or (isinstance(genomic_targeting_value, str) and genomic_targeting_value.lower() in ["true", "1", "yes"])
+                or (
+                    isinstance(genomic_targeting_value, str)
+                    and genomic_targeting_value.lower() in ["true", "1", "yes"]
+                )
             )
 
             if genomic_targeting:

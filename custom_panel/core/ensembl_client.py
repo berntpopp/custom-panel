@@ -423,9 +423,9 @@ class EnsemblClient:
                             gene_data["mane_select"] = mane_select
                             gene_data["mane_clinical"] = mane_clinical
                             # Store full transcript data for coverage calculation
-                            gene_data["canonical_transcript_full"] = (
-                                canonical_transcript_full
-                            )
+                            gene_data[
+                                "canonical_transcript_full"
+                            ] = canonical_transcript_full
                             gene_data["mane_select_full"] = mane_select_full
                             gene_data["mane_clinical_full"] = mane_clinical_full
                             # Store ALL transcripts with exon data for BED file generation

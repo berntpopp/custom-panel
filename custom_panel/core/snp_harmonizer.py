@@ -96,10 +96,12 @@ class SNPHarmonizer:
                 else:
                     # Check if it's a synonym of any canonical rsID
                     for canonical_rsid, variation_data in variations.items():
-                        synonyms = variation_data.get('synonyms', [])
+                        synonyms = variation_data.get("synonyms", [])
                         if original_rsid in synonyms:
                             rsid_mapping[original_rsid] = canonical_rsid
-                            logger.debug(f"📍 Mapped merged rsID {original_rsid} → {canonical_rsid}")
+                            logger.debug(
+                                f"📍 Mapped merged rsID {original_rsid} → {canonical_rsid}"
+                            )
                             break
 
             for rsid in unique_rsids:
@@ -117,9 +119,13 @@ class SNPHarmonizer:
                         self.stats["coordinates_resolved"] += 1
 
             # Fallback: Use source coordinates for unresolved rsIDs
-            unresolved_rsids = [rsid for rsid in unique_rsids if rsid not in coordinate_cache]
+            unresolved_rsids = [
+                rsid for rsid in unique_rsids if rsid not in coordinate_cache
+            ]
             if unresolved_rsids:
-                source_coordinates = self._extract_source_coordinates(unresolved_rsids, snp_df)
+                source_coordinates = self._extract_source_coordinates(
+                    unresolved_rsids, snp_df
+                )
                 for rsid, coords in source_coordinates.items():
                     if coords:
                         coordinate_cache[rsid] = coords
@@ -176,7 +182,9 @@ class SNPHarmonizer:
 
         return result_df
 
-    def _extract_source_coordinates(self, rsids: list[str], snp_df: pd.DataFrame) -> dict[str, dict[str, Any] | None]:
+    def _extract_source_coordinates(
+        self, rsids: list[str], snp_df: pd.DataFrame
+    ) -> dict[str, dict[str, Any] | None]:
         """
         Extract genomic coordinates from source data when Ensembl lookup fails.
 
@@ -252,7 +260,7 @@ class SNPHarmonizer:
                         "end": position,
                         "strand": 1,
                         "allele_string": "N/N",  # Unknown alleles
-                        "assembly": "GRCh38"
+                        "assembly": "GRCh38",
                     }
 
             # Handle direct chromosome format (chr10:94949144)
@@ -276,7 +284,7 @@ class SNPHarmonizer:
                         "end": end_pos,
                         "strand": 1,
                         "allele_string": "N/N",  # Unknown alleles
-                        "assembly": "GRCh38"
+                        "assembly": "GRCh38",
                     }
 
         except (ValueError, AttributeError) as e:
