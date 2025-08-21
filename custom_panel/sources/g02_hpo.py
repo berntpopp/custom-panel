@@ -60,7 +60,9 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
         # Step 1: Get all descendants of neoplasm term
         logger.info(f"Fetching descendants of {NEOPLASM_ROOT_TERM}")
         neoplasm_terms = client.get_descendant_terms(
-            NEOPLASM_ROOT_TERM, max_depth=20, include_self=True,
+            NEOPLASM_ROOT_TERM,
+            max_depth=20,
+            include_self=True,
         )
         logger.info(f"Found {len(neoplasm_terms)} neoplasm-related HPO terms")
 
@@ -145,7 +147,8 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
             cache_expiry_days = hpo_config.get("cache_expiry_days", 30)
 
             if cached_genemap2_path.exists() and client.is_cache_valid(
-                cached_genemap2_path, cache_expiry_days,
+                cached_genemap2_path,
+                cache_expiry_days,
             ):
                 logger.info(
                     f"DEBUG: Using cached OMIM genemap2 file: {cached_genemap2_path}",
@@ -179,7 +182,10 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
 
         # Step 5: Extract genes associated with neoplasm OMIM IDs
         all_genes = _extract_genes_from_omim(
-            omim_df, unique_omim_ids.tolist(), neoplasm_phenotypes, hpo_config,
+            omim_df,
+            unique_omim_ids.tolist(),
+            neoplasm_phenotypes,
+            hpo_config,
         )
 
         if not all_genes:
@@ -319,7 +325,8 @@ def _extract_genes_from_omim(
 
 
 def _calculate_evidence_score(
-    gene_data: dict[str, Any], config: dict[str, Any],
+    gene_data: dict[str, Any],
+    config: dict[str, Any],
 ) -> float:
     """
     Calculate evidence score for a gene based on available data.
@@ -463,7 +470,8 @@ def get_hpo_neoplasm_summary(config: dict[str, Any]) -> dict[str, Any]:
     if phenotype_hpoa_path.exists():
         summary["phenotype_hpoa_cached"] = True
         summary["phenotype_hpoa_cache_valid"] = HPOClient.is_cache_valid(
-            phenotype_hpoa_path, summary["cache_expiry_days"],
+            phenotype_hpoa_path,
+            summary["cache_expiry_days"],
         )
     else:
         summary["phenotype_hpoa_cached"] = False

@@ -70,7 +70,8 @@ def fetch_genomic_targeting_flags(config: dict[str, Any]) -> dict[str, bool]:
 
 
 def process_targeting_file(
-    file_path: Path, targeting_config: dict[str, Any],
+    file_path: Path,
+    targeting_config: dict[str, Any],
 ) -> dict[str, bool]:
     """
     Process genomic targeting file and return gene -> targeting flag mapping.
@@ -190,7 +191,8 @@ def convert_to_boolean(value: Any, default: bool = False) -> bool:
 
 
 def apply_genomic_targeting_flags(
-    df: pd.DataFrame, config: dict[str, Any],
+    df: pd.DataFrame,
+    config: dict[str, Any],
 ) -> pd.DataFrame:
     """
     Apply genomic targeting flags to an annotated gene DataFrame.
@@ -223,7 +225,9 @@ def apply_genomic_targeting_flags(
     # Get default value from config
     config_manager = ConfigManager(config)
     default_value = config_manager.get_nested(
-        "genomic_targeting", "default_value", default=False,
+        "genomic_targeting",
+        "default_value",
+        default=False,
     )
 
     # Apply targeting flags

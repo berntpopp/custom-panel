@@ -126,7 +126,9 @@ def fetch_clinvar_snps(
         # Step 1: Extract exon regions from existing transcript data
         intronic_padding = clinvar_config.get("intronic_padding", 50)
         exon_intervals = _extract_exon_regions_from_transcript_data(
-            transcript_data, panel_genes, intronic_padding,
+            transcript_data,
+            panel_genes,
+            intronic_padding,
         )
 
         if not exon_intervals.intervals:
@@ -158,7 +160,8 @@ def fetch_clinvar_snps(
         # Step 4: Filter for deep intronic variants (outside padded exon regions)
         logger.info("Filtering for deep intronic variants...")
         deep_intronic_variants = _filter_deep_intronic_streaming(
-            variants, exon_intervals,
+            variants,
+            exon_intervals,
         )
 
         if not deep_intronic_variants:
@@ -216,11 +219,14 @@ def _extract_exon_regions_from_transcript_data(
         canonical_transcript_id = gene_row.get("canonical_transcript")
         if pd.notna(canonical_transcript_id):
             transcript = _find_transcript_by_id(
-                gene_data["all_transcripts"], canonical_transcript_id,
+                gene_data["all_transcripts"],
+                canonical_transcript_id,
             )
             if transcript and "Exon" in transcript:
                 exons = _extract_exons_from_transcript(
-                    transcript, gene_symbol, intronic_padding,
+                    transcript,
+                    gene_symbol,
+                    intronic_padding,
                 )
 
                 for exon in exons:
@@ -238,7 +244,8 @@ def _extract_exon_regions_from_transcript_data(
 
 
 def _find_transcript_by_id(
-    transcripts: list[dict[str, Any]], transcript_id: str,
+    transcripts: list[dict[str, Any]],
+    transcript_id: str,
 ) -> dict[str, Any] | None:
     """Find transcript by ID in the transcripts list."""
     for transcript in transcripts:
@@ -248,7 +255,9 @@ def _find_transcript_by_id(
 
 
 def _extract_exons_from_transcript(
-    transcript: dict[str, Any], gene_symbol: str, intronic_padding: int,
+    transcript: dict[str, Any],
+    gene_symbol: str,
+    intronic_padding: int,
 ) -> list[dict[str, Any]]:
     """Extract exon coordinates from transcript data."""
     exons: list[dict[str, Any]] = []
@@ -377,10 +386,14 @@ def _get_clinvar_vcf_with_index(
 
             # Retry download once
             downloaded_vcf = _download_clinvar_vcf(
-                vcf_url, cache_dir, cache_expiry_days,
+                vcf_url,
+                cache_dir,
+                cache_expiry_days,
             )
             downloaded_tbi = _download_clinvar_index(
-                vcf_url, cache_dir, cache_expiry_days,
+                vcf_url,
+                cache_dir,
+                cache_expiry_days,
             )
 
             if (
@@ -394,7 +407,9 @@ def _get_clinvar_vcf_with_index(
 
 
 def _download_clinvar_vcf(
-    url: str, cache_dir: Path, cache_expiry_days: int,
+    url: str,
+    cache_dir: Path,
+    cache_expiry_days: int,
 ) -> Path | None:
     """Download ClinVar VCF file with caching."""
     # Determine filename from URL
@@ -431,7 +446,9 @@ def _download_clinvar_vcf(
 
 
 def _download_clinvar_index(
-    vcf_url: str, cache_dir: Path, cache_expiry_days: int,
+    vcf_url: str,
+    cache_dir: Path,
+    cache_expiry_days: int,
 ) -> Path | None:
     """Download ClinVar tabix index file with caching."""
     # Construct index URL
@@ -467,7 +484,9 @@ def _download_clinvar_index(
 
 
 def _stream_clinvar_variants_by_genes(
-    vcf_file: Path, panel_genes: pd.DataFrame, config: dict[str, Any],
+    vcf_file: Path,
+    panel_genes: pd.DataFrame,
+    config: dict[str, Any],
 ) -> Iterator[dict[str, Any]]:
     """
     Stream ClinVar variants for gene panel regions using tabix.
@@ -637,7 +656,8 @@ def _is_small_variant(variant: dict[str, Any], max_indel_size: int) -> bool:
 
 
 def _filter_deep_intronic_streaming(
-    variants: list[dict[str, Any]], exon_intervals: IntervalTree,
+    variants: list[dict[str, Any]],
+    exon_intervals: IntervalTree,
 ) -> list[dict[str, Any]]:
     """
     Filter variants to only deep intronic ones using interval tree.
@@ -664,7 +684,8 @@ def _filter_deep_intronic_streaming(
 
 
 def _convert_to_snp_format(
-    variants: list[dict[str, Any]], harmonizer: Any | None = None,
+    variants: list[dict[str, Any]],
+    harmonizer: Any | None = None,
 ) -> pd.DataFrame:
     """Convert ClinVar variants to standardized SNP format."""
     if not variants:

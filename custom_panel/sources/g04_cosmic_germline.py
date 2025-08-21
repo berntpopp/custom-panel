@@ -28,7 +28,6 @@ class COSMICAuthenticationError(Exception):
     """Raised when COSMIC authentication fails."""
 
 
-
 class COSMICSession:
     """Manages COSMIC authentication and session handling."""
 
@@ -237,7 +236,9 @@ class COSMICSession:
 
 
 def _download_cosmic_census_authenticated(
-    email: str, password: str, cache_path: Path,
+    email: str,
+    password: str,
+    cache_path: Path,
 ) -> None:
     """
     Download COSMIC Cancer Gene Census file with authentication.
@@ -439,7 +440,9 @@ def _calculate_cosmic_score(tier: str, tier_weights: dict[str, float]) -> float:
 
 
 def _process_cosmic_genes(
-    df: pd.DataFrame, category: str, category_config: dict[str, Any],
+    df: pd.DataFrame,
+    category: str,
+    category_config: dict[str, Any],
 ) -> pd.DataFrame:
     """
     Process COSMIC genes for a specific category (germline or somatic).

@@ -225,7 +225,8 @@ class NimaGenHESTParser(BaseSNPScraper):
                 hg38_coords = self.parse_genomic_position(location_hg38)
                 if hg38_coords:
                     record["hg38_chromosome"] = hg38_coords.get(
-                        "chromosome", chromosome,
+                        "chromosome",
+                        chromosome,
                     )
                     if "position" in hg38_coords:
                         record["hg38_position"] = hg38_coords["position"]
@@ -239,7 +240,8 @@ class NimaGenHESTParser(BaseSNPScraper):
                 hg19_coords = self.parse_genomic_position(location_hg19)
                 if hg19_coords:
                     record["hg19_chromosome"] = hg19_coords.get(
-                        "chromosome", chromosome,
+                        "chromosome",
+                        chromosome,
                     )
                     if "position" in hg19_coords:
                         record["hg19_position"] = hg19_coords["position"]

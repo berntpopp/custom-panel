@@ -81,7 +81,9 @@ class ReportGenerator:
         """
         try:
             template = self.env.get_template("report.html.j2")
-            context = self._prepare_context(df, config, deduplicated_snp_data, regions_data)
+            context = self._prepare_context(
+                df, config, deduplicated_snp_data, regions_data
+            )
             html_content = template.render(context)
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +123,8 @@ class ReportGenerator:
 
         # Calculate source statistics
         source_stats, unique_sources = self._calculate_source_statistics(
-            df, basic_stats["total_genes"],
+            df,
+            basic_stats["total_genes"],
         )
         source_diversity = self._calculate_source_diversity(df, unique_sources)
 
@@ -133,7 +136,8 @@ class ReportGenerator:
         # Prepare gene source data for tabbed display
         gene_source_data = self._prepare_gene_source_data(table_data, source_stats)
         gene_source_stats = self._calculate_gene_source_statistics(
-            source_stats, basic_stats["total_genes"],
+            source_stats,
+            basic_stats["total_genes"],
         )
 
         # Add panel genes count for second tab
@@ -144,8 +148,12 @@ class ReportGenerator:
         snp_stats = {}
         snp_table_data = {}
         if deduplicated_snp_data is not None and not deduplicated_snp_data.empty:
-            snp_stats = self._calculate_snp_statistics_from_deduplicated(deduplicated_snp_data)
-            snp_table_data = self._prepare_snp_table_data_from_deduplicated(deduplicated_snp_data)
+            snp_stats = self._calculate_snp_statistics_from_deduplicated(
+                deduplicated_snp_data
+            )
+            snp_table_data = self._prepare_snp_table_data_from_deduplicated(
+                deduplicated_snp_data
+            )
 
         # Prepare regions data if available
         regions_stats = {}
@@ -170,7 +178,9 @@ class ReportGenerator:
             "gene_source_data": json.dumps(gene_source_data),
             "gene_source_stats": gene_source_stats,
             # SNP data
-            "has_snp_data": bool(deduplicated_snp_data is not None and not deduplicated_snp_data.empty),
+            "has_snp_data": bool(
+                deduplicated_snp_data is not None and not deduplicated_snp_data.empty
+            ),
             "snp_stats": snp_stats,
             "snp_table_data": json.dumps(snp_table_data),
             # Regions data
@@ -254,7 +264,9 @@ class ReportGenerator:
         }
 
     def _calculate_source_diversity(
-        self, df: pd.DataFrame, unique_sources: set[str],
+        self,
+        df: pd.DataFrame,
+        unique_sources: set[str],
     ) -> dict[str, Any]:
         """Calculate source diversity metrics."""
         return {
@@ -264,7 +276,9 @@ class ReportGenerator:
         }
 
     def _calculate_source_statistics(
-        self, df: pd.DataFrame, total_genes: int,
+        self,
+        df: pd.DataFrame,
+        total_genes: int,
     ) -> tuple[list[dict[str, Any]], set[str]]:
         """Calculate statistics for data sources."""
         source_stats = {}
@@ -301,7 +315,9 @@ class ReportGenerator:
 
         # Sort sources by gene count and return top 12
         sorted_sources = sorted(
-            source_stats.items(), key=lambda x: x[1]["gene_count"], reverse=True,
+            source_stats.items(),
+            key=lambda x: x[1]["gene_count"],
+            reverse=True,
         )
 
         formatted_sources = [
@@ -332,7 +348,8 @@ class ReportGenerator:
         return top_genes
 
     def _prepare_table_data(
-        self, df: pd.DataFrame,
+        self,
+        df: pd.DataFrame,
     ) -> tuple[list[dict[str, Any]], list[str], list[str]]:
         """Prepare data for the interactive DataTable."""
         # Define column sets
@@ -377,7 +394,9 @@ class ReportGenerator:
         return table_data, available_columns, default_visible
 
     def _convert_df_to_records(
-        self, df: pd.DataFrame, columns: list[str],
+        self,
+        df: pd.DataFrame,
+        columns: list[str],
     ) -> list[dict[str, Any]]:
         """Convert DataFrame to JSON-serializable records."""
         table_data = []
@@ -389,7 +408,9 @@ class ReportGenerator:
         return table_data
 
     def _process_table_row(
-        self, row: pd.Series[Any], columns: list[str],
+        self,
+        row: pd.Series[Any],
+        columns: list[str],
     ) -> dict[str, Any]:
         """Process a single DataFrame row into a table record."""
         record: dict[str, Any] = {}
@@ -431,7 +452,9 @@ class ReportGenerator:
         return 1
 
     def _prepare_chart_data(
-        self, df: pd.DataFrame, source_stats: list[dict[str, Any]],
+        self,
+        df: pd.DataFrame,
+        source_stats: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Prepare data for interactive charts."""
         # Extract numeric data efficiently
@@ -474,7 +497,8 @@ class ReportGenerator:
         return transcript_sizes
 
     def _calculate_snp_statistics(
-        self, snp_data: dict[str, pd.DataFrame],
+        self,
+        snp_data: dict[str, pd.DataFrame],
     ) -> dict[str, Any]:
         """Calculate SNP summary statistics for the report."""
         total_snps = 0
@@ -508,7 +532,8 @@ class ReportGenerator:
         }
 
     def _prepare_snp_table_data(
-        self, snp_data: dict[str, pd.DataFrame],
+        self,
+        snp_data: dict[str, pd.DataFrame],
     ) -> dict[str, Any]:
         """Prepare SNP data for interactive tables in the HTML report."""
         snp_tables = {}
@@ -563,7 +588,8 @@ class ReportGenerator:
         return table_data
 
     def _calculate_snp_statistics_from_deduplicated(
-        self, deduplicated_snp_data: pd.DataFrame,
+        self,
+        deduplicated_snp_data: pd.DataFrame,
     ) -> dict[str, Any]:
         """Calculate SNP summary statistics from deduplicated data."""
         total_snps = len(deduplicated_snp_data)
@@ -597,7 +623,8 @@ class ReportGenerator:
         }
 
     def _prepare_snp_table_data_from_deduplicated(
-        self, deduplicated_snp_data: pd.DataFrame,
+        self,
+        deduplicated_snp_data: pd.DataFrame,
     ) -> dict[str, Any]:
         """Prepare SNP table data from deduplicated data."""
         # Convert the deduplicated DataFrame directly to table data
@@ -638,7 +665,8 @@ class ReportGenerator:
         return snp_tables
 
     def _calculate_regions_statistics(
-        self, regions_data: dict[str, pd.DataFrame],
+        self,
+        regions_data: dict[str, pd.DataFrame],
     ) -> dict[str, Any]:
         """Calculate regions summary statistics for the report."""
         total_regions = 0
@@ -688,7 +716,8 @@ class ReportGenerator:
         }
 
     def _prepare_regions_table_data(
-        self, regions_data: dict[str, pd.DataFrame],
+        self,
+        regions_data: dict[str, pd.DataFrame],
     ) -> dict[str, Any]:
         """Prepare regions data for interactive tables in the HTML report."""
         regions_tables = {}
@@ -717,7 +746,8 @@ class ReportGenerator:
         return regions_tables
 
     def _convert_regions_df_to_table_data(
-        self, df: pd.DataFrame,
+        self,
+        df: pd.DataFrame,
     ) -> list[dict[str, Any]]:
         """Convert regions DataFrame to list of dictionaries for HTML table display."""
         # Select relevant columns for display in optimal order
@@ -751,7 +781,9 @@ class ReportGenerator:
         return table_data
 
     def _prepare_gene_source_data(
-        self, table_data: list[dict[str, Any]], source_stats: list[dict[str, Any]],
+        self,
+        table_data: list[dict[str, Any]],
+        source_stats: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """
         Prepare gene data organized by source for tabbed display.
@@ -801,7 +833,9 @@ class ReportGenerator:
         return gene_source_data
 
     def _calculate_gene_source_statistics(
-        self, source_stats: list[dict[str, Any]], total_genes: int,
+        self,
+        source_stats: list[dict[str, Any]],
+        total_genes: int,
     ) -> dict[str, Any]:
         """
         Calculate statistics for gene sources for tab display.

@@ -43,7 +43,9 @@ class GeneAnnotator:
         self.cache_manager = None
         if cache_enabled:
             self.cache_manager = CacheManager(
-                cache_dir=cache_dir, cache_ttl=cache_ttl, enabled=True,
+                cache_dir=cache_dir,
+                cache_ttl=cache_ttl,
+                enabled=True,
             )
             logger.info(
                 f"Cache enabled at {cache_dir} with TTL {cache_ttl / 86400:.1f} days",
@@ -73,7 +75,8 @@ class GeneAnnotator:
         perf_config = self.config.get("performance", {})
         self.max_workers = perf_config.get("max_workers", 4)
         self.batch_size = perf_config.get(
-            "batch_size", 200,
+            "batch_size",
+            200,
         )  # Large batch size for coordinate lookup
 
         # Annotation settings
@@ -124,14 +127,17 @@ class GeneAnnotator:
 
         # Step 2: Add annotations to the DataFrame
         annotated_df = self._add_annotations_to_dataframe(
-            gene_df, standardized_symbols, annotations,
+            gene_df,
+            standardized_symbols,
+            annotations,
         )
 
         logger.info(f"Successfully annotated {len(annotated_df)} gene records")
         return annotated_df
 
     def standardize_gene_symbols(
-        self, gene_symbols: list[str],
+        self,
+        gene_symbols: list[str],
     ) -> dict[str, dict[str, str | None]]:
         """
         Standardize gene symbols using parallel HGNC batch API calls.
@@ -201,7 +207,8 @@ class GeneAnnotator:
         return standardized
 
     def _standardize_single_batch(
-        self, batch: list[str],
+        self,
+        batch: list[str],
     ) -> dict[str, dict[str, str | None]]:
         """
         Standardize a single batch of gene symbols.
@@ -222,7 +229,8 @@ class GeneAnnotator:
             return self._standardize_individual_parallel(batch)
 
     def _standardize_individual_parallel(
-        self, symbols: list[str],
+        self,
+        symbols: list[str],
     ) -> dict[str, dict[str, str | None]]:
         """
         Standardize symbols individually in parallel when batch fails.
@@ -285,7 +293,8 @@ class GeneAnnotator:
             }
 
     def _get_gene_annotations(
-        self, gene_symbols: list[str],
+        self,
+        gene_symbols: list[str],
     ) -> dict[str, dict[str, Any]]:
         """
         Get genomic annotations for genes using optimized parallel batch API calls.
@@ -356,7 +365,9 @@ class GeneAnnotator:
         try:
             # Try batch call with transcript expansion first (most complete)
             batch_data = self.ensembl_client.get_symbols_data_batch(
-                batch, self.species, expand=True,
+                batch,
+                self.species,
+                expand=True,
             )
 
             for symbol in batch:
@@ -365,7 +376,8 @@ class GeneAnnotator:
                     annotations[
                         symbol
                     ] = self._build_gene_annotation_from_expanded_data(
-                        symbol, gene_data,
+                        symbol,
+                        gene_data,
                     )
                 else:
                     annotations[symbol] = self._build_empty_annotation(symbol)
@@ -377,13 +389,16 @@ class GeneAnnotator:
             # Try again without transcript expansion (faster, less complete)
             try:
                 batch_coords = self.ensembl_client.get_symbols_data_batch(
-                    batch, self.species, expand=False,
+                    batch,
+                    self.species,
+                    expand=False,
                 )
                 for symbol in batch:
                     coords = batch_coords.get(symbol)
                     if coords:
                         annotations[symbol] = self._build_gene_annotation(
-                            symbol, coords,
+                            symbol,
+                            coords,
                         )
                     else:
                         annotations[symbol] = self._build_empty_annotation(symbol)
@@ -397,7 +412,8 @@ class GeneAnnotator:
         return annotations
 
     def _process_single_batch_fallback(
-        self, batch: list[str],
+        self,
+        batch: list[str],
     ) -> dict[str, dict[str, Any]]:
         """
         Fallback processing for a single batch that failed in parallel execution.
@@ -418,7 +434,8 @@ class GeneAnnotator:
         return annotations
 
     def _process_individual_genes_parallel(
-        self, gene_symbols: list[str],
+        self,
+        gene_symbols: list[str],
     ) -> dict[str, dict[str, Any]]:
         """
         Process individual genes in parallel when batch requests fail.
@@ -465,7 +482,9 @@ class GeneAnnotator:
             return self._build_empty_annotation(gene_symbol)
 
     def _build_gene_annotation_from_expanded_data(
-        self, gene_symbol: str, gene_data: dict[str, Any],
+        self,
+        gene_symbol: str,
+        gene_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Build complete gene annotation from expanded batch data."""
         annotation = {
@@ -494,7 +513,9 @@ class GeneAnnotator:
             annotation[
                 "gene_coverage_with_padding"
             ] = self.ensembl_client.calculate_gene_coverage(
-                gene_data["start"], gene_data["end"], self.gene_padding,
+                gene_data["start"],
+                gene_data["end"],
+                self.gene_padding,
             )
 
         # Extract transcript information from expanded data
@@ -509,7 +530,8 @@ class GeneAnnotator:
                 annotation[
                     "canonical_transcript_coverage"
                 ] = self.ensembl_client.calculate_transcript_coverage(
-                    canonical_full, self.transcript_padding,
+                    canonical_full,
+                    self.transcript_padding,
                 )
 
         if self.include_mane:
@@ -525,7 +547,8 @@ class GeneAnnotator:
                 annotation[
                     "mane_select_coverage"
                 ] = self.ensembl_client.calculate_transcript_coverage(
-                    mane_select_full, self.transcript_padding,
+                    mane_select_full,
+                    self.transcript_padding,
                 )
 
             # MANE Plus Clinical transcript
@@ -542,7 +565,8 @@ class GeneAnnotator:
                 annotation[
                     "mane_clinical_coverage"
                 ] = self.ensembl_client.calculate_transcript_coverage(
-                    mane_clinical_full, self.transcript_padding,
+                    mane_clinical_full,
+                    self.transcript_padding,
                 )
 
         # Store all transcripts data for exon BED file generation
@@ -552,7 +576,9 @@ class GeneAnnotator:
         return annotation
 
     def _build_gene_annotation(
-        self, gene_symbol: str, coords: dict[str, Any],
+        self,
+        gene_symbol: str,
+        coords: dict[str, Any],
     ) -> dict[str, Any]:
         """Build complete gene annotation from coordinate data (fallback method)."""
         annotation = {
@@ -581,7 +607,9 @@ class GeneAnnotator:
             annotation[
                 "gene_coverage_with_padding"
             ] = self.ensembl_client.calculate_gene_coverage(
-                coords["start"], coords["end"], self.gene_padding,
+                coords["start"],
+                coords["end"],
+                self.gene_padding,
             )
 
         # For fallback, we can't get transcript info without additional API calls
@@ -701,13 +729,16 @@ class GeneAnnotator:
             "with_coordinates": safe_column_count(annotated_df, "chromosome"),
             "with_gene_id": safe_column_count(annotated_df, "gene_id"),
             "with_canonical_transcript": safe_column_count(
-                annotated_df, "canonical_transcript",
+                annotated_df,
+                "canonical_transcript",
             ),
             "with_mane_select": safe_column_count(
-                annotated_df, "mane_select_transcript",
+                annotated_df,
+                "mane_select_transcript",
             ),
             "with_mane_clinical": safe_column_count(
-                annotated_df, "mane_clinical_transcript",
+                annotated_df,
+                "mane_clinical_transcript",
             ),
             "with_description": safe_column_count(annotated_df, "gene_description"),
         }

@@ -99,7 +99,11 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
                 # Cache the downloaded data
                 if cache_manager and cache_manager.enabled:
                     cache_manager.set(
-                        "gencc", url, "GET", None, df_source.to_dict("records"),
+                        "gencc",
+                        url,
+                        "GET",
+                        None,
+                        df_source.to_dict("records"),
                     )
                     logger.info("Cached GenCC data for future use")
 
@@ -253,7 +257,10 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
     gene_dict: dict[str, tuple[float, str]] = {}
 
     for gene, score, detail in zip(
-        genes, evidence_scores, source_details, strict=False,
+        genes,
+        evidence_scores,
+        source_details,
+        strict=False,
     ):
         if gene not in gene_dict or score > gene_dict[gene][0]:
             gene_dict[gene] = (score, detail)

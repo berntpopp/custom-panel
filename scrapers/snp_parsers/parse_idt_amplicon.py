@@ -135,7 +135,9 @@ class IDTAmpliconParser(BaseSNPScraper):
                 if tables:
                     for rsid_col in rsid_columns:
                         table_rsids = self.parse_table_for_rsids(
-                            soup, f"table.{table_class}", rsid_col,
+                            soup,
+                            f"table.{table_class}",
+                            rsid_col,
                         )
                         if table_rsids:
                             snp_records.extend([{"rsid": rsid} for rsid in table_rsids])

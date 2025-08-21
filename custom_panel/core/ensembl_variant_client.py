@@ -240,7 +240,9 @@ class EnsemblVariantClient:
         for variant in variants:
             try:
                 converted = self._convert_single_variant(
-                    variant, source_assembly, target_assembly,
+                    variant,
+                    source_assembly,
+                    target_assembly,
                 )
                 if converted:
                     converted_variants.append(converted)
@@ -290,7 +292,10 @@ class EnsemblVariantClient:
         return enriched_variants
 
     def _convert_single_variant(
-        self, variant: dict[str, Any], source_assembly: str, target_assembly: str,
+        self,
+        variant: dict[str, Any],
+        source_assembly: str,
+        target_assembly: str,
     ) -> dict[str, Any] | None:
         """Convert a single variant between assemblies."""
 

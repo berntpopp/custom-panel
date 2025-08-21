@@ -72,7 +72,8 @@ class CglParser(BaseParser):
 
                     # Look for content in following elements
                     for next_element in parent.find_all_next(
-                        ["p", "div", "li", "span"], limit=20,
+                        ["p", "div", "li", "span"],
+                        limit=20,
                     ):
                         text = next_element.get_text(strip=True)
                         if not text:

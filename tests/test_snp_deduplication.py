@@ -11,20 +11,24 @@ class TestSNPDeduplicationInReports:
         from custom_panel.core.report_generator import ReportGenerator
 
         # Create test DataFrame with duplicate SNPs (same VCF ID, different categories)
-        deduplicated_snp_data = pd.DataFrame({
-            "snp": ["12:21178615:T:A", "1:1000000:G:A", "2:2000000:C:T"],
-            "rsid": ["rs4149056", "rs123", "rs456"],
-            "source": ["Manual_SNPs; PharmGKB", "Manual_SNPs", "PRS_Catalog"],
-            "category": ["manual; pharmacogenomics", "manual", "prs"],
-            "hg38_chromosome": ["12", "1", "2"],
-            "hg38_start": ["21178615", "1000000", "2000000"],
-            "hg38_end": ["21178615", "1000000", "2000000"],
-        })
+        deduplicated_snp_data = pd.DataFrame(
+            {
+                "snp": ["12:21178615:T:A", "1:1000000:G:A", "2:2000000:C:T"],
+                "rsid": ["rs4149056", "rs123", "rs456"],
+                "source": ["Manual_SNPs; PharmGKB", "Manual_SNPs", "PRS_Catalog"],
+                "category": ["manual; pharmacogenomics", "manual", "prs"],
+                "hg38_chromosome": ["12", "1", "2"],
+                "hg38_start": ["21178615", "1000000", "2000000"],
+                "hg38_end": ["21178615", "1000000", "2000000"],
+            }
+        )
 
         report_gen = ReportGenerator()
 
         # Test that prepare table data doesn't create duplicates
-        table_data = report_gen._prepare_snp_table_data_from_deduplicated(deduplicated_snp_data)
+        table_data = report_gen._prepare_snp_table_data_from_deduplicated(
+            deduplicated_snp_data
+        )
 
         # Verify all_snps table has no duplicates
         all_snps = table_data["all_snps"]
@@ -32,12 +36,16 @@ class TestSNPDeduplicationInReports:
 
         # Verify no snp_type column in table data
         for snp_entry in all_snps:
-            assert "snp_type" not in snp_entry, f"snp_type column found in table data: {snp_entry.keys()}"
+            assert (
+                "snp_type" not in snp_entry
+            ), f"snp_type column found in table data: {snp_entry.keys()}"
             assert "category" in snp_entry, "category column missing from table data"
 
         # Verify rs4149056 appears only once
         rs4149056_entries = [s for s in all_snps if s["rsid"] == "rs4149056"]
-        assert len(rs4149056_entries) == 1, f"rs4149056 should appear once, found {len(rs4149056_entries)} times"
+        assert (
+            len(rs4149056_entries) == 1
+        ), f"rs4149056 should appear once, found {len(rs4149056_entries)} times"
 
         # Verify merged category is preserved
         rs4149056_entry = rs4149056_entries[0]
@@ -48,18 +56,22 @@ class TestSNPDeduplicationInReports:
         from custom_panel.core.report_generator import ReportGenerator
 
         # Create test DataFrame with merged categories
-        deduplicated_snp_data = pd.DataFrame({
-            "snp": ["12:21178615:T:A", "1:1000000:G:A", "2:2000000:C:T"],
-            "rsid": ["rs4149056", "rs123", "rs456"],
-            "source": ["Manual_SNPs; PharmGKB", "Manual_SNPs", "PRS_Catalog"],
-            "category": ["manual; pharmacogenomics", "manual", "prs"],
-            "hg38_chromosome": ["12", "1", "2"],
-            "hg38_start": ["21178615", "1000000", "2000000"],
-            "hg38_end": ["21178615", "1000000", "2000000"],
-        })
+        deduplicated_snp_data = pd.DataFrame(
+            {
+                "snp": ["12:21178615:T:A", "1:1000000:G:A", "2:2000000:C:T"],
+                "rsid": ["rs4149056", "rs123", "rs456"],
+                "source": ["Manual_SNPs; PharmGKB", "Manual_SNPs", "PRS_Catalog"],
+                "category": ["manual; pharmacogenomics", "manual", "prs"],
+                "hg38_chromosome": ["12", "1", "2"],
+                "hg38_start": ["21178615", "1000000", "2000000"],
+                "hg38_end": ["21178615", "1000000", "2000000"],
+            }
+        )
 
         report_gen = ReportGenerator()
-        stats = report_gen._calculate_snp_statistics_from_deduplicated(deduplicated_snp_data)
+        stats = report_gen._calculate_snp_statistics_from_deduplicated(
+            deduplicated_snp_data
+        )
 
         # Verify total count
         assert stats["total_snps"] == 3
@@ -79,16 +91,21 @@ class TestSNPDeduplicationInReports:
         from custom_panel.engine.pipeline import Pipeline
 
         # Create test data with snp_type column (simulating old format)
-        test_df = pd.DataFrame({
-            "snp": ["12:21178615:T:A", "12:21178615:T:A"],  # Same SNP ID
-            "rsid": ["rs4149056", "rs4149056"],
-            "source": ["Manual_SNPs", "PharmGKB"],
-            "category": ["manual", "pharmacogenomics"],
-            "snp_type": ["manual_snps", "pharmacogenomics"],  # This should be removed
-            "hg38_chromosome": ["12", "12"],
-            "hg38_start": ["21178615", "21178615"],
-            "hg38_end": ["21178615", "21178615"],
-        })
+        test_df = pd.DataFrame(
+            {
+                "snp": ["12:21178615:T:A", "12:21178615:T:A"],  # Same SNP ID
+                "rsid": ["rs4149056", "rs4149056"],
+                "source": ["Manual_SNPs", "PharmGKB"],
+                "category": ["manual", "pharmacogenomics"],
+                "snp_type": [
+                    "manual_snps",
+                    "pharmacogenomics",
+                ],  # This should be removed
+                "hg38_chromosome": ["12", "12"],
+                "hg38_start": ["21178615", "21178615"],
+                "hg38_end": ["21178615", "21178615"],
+            }
+        )
 
         # Create a mock pipeline to test deduplication
         mock_config = {}
@@ -98,7 +115,9 @@ class TestSNPDeduplicationInReports:
         deduplicated_df = pipeline._deduplicate_snps_in_pipeline(test_df)
 
         # Verify snp_type column is not present
-        assert "snp_type" not in deduplicated_df.columns, f"snp_type column found in deduplicated data: {deduplicated_df.columns.tolist()}"
+        assert (
+            "snp_type" not in deduplicated_df.columns
+        ), f"snp_type column found in deduplicated data: {deduplicated_df.columns.tolist()}"
 
         # Verify category column is properly merged
         assert len(deduplicated_df) == 1, "Should have one deduplicated entry"
@@ -112,21 +131,33 @@ class TestSNPDeduplicationInReports:
         from custom_panel.core.report_generator import ReportGenerator
 
         # Create clean deduplicated data
-        deduplicated_snp_data = pd.DataFrame({
-            "snp": ["12:21178615:T:A"],
-            "rsid": ["rs4149056"],
-            "source": ["Manual_SNPs; PharmGKB"],
-            "category": ["manual; pharmacogenomics"],
-            "hg38_chromosome": ["12"],
-            "hg38_start": ["21178615"],
-            "hg38_end": ["21178615"],
-        })
+        deduplicated_snp_data = pd.DataFrame(
+            {
+                "snp": ["12:21178615:T:A"],
+                "rsid": ["rs4149056"],
+                "source": ["Manual_SNPs; PharmGKB"],
+                "category": ["manual; pharmacogenomics"],
+                "hg38_chromosome": ["12"],
+                "hg38_start": ["21178615"],
+                "hg38_end": ["21178615"],
+            }
+        )
 
         report_gen = ReportGenerator()
-        table_data_list = report_gen._convert_snp_df_to_table_data(deduplicated_snp_data)
+        table_data_list = report_gen._convert_snp_df_to_table_data(
+            deduplicated_snp_data
+        )
 
         # Verify expected columns are present
-        expected_columns = {"snp", "rsid", "source", "category", "hg38_chromosome", "hg38_start", "hg38_end"}
+        expected_columns = {
+            "snp",
+            "rsid",
+            "source",
+            "category",
+            "hg38_chromosome",
+            "hg38_start",
+            "hg38_end",
+        }
 
         assert len(table_data_list) == 1
         row = table_data_list[0]
@@ -137,4 +168,6 @@ class TestSNPDeduplicationInReports:
 
         # Check that no unexpected columns are present (especially snp_type)
         for col in row.keys():
-            assert col in expected_columns, f"Unexpected column '{col}' found in row data"
+            assert (
+                col in expected_columns
+            ), f"Unexpected column '{col}' found in row data"

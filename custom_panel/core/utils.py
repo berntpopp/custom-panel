@@ -9,7 +9,9 @@ from typing import Any
 
 
 def normalize_count(
-    count: int, method: str = "logistic", params: dict[str, Any] | None = None,
+    count: int,
+    method: str = "logistic",
+    params: dict[str, Any] | None = None,
 ) -> float:
     """
     Normalize a count value to a confidence score between 0 and 1.
@@ -71,7 +73,8 @@ def normalize_count(
 
 
 def get_source_group_from_config(
-    source_name: str, config: dict[str, Any],
+    source_name: str,
+    config: dict[str, Any],
 ) -> str | None:
     """
     Get the source group name for a given source from the configuration.

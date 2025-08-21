@@ -98,7 +98,8 @@ DEFAULT_ACMG_GENES = [
 
 
 def _scrape_acmg_genes_from_ncbi(
-    url: str, cache_manager: CacheManager | None = None,
+    url: str,
+    cache_manager: CacheManager | None = None,
 ) -> list[str]:
     """
     Scrape ACMG genes from NCBI ClinVar website with caching support.
@@ -165,7 +166,8 @@ def _scrape_acmg_genes_from_ncbi(
     gene_links: list[Tag] = []
     if isinstance(table_element, Tag):
         found_links = table_element.find_all(
-            "a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x),
+            "a",
+            href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x),
         )
         gene_links = [link for link in found_links if isinstance(link, Tag)]
 

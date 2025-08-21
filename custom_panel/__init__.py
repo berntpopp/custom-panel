@@ -9,6 +9,7 @@ and creating custom gene panels for clinical genomics applications.
 import os
 import sys
 import warnings
+from typing import TextIO
 
 # Set environment variable to suppress warnings at the interpreter level
 os.environ.setdefault("PYTHONWARNINGS", "ignore::DeprecationWarning")
@@ -34,7 +35,7 @@ class _WarningFilter:
 
 # Temporarily replace stderr during package initialization
 _temp_stderr = _WarningFilter()
-sys.stderr = _temp_stderr
+sys.stderr = _temp_stderr  # type: ignore[assignment]
 
 # Import everything else now
 try:

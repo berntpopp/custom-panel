@@ -111,7 +111,9 @@ class EnsemblClient:
             try:
                 if method.upper() == "POST":
                     response = self.session.post(
-                        url, json=data, timeout=request_timeout,
+                        url,
+                        json=data,
+                        timeout=request_timeout,
                     )
                 else:
                     response = self.session.get(url, timeout=request_timeout)
@@ -130,7 +132,11 @@ class EnsemblClient:
                 # Cache successful response
                 if self.cache_manager:
                     self.cache_manager.set(
-                        "ensembl", endpoint, method, data, json_response,
+                        "ensembl",
+                        endpoint,
+                        method,
+                        data,
+                        json_response,
                     )
 
                 return json_response
@@ -150,7 +156,9 @@ class EnsemblClient:
 
     @functools.lru_cache(maxsize=5000)  # noqa: B019
     def get_gene_coordinates(
-        self, gene_symbol: str, species: str = "human",
+        self,
+        gene_symbol: str,
+        species: str = "human",
     ) -> dict[str, Any] | None:
         """
         Get genomic coordinates for a gene symbol.
@@ -179,7 +187,9 @@ class EnsemblClient:
         return None
 
     def get_genes_coordinates(
-        self, gene_symbols: list[str], species: str = "human",
+        self,
+        gene_symbols: list[str],
+        species: str = "human",
     ) -> dict[str, dict[str, Any] | None]:
         """
         Get genomic coordinates for multiple gene symbols using batch request.
@@ -197,7 +207,10 @@ class EnsemblClient:
         return self.get_symbols_data_batch(gene_symbols, species, expand=False)
 
     def get_symbols_data_batch(
-        self, gene_symbols: list[str], species: str = "human", expand: bool = False,
+        self,
+        gene_symbols: list[str],
+        species: str = "human",
+        expand: bool = False,
     ) -> dict[str, dict[str, Any] | None]:
         """
         Get genomic data for multiple gene symbols using optimized batch requests.
@@ -216,7 +229,9 @@ class EnsemblClient:
         try:
             data = {"symbols": gene_symbols}
             response = self._make_request(
-                f"lookup/symbol/{species}", method="POST", data=data,
+                f"lookup/symbol/{species}",
+                method="POST",
+                data=data,
             )
 
             result: dict[str, dict[str, Any] | None] = {}
@@ -298,7 +313,10 @@ class EnsemblClient:
             # Submit all transcript batch jobs
             future_to_batch = {
                 executor.submit(
-                    self._process_transcript_batch, batch_items, result, species,
+                    self._process_transcript_batch,
+                    batch_items,
+                    result,
+                    species,
                 ): i
                 for i, batch_items in enumerate(batches)
             }
@@ -443,7 +461,9 @@ class EnsemblClient:
 
     @functools.lru_cache(maxsize=1000)  # noqa: B019
     def rsid_to_coordinates(
-        self, rsid: str, species: str = "human",
+        self,
+        rsid: str,
+        species: str = "human",
     ) -> dict[str, Any] | None:
         """
         Convert rsID to genomic coordinates.
@@ -474,7 +494,9 @@ class EnsemblClient:
         return None
 
     def calculate_gene_size(
-        self, gene_symbol: str, species: str = "human",
+        self,
+        gene_symbol: str,
+        species: str = "human",
     ) -> int | None:
         """
         Calculate the genomic size of a gene (end - start + 1).
@@ -492,7 +514,9 @@ class EnsemblClient:
         return None
 
     def get_gene_annotation(
-        self, gene_symbol: str, species: str = "human",
+        self,
+        gene_symbol: str,
+        species: str = "human",
     ) -> dict[str, Any]:
         """
         Get comprehensive gene annotation information.
@@ -553,7 +577,9 @@ class EnsemblClient:
         }
 
     def calculate_transcript_coverage(
-        self, transcript_data: dict[str, Any], padding: int = 0,
+        self,
+        transcript_data: dict[str, Any],
+        padding: int = 0,
     ) -> int | None:
         """
         Calculate transcript coverage including exons and padding.
@@ -587,7 +613,10 @@ class EnsemblClient:
             return None
 
     def calculate_gene_coverage(
-        self, gene_start: int, gene_end: int, padding: int = 0,
+        self,
+        gene_start: int,
+        gene_end: int,
+        padding: int = 0,
     ) -> int | None:
         """
         Calculate gene coverage including padding.
@@ -615,7 +644,9 @@ class EnsemblClient:
             return None
 
     def get_transcript_exons(
-        self, transcript_id: str, species: str = "human",
+        self,
+        transcript_id: str,
+        species: str = "human",
     ) -> list[dict[str, Any]]:
         """
         Get exon coordinates for a specific transcript.
@@ -653,7 +684,9 @@ class EnsemblClient:
         return []
 
     def get_gene_exons_by_transcript_type(
-        self, gene_data: dict[str, Any], transcript_type: str = "canonical",
+        self,
+        gene_data: dict[str, Any],
+        transcript_type: str = "canonical",
     ) -> list[dict[str, Any]]:
         """
         Get exon coordinates for a gene using a specific transcript type.
@@ -700,7 +733,10 @@ class EnsemblClient:
         return exons
 
     def get_variations_batch(
-        self, rsids: list[str], species: str = "homo_sapiens", batch_size: int = 25,
+        self,
+        rsids: list[str],
+        species: str = "homo_sapiens",
+        batch_size: int = 25,
     ) -> dict[str, dict[str, Any]]:
         """
         Get variation information for multiple rsIDs using batched requests.
@@ -801,7 +837,9 @@ class EnsemblClient:
         return all_results
 
     def _get_variations_single_batch(
-        self, rsids: list[str], species: str = "homo_sapiens",
+        self,
+        rsids: list[str],
+        species: str = "homo_sapiens",
     ) -> dict[str, dict[str, Any]]:
         """
         Get variation information for a single batch of rsIDs.
@@ -832,7 +870,10 @@ class EnsemblClient:
             # Use longer timeout for batch variation requests as they take more time
             timeout_override = 90 if len(rsids) > 10 else None
             response = self._make_request(
-                url, method="POST", data=data, timeout_override=timeout_override,
+                url,
+                method="POST",
+                data=data,
+                timeout_override=timeout_override,
             )
 
             if isinstance(response, dict):
@@ -852,7 +893,9 @@ class EnsemblClient:
             raise
 
     def extract_coordinates_from_variation(
-        self, variation_data: dict[str, Any], preferred_assembly: str = "GRCh38",
+        self,
+        variation_data: dict[str, Any],
+        preferred_assembly: str = "GRCh38",
     ) -> dict[str, Any] | None:
         """
         Extract coordinate information from Ensembl variation data.

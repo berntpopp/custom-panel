@@ -46,7 +46,8 @@ class NeogenomicsParser(BaseParser):
 
             # Find paragraphs containing "AIP"
             aip_paragraphs = soup.find_all(
-                "p", string=lambda text: text and "AIP" in text,
+                "p",
+                string=lambda text: text and "AIP" in text,
             )
 
             for paragraph in aip_paragraphs:

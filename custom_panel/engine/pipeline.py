@@ -69,7 +69,9 @@ class Pipeline:
         self.snp_harmonizer: SNPHarmonizer | None = None
         self.transcript_data: dict[str, Any] = {}
         self.snp_data: dict[str, pd.DataFrame] = {}
-        self.deduplicated_snp_data: pd.DataFrame = pd.DataFrame()  # Store deduplicated SNPs for reports
+        self.deduplicated_snp_data: pd.DataFrame = (
+            pd.DataFrame()
+        )  # Store deduplicated SNPs for reports
         self.regions_data: dict[str, pd.DataFrame] = {}
 
         # Initialize SNP harmonizer once if SNP processing is enabled
@@ -127,7 +129,8 @@ class Pipeline:
             return self._run_without_progress()
 
     def _run_with_progress(
-        self, progress: Progress,
+        self,
+        progress: Progress,
     ) -> tuple[pd.DataFrame, dict[str, Any]]:
         """Run pipeline with progress indicators."""
         task = progress.add_task("Starting pipeline...", total=None)
@@ -137,13 +140,16 @@ class Pipeline:
         raw_dataframes = self._fetch_all_sources()
         self._validate_fetched_data(raw_dataframes)
         progress.update(
-            task, description=f"Fetched data from {len(raw_dataframes)} sources",
+            task,
+            description=f"Fetched data from {len(raw_dataframes)} sources",
         )
 
         # Step 2: Centralized gene symbol standardization
         progress.update(task, description="Centralizing gene symbol standardization...")
         unified_df, symbol_map = self._standardize_symbols(
-            raw_dataframes, progress, task,
+            raw_dataframes,
+            progress,
+            task,
         )
 
         # Step 3: Pre-aggregate by source groups
@@ -153,10 +159,12 @@ class Pipeline:
 
         # Step 4: Merge and score pre-aggregated sources
         progress.update(
-            task, description="Merging and scoring pre-aggregated sources...",
+            task,
+            description="Merging and scoring pre-aggregated sources...",
         )
         master_df = self.merger.create_master_list(
-            aggregated_sources, self.output_manager,
+            aggregated_sources,
+            self.output_manager,
         )
         self._validate_master_data(master_df)
 
@@ -194,7 +202,8 @@ class Pipeline:
 
         # Step 4: Merge and score
         master_df = self.merger.create_master_list(
-            aggregated_sources, self.output_manager,
+            aggregated_sources,
+            self.output_manager,
         )
         self._validate_master_data(master_df)
 
@@ -371,7 +380,9 @@ class Pipeline:
         return dataframes
 
     def _fetch_single_source(
-        self, source_name: str, fetch_function: Any,
+        self,
+        source_name: str,
+        fetch_function: Any,
     ) -> list[pd.DataFrame]:
         """Fetch data from a single source with error handling."""
         try:
@@ -439,7 +450,9 @@ class Pipeline:
         return unified_df, symbol_map
 
     def _log_standardization_results(
-        self, symbol_map: dict[str, dict[str, Any]], all_symbols: list[str],
+        self,
+        symbol_map: dict[str, dict[str, Any]],
+        all_symbols: list[str],
     ) -> None:
         """Log standardization results."""
         total_changed = sum(
@@ -450,7 +463,9 @@ class Pipeline:
         logger.info(f"Standardized {total_changed}/{len(all_symbols)} gene symbols")
 
     def _apply_symbol_standardization(
-        self, unified_df: pd.DataFrame, symbol_map: dict[str, dict[str, Any]],
+        self,
+        unified_df: pd.DataFrame,
+        symbol_map: dict[str, dict[str, Any]],
     ) -> pd.DataFrame:
         """Apply symbol standardization to the unified DataFrame."""
         # Create mapping dictionaries
@@ -478,7 +493,9 @@ class Pipeline:
         return unified_df
 
     def _pre_aggregate_sources(
-        self, unified_df: pd.DataFrame, symbol_map: dict[str, dict[str, Any]],
+        self,
+        unified_df: pd.DataFrame,
+        symbol_map: dict[str, dict[str, Any]],
     ) -> list[pd.DataFrame]:
         """Pre-aggregate source groups."""
         # Add source_group column based on configuration
@@ -493,7 +510,9 @@ class Pipeline:
 
         for group_name, group_df in unified_df.groupby("source_group"):
             aggregated_df = self._aggregate_source_group(
-                str(group_name), group_df, hgnc_id_map,
+                str(group_name),
+                group_df,
+                hgnc_id_map,
             )
             aggregated_sources.append(aggregated_df)
             logger.info(
@@ -523,7 +542,9 @@ class Pipeline:
         return source_to_group
 
     def _map_source_to_group(
-        self, source_name: str, source_to_group: dict[str, str],
+        self,
+        source_name: str,
+        source_to_group: dict[str, str],
     ) -> str:
         """Map source name to its group."""
         # Try exact match first
@@ -545,14 +566,19 @@ class Pipeline:
         return source_name
 
     def _aggregate_source_group(
-        self, group_name: str, group_df: pd.DataFrame, hgnc_id_map: dict[str, str],
+        self,
+        group_name: str,
+        group_df: pd.DataFrame,
+        hgnc_id_map: dict[str, str],
     ) -> pd.DataFrame:
         """Aggregate genes within a source group."""
         gene_groups = []
 
         for gene_symbol, gene_df in group_df.groupby("approved_symbol"):
             aggregated_record = self._create_aggregated_record(
-                str(gene_symbol), gene_df, group_name,
+                str(gene_symbol),
+                gene_df,
+                group_name,
             )
             gene_groups.append(aggregated_record)
 
@@ -572,7 +598,10 @@ class Pipeline:
         return group_aggregated_df
 
     def _create_aggregated_record(
-        self, gene_symbol: str, gene_df: pd.DataFrame, group_name: str,
+        self,
+        gene_symbol: str,
+        gene_df: pd.DataFrame,
+        group_name: str,
     ) -> dict[str, Any]:
         """Create an aggregated record for a gene within a source group."""
         # Count internal sources
@@ -644,7 +673,8 @@ class Pipeline:
             logger.info("Applying genomic targeting flags...")
             try:
                 df_with_targeting = apply_genomic_targeting_flags(
-                    df, self.config_manager.to_dict(),
+                    df,
+                    self.config_manager.to_dict(),
                 )
                 # Log summary of targeting flags applied
                 if "genomic_targeting" in df_with_targeting.columns:
@@ -813,7 +843,9 @@ class Pipeline:
                 # This handles cases like "manual; prs" which should match "manual"
                 type_specific_df = harmonized_df[
                     harmonized_df["category"].str.contains(
-                        target_category, na=False, regex=False,
+                        target_category,
+                        na=False,
+                        regex=False,
                     )
                 ].copy()
 
@@ -912,7 +944,8 @@ class Pipeline:
 
                 # Save deduplicated ClinVar SNP data
                 self.output_manager.save_snp_data(
-                    deduplicated_clinvar, "deep_intronic_clinvar",
+                    deduplicated_clinvar,
+                    "deep_intronic_clinvar",
                 )
 
                 console.print(

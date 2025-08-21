@@ -118,7 +118,9 @@ class PengellyParser(BaseSNPScraper):
                         if text:
                             # Extract all rsIDs from text
                             rsid_matches = re.findall(
-                                r"\b(rs\d+)\b", text, re.IGNORECASE,
+                                r"\b(rs\d+)\b",
+                                text,
+                                re.IGNORECASE,
                             )
                             for rsid in rsid_matches:
                                 if self.validate_rsid(rsid):

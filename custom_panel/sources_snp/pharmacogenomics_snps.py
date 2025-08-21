@@ -142,7 +142,8 @@ def _download_and_process_pharmgkb_data(config: dict[str, Any]) -> pd.DataFrame 
     cache_dir = Path(config.get("cache_dir", ".cache/pharmgkb"))
     cache_ttl_days = config.get("cache_ttl_days", 7)
     download_url = config.get(
-        "download_url", "https://api.pharmgkb.org/v1/download/file/data/variants.zip",
+        "download_url",
+        "https://api.pharmgkb.org/v1/download/file/data/variants.zip",
     )
 
     # Create cache directory
@@ -175,7 +176,9 @@ def _download_and_process_pharmgkb_data(config: dict[str, Any]) -> pd.DataFrame 
 
 
 def _download_pharmgkb_variants(
-    url: str, cache_dir: Path, config: dict[str, Any],
+    url: str,
+    cache_dir: Path,
+    config: dict[str, Any],
 ) -> pd.DataFrame | None:
     """
     Download PharmGKB variants ZIP file and extract TSV data.
@@ -264,7 +267,8 @@ def _download_pharmgkb_variants(
 
 
 def _filter_clinically_relevant_variants(
-    df: pd.DataFrame, config: dict[str, Any],
+    df: pd.DataFrame,
+    config: dict[str, Any],
 ) -> pd.DataFrame:
     """
     Filter variants based on clinical relevance criteria.

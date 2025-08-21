@@ -74,7 +74,10 @@ class HGNCClient:
             # Create a cache key that includes params
             cache_data = {"params": params} if params else data
             cached_response = self.cache_manager.get(
-                "hgnc", endpoint, method, cache_data,
+                "hgnc",
+                endpoint,
+                method,
+                cache_data,
             )
             if cached_response is not None:
                 return cached_response
@@ -85,11 +88,16 @@ class HGNCClient:
             try:
                 if method.upper() == "POST":
                     response = self.session.post(
-                        url, json=data, params=params, timeout=self.timeout,
+                        url,
+                        json=data,
+                        params=params,
+                        timeout=self.timeout,
                     )
                 else:
                     response = self.session.get(
-                        url, params=params, timeout=self.timeout,
+                        url,
+                        params=params,
+                        timeout=self.timeout,
                     )
                 response.raise_for_status()
                 json_response = response.json()
@@ -98,7 +106,11 @@ class HGNCClient:
                 if self.cache_manager:
                     cache_data = {"params": params} if params else data
                     self.cache_manager.set(
-                        "hgnc", endpoint, method, cache_data, json_response,
+                        "hgnc",
+                        endpoint,
+                        method,
+                        cache_data,
+                        json_response,
                     )
 
                 return json_response
@@ -226,7 +238,8 @@ class HGNCClient:
 
     @functools.lru_cache(maxsize=1000)  # noqa: B019
     def standardize_symbols_batch(
-        self, symbols: tuple[str, ...],
+        self,
+        symbols: tuple[str, ...],
     ) -> dict[str, dict[str, str | None]]:
         """
         Standardize multiple gene symbols using HGNC batch API.
@@ -354,7 +367,8 @@ class HGNCClient:
         return result
 
     def standardize_symbols(
-        self, symbols: list[str],
+        self,
+        symbols: list[str],
     ) -> dict[str, dict[str, str | None]]:
         """
         Standardize multiple gene symbols.

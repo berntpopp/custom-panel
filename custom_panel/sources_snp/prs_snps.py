@@ -302,7 +302,9 @@ def _aggregate_prs_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
         for pattern in invalid_snp_patterns:
             try:
                 pattern_mask = snp_series.str.match(
-                    f"^{pattern}$", case=False, na=False,
+                    f"^{pattern}$",
+                    case=False,
+                    na=False,
                 )
                 if pattern_mask.any():
                     logger.info(

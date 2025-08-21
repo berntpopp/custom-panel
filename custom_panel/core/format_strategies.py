@@ -134,7 +134,12 @@ class ExcelStrategy(FormatStrategy):
                 regions_data and isinstance(regions_data, dict)
             ):
                 self._save_multi_sheet_excel(
-                    df, path, snp_data, regions_data, index, engine,
+                    df,
+                    path,
+                    snp_data,
+                    regions_data,
+                    index,
+                    engine,
                 )
             else:
                 # Single sheet Excel
@@ -208,7 +213,9 @@ class ExcelStrategy(FormatStrategy):
                 if all_regions:
                     master_regions_df = pd.concat(all_regions, ignore_index=True)
                     master_regions_df.to_excel(
-                        writer, sheet_name="All_Regions", index=index,
+                        writer,
+                        sheet_name="All_Regions",
+                        index=index,
                     )
                     logger.debug(
                         f"Saved {len(master_regions_df)} regions to All_Regions sheet",
@@ -223,7 +230,9 @@ class ExcelStrategy(FormatStrategy):
                             # Create valid sheet name (Excel sheet names <= 31 chars)
                             sheet_name = f"Regions_{region_type}"[:31]
                             region_df.to_excel(
-                                writer, sheet_name=sheet_name, index=index,
+                                writer,
+                                sheet_name=sheet_name,
+                                index=index,
                             )
                             logger.debug(
                                 f"Saved {len(region_df)} regions to {sheet_name} sheet",
@@ -320,7 +329,9 @@ class FormatStrategyFactory:
 
     @classmethod
     def register_strategy(
-        cls, format_name: str, strategy_class: type[FormatStrategy],
+        cls,
+        format_name: str,
+        strategy_class: type[FormatStrategy],
     ) -> None:
         """
         Register a new format strategy.
@@ -339,7 +350,11 @@ class DataFrameSaver:
         self.factory = FormatStrategyFactory()
 
     def save(
-        self, df: pd.DataFrame, path: Path, format_name: str, **kwargs: Any,
+        self,
+        df: pd.DataFrame,
+        path: Path,
+        format_name: str,
+        **kwargs: Any,
     ) -> None:
         """
         Save DataFrame using specified format strategy.
@@ -389,7 +404,10 @@ class DataFrameSaver:
         return saved_files
 
     def get_file_path(
-        self, base_path: Path, filename_base: str, format_name: str,
+        self,
+        base_path: Path,
+        filename_base: str,
+        format_name: str,
     ) -> Path:
         """
         Get the file path for a specific format without saving.
@@ -408,7 +426,10 @@ class DataFrameSaver:
 
 # Convenience function for backward compatibility
 def save_dataframe(
-    df: pd.DataFrame, path: Path, format_name: str, **kwargs: Any,
+    df: pd.DataFrame,
+    path: Path,
+    format_name: str,
+    **kwargs: Any,
 ) -> None:
     """
     Convenience function to save a DataFrame in the specified format.

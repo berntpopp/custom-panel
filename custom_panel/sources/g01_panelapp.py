@@ -174,7 +174,8 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
 
     # Evidence level to score mapping
     evidence_scores = panelapp_config.get(
-        "evidence_scores", {"Green": 1.0, "Amber": 0.5, "Red": 0.1},
+        "evidence_scores",
+        {"Green": 1.0, "Amber": 0.5, "Red": 0.1},
     )
 
     # Process each PanelApp instance
@@ -306,7 +307,8 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
 
 
 def search_panelapp_panels(
-    config: dict[str, Any], search_term: str,
+    config: dict[str, Any],
+    search_term: str,
 ) -> list[dict[str, Any]]:
     """
     Search for panels in PanelApp by name or description.

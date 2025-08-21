@@ -318,7 +318,8 @@ class InvitaeParser(BaseParser):
 
                         # Extract potential gene symbols with basic pattern
                         potential_genes = re.findall(
-                            r"\b[A-Z][A-Z0-9]{1,7}\b", script_content,
+                            r"\b[A-Z][A-Z0-9]{1,7}\b",
+                            script_content,
                         )
 
                         # Apply better filtering

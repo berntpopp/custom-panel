@@ -35,7 +35,9 @@ class PanelMerger:
         self.qc_config = config.get("quality_control", {})
 
     def create_master_list(
-        self, dataframes: list[pd.DataFrame], output_manager: Any = None,
+        self,
+        dataframes: list[pd.DataFrame],
+        output_manager: Any = None,
     ) -> pd.DataFrame:
         """
         Create master gene list from multiple source DataFrames.
@@ -451,7 +453,9 @@ class PanelMerger:
         return filtered_df
 
     def export_gene_lists(
-        self, df: pd.DataFrame, output_dir: str | Path,
+        self,
+        df: pd.DataFrame,
+        output_dir: str | Path,
     ) -> dict[str, str]:
         """
         Export gene lists for different categories.

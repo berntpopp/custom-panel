@@ -148,7 +148,9 @@ def process_inhouse_panel(panel_config: dict[str, Any]) -> pd.DataFrame | None:
 
 
 def read_excel_panel(
-    file_path: Path, gene_column: str, sheet_name: str | None = None,
+    file_path: Path,
+    gene_column: str,
+    sheet_name: str | None = None,
 ) -> pd.DataFrame:
     """
     Read gene panel from Excel file.

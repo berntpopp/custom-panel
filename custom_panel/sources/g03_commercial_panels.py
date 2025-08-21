@@ -386,7 +386,8 @@ def get_commercial_panel_summary(config: dict[str, Any]) -> dict[str, Any]:
                 if data:
                     panel_summary["gene_count"] = len(data.get("genes", []))
                     panel_summary["retrieval_date"] = data.get(
-                        "retrieval_date", "Unknown",
+                        "retrieval_date",
+                        "Unknown",
                     )
                     panel_summary["source_url"] = data.get("source_url", "Unknown")
             except Exception:

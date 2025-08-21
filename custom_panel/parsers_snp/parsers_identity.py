@@ -376,7 +376,10 @@ class TSVListParser(BaseSNPParser):
             else:
                 # Column name provided
                 df = pd.read_csv(
-                    self.file_path, sep=delimiter, comment=comment_char, engine="python",
+                    self.file_path,
+                    sep=delimiter,
+                    comment=comment_char,
+                    engine="python",
                 )
 
                 if rsid_column not in df.columns:

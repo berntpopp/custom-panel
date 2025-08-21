@@ -180,7 +180,9 @@ def main() -> None:
         help="Specific scraper names to run (default: run all enabled scrapers)",
     )
     parser.add_argument(
-        "--output-dir", type=str, help="Override output directory for all scrapers",
+        "--output-dir",
+        type=str,
+        help="Override output directory for all scrapers",
     )
     parser.add_argument(
         "--dry-run",

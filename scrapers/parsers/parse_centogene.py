@@ -99,7 +99,8 @@ class CentogeneParser(BaseParser):
 
                 # Find expansion panel with "Show all genes" text
                 expansion_panels = driver.find_elements(
-                    By.CSS_SELECTOR, ".mat-expansion-panel",
+                    By.CSS_SELECTOR,
+                    ".mat-expansion-panel",
                 )
                 genes_panel = None
 
@@ -115,7 +116,8 @@ class CentogeneParser(BaseParser):
                     # Try to click the expansion panel header to expand it
                     try:
                         header = genes_panel.find_element(
-                            By.CSS_SELECTOR, ".mat-expansion-panel-header",
+                            By.CSS_SELECTOR,
+                            ".mat-expansion-panel-header",
                         )
                         driver.execute_script("arguments[0].click();", header)
                         time.sleep(2)
@@ -125,7 +127,8 @@ class CentogeneParser(BaseParser):
 
                     # Look for gene content in the expanded panel
                     panel_body = genes_panel.find_element(
-                        By.CSS_SELECTOR, ".mat-expansion-panel-body",
+                        By.CSS_SELECTOR,
+                        ".mat-expansion-panel-body",
                     )
                     if panel_body:
                         gene_text = panel_body.text.strip()

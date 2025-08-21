@@ -57,12 +57,21 @@ def generate_outputs(
 
     # Generate BED files if enabled (genes + SNPs + regions)
     _generate_bed_files(
-        df, config_manager, output_dir, transcript_data, snp_data, regions_data,
+        df,
+        config_manager,
+        output_dir,
+        transcript_data,
+        snp_data,
+        regions_data,
     )
 
     # Generate HTML report if enabled (genes + SNPs + regions)
     _generate_html_report_if_enabled(
-        df, config_manager, output_dir, deduplicated_snp_data, regions_data,
+        df,
+        config_manager,
+        output_dir,
+        deduplicated_snp_data,
+        regions_data,
     )
 
 
@@ -356,7 +365,8 @@ def _clean_coordinate_columns(df: pd.DataFrame) -> pd.DataFrame:
             ]:
                 # These should be integers (positions)
                 df_cleaned[col] = pd.to_numeric(
-                    df_cleaned[col], errors="coerce",
+                    df_cleaned[col],
+                    errors="coerce",
                 ).astype("Int64")
             elif col in ["chromosome", "chr", "hg38_chromosome"]:
                 # These should be strings but handle NaN properly
@@ -407,7 +417,12 @@ def _generate_bed_files(
     if config_manager.is_bed_enabled("complete_panel_exons"):
         bed_path = output_dir / "complete_panel_exons.bed"
         create_complete_panel_exons_bed(
-            df, transcript_data, snp_data, regions_data, bed_path, padding,
+            df,
+            transcript_data,
+            snp_data,
+            regions_data,
+            bed_path,
+            padding,
         )
 
     # Generate complete panel genes BED file (full genomic regions from included genes + SNPs + regions)
@@ -511,11 +526,13 @@ def _generate_snp_bed_files(
             {
                 "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
                 "chromStart": pd.to_numeric(
-                    bed_data_clean["hg38_start"], errors="coerce",
+                    bed_data_clean["hg38_start"],
+                    errors="coerce",
                 ).astype(int)
                 - 1,  # BED is 0-based
                 "chromEnd": pd.to_numeric(
-                    bed_data_clean["hg38_end"], errors="coerce",
+                    bed_data_clean["hg38_end"],
+                    errors="coerce",
                 ).astype(int),
                 "name": (
                     bed_data_clean["snp"]
@@ -640,7 +657,11 @@ def _generate_html_report_if_enabled(
     if config_manager.is_html_enabled():
         html_path = output_dir / "panel_report.html"
         _generate_html_report(
-            df, config_manager.to_dict(), html_path, deduplicated_snp_data, regions_data,
+            df,
+            config_manager.to_dict(),
+            html_path,
+            deduplicated_snp_data,
+            regions_data,
         )
 
 
@@ -654,7 +675,9 @@ def _generate_html_report(
     """Generate HTML report using the ReportGenerator."""
     try:
         report_generator = ReportGenerator()
-        report_generator.render(df, config, output_path, deduplicated_snp_data, regions_data)
+        report_generator.render(
+            df, config, output_path, deduplicated_snp_data, regions_data
+        )
     except Exception as e:
         logger.error(f"Failed to generate HTML report: {e}")
         console.print(f"[red]Failed to generate HTML report: {e}[/red]")
@@ -769,7 +792,11 @@ def _generate_single_transcript_bed_file(
 
         # Extract exons from stored transcript data
         exons = _extract_exons_from_stored_data(
-            transcript_data, gene_symbol, transcript_id, transcript_type, row,
+            transcript_data,
+            gene_symbol,
+            transcript_id,
+            transcript_type,
+            row,
         )
 
         if exons:
@@ -805,14 +832,19 @@ def _extract_exons_from_stored_data(
 
     # Find the specific transcript in the stored data
     target_transcript = _find_target_transcript(
-        gene_data["all_transcripts"], transcript_id,
+        gene_data["all_transcripts"],
+        transcript_id,
     )
     if not target_transcript or "Exon" not in target_transcript:
         return []
 
     # Extract and process exon information
     exons = _process_transcript_exons(
-        target_transcript["Exon"], gene_symbol, transcript_id, transcript_type, row,
+        target_transcript["Exon"],
+        gene_symbol,
+        transcript_id,
+        transcript_type,
+        row,
     )
 
     # Sort by rank to maintain exon order
@@ -821,7 +853,8 @@ def _extract_exons_from_stored_data(
 
 
 def _find_target_transcript(
-    transcripts: list[dict[str, Any]], transcript_id: str,
+    transcripts: list[dict[str, Any]],
+    transcript_id: str,
 ) -> dict[str, Any] | None:
     """Find target transcript by ID in the transcripts list."""
     for transcript in transcripts:

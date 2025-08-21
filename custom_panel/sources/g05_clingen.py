@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 def _fetch_clingen_genes_api(
-    url: str, cache_manager: CacheManager | None = None,
+    url: str,
+    cache_manager: CacheManager | None = None,
 ) -> list[dict[str, Any]]:
     """
     Fetch ClinGen genes from the ClinGen API with caching support.
@@ -200,7 +201,8 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
 
                 # Calculate evidence score based on classification
                 classification_multiplier = classification_scores.get(
-                    classification, 1.0,
+                    classification,
+                    1.0,
                 )
                 evidence_score = base_evidence_score * classification_multiplier
 
@@ -281,7 +283,8 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
 
                                 # Calculate evidence score based on classification
                                 classification_multiplier = classification_scores.get(
-                                    classification, 1.0,
+                                    classification,
+                                    1.0,
                                 )
                                 evidence_score = (
                                     base_evidence_score * classification_multiplier
@@ -354,7 +357,8 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
 
                                 # Calculate evidence score based on classification
                                 classification_multiplier = classification_scores.get(
-                                    classification, 1.0,
+                                    classification,
+                                    1.0,
                                 )
                                 evidence_score = (
                                     base_evidence_score * classification_multiplier
@@ -385,7 +389,10 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
     gene_dict: dict[str, tuple[float, str]] = {}
 
     for gene, score, detail in zip(
-        genes, evidence_scores, source_details, strict=False,
+        genes,
+        evidence_scores,
+        source_details,
+        strict=False,
     ):
         if gene not in gene_dict or score > gene_dict[gene][0]:
             gene_dict[gene] = (score, detail)

@@ -96,7 +96,10 @@ def get_parser_class(parser_module: str, parser_class: str) -> type:
 
 
 def create_output_json(
-    panel_name: str, source_url: str, genes: list[str], output_path: str | Path,
+    panel_name: str,
+    source_url: str,
+    genes: list[str],
+    output_path: str | Path,
 ) -> None:
     """
     Create standardized JSON output file.
@@ -195,7 +198,9 @@ def main() -> None:
         help="Specific scraper names to run (default: run all enabled scrapers)",
     )
     parser.add_argument(
-        "--output-dir", type=str, help="Override output directory for all scrapers",
+        "--output-dir",
+        type=str,
+        help="Override output directory for all scrapers",
     )
     parser.add_argument(
         "--dry-run",

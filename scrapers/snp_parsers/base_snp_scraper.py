@@ -150,7 +150,10 @@ class BaseSNPScraper(ABC):
         return rsids
 
     def parse_table_for_rsids(
-        self, soup: BeautifulSoup, table_selector: str = None, rsid_column: str = None,
+        self,
+        soup: BeautifulSoup,
+        table_selector: str = None,
+        rsid_column: str = None,
     ) -> list[str]:
         """
         Extract rsIDs from HTML tables.

@@ -1094,20 +1094,22 @@ class TestNewBEDFileGeneration:
 
     def test_create_snps_all_bed_empty_data(self):
         """Test error handling for empty SNP data."""
-        from custom_panel.core.io import create_snps_all_bed
         import pytest
+
+        from custom_panel.core.io import create_snps_all_bed
 
         with tempfile.TemporaryDirectory() as tmpdir:
             bed_path = Path(tmpdir) / "snps_all.bed"
-            
+
             # Test empty dictionary
             with pytest.raises(ValueError, match="No SNP data provided"):
                 create_snps_all_bed({}, bed_path)
 
     def test_create_snps_all_bed_no_valid_coordinates(self):
         """Test error handling when no SNPs have valid coordinates."""
-        from custom_panel.core.io import create_snps_all_bed
         import pytest
+
+        from custom_panel.core.io import create_snps_all_bed
 
         # Create SNP data with missing coordinate columns
         snp_data = {
@@ -1121,7 +1123,7 @@ class TestNewBEDFileGeneration:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             bed_path = Path(tmpdir) / "snps_all.bed"
-            
+
             with pytest.raises(ValueError, match="No valid SNP data found"):
                 create_snps_all_bed(snp_data, bed_path)
 

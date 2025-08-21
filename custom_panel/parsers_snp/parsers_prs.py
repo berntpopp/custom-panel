@@ -508,7 +508,10 @@ class PGSCatalogParser(BaseSNPParser):
         return config_build
 
     def _add_coordinate_columns(
-        self, result_df: pd.DataFrame, data_df: pd.DataFrame, genome_build: str,
+        self,
+        result_df: pd.DataFrame,
+        data_df: pd.DataFrame,
+        genome_build: str,
     ) -> None:
         """
         Add coordinate columns to result DataFrame.
@@ -609,7 +612,8 @@ class PGSCatalogParser(BaseSNPParser):
             result_df["other_allele"] = data_df["other_allele"]
         if "effect_weight" in data_df.columns:
             result_df["effect_weight"] = pd.to_numeric(
-                data_df["effect_weight"], errors="coerce",
+                data_df["effect_weight"],
+                errors="coerce",
             )
 
         # Add PGS-level metadata from header
@@ -833,7 +837,8 @@ class PGSCatalogParser(BaseSNPParser):
         return rsids
 
     def _validate_variant_identifiers(
-        self, variant_ids: pd.Series[Any],
+        self,
+        variant_ids: pd.Series[Any],
     ) -> pd.Series[Any]:
         """
         Validate variant identifiers and filter out problematic entries.
@@ -891,7 +896,8 @@ class PGSCatalogFetcher(BaseSNPParser):
         try:
             # Initialize PGS Catalog client
             client = PGSCatalogClient(
-                cache_dir=cache_dir, cache_ttl_days=cache_ttl_days,
+                cache_dir=cache_dir,
+                cache_ttl_days=cache_ttl_days,
             )
 
             # Fetch and download scoring files for both builds
@@ -953,7 +959,9 @@ class PGSCatalogFetcher(BaseSNPParser):
             raise ValueError(f"Failed to fetch PGS data: {e}") from e
 
     def _merge_dual_build_data(
-        self, build_dataframes: dict[str, pd.DataFrame], pgs_id: str,
+        self,
+        build_dataframes: dict[str, pd.DataFrame],
+        pgs_id: str,
     ) -> pd.DataFrame:
         """
         Merge coordinate data from different genome builds for the same PGS.

@@ -44,7 +44,8 @@ class CegatParser(BaseParser):
 
             # Find h2 with "Gene Directory" text and look for following em tags
             gene_directory_headers = soup.find_all(
-                "h2", string=lambda text: text and "gene directory" in text.lower(),
+                "h2",
+                string=lambda text: text and "gene directory" in text.lower(),
             )
 
             for header in gene_directory_headers:

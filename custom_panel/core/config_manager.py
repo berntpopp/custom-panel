@@ -117,7 +117,11 @@ class ConfigManager:
         """
         if bed_type == "exons":
             return self.get_nested(
-                "output", "bed_files", "exons", "enabled", default=False,
+                "output",
+                "bed_files",
+                "exons",
+                "enabled",
+                default=False,
             )
         # Support for new master BED file types
         if bed_type in [
@@ -133,7 +137,10 @@ class ConfigManager:
         # Support for individual category files
         if bed_type == "individual_categories":
             return self.get_nested(
-                "output", "bed_files", "individual_categories", default=True,
+                "output",
+                "bed_files",
+                "individual_categories",
+                default=True,
             )
         return self.get_nested("output", "bed_files", bed_type, default=False)
 
@@ -244,7 +251,10 @@ class ConfigManager:
             Intermediate file format string
         """
         return self.get_nested(
-            "output", "intermediate_files", "format", default="excel",
+            "output",
+            "intermediate_files",
+            "format",
+            default="excel",
         )
 
     def is_structured_output_enabled(self) -> bool:
@@ -255,7 +265,9 @@ class ConfigManager:
             True if structured output should be used
         """
         return self.get_nested(
-            "directory_structure", "use_structured_output", default=True,
+            "directory_structure",
+            "use_structured_output",
+            default=True,
         )
 
     def get_log_level(self) -> str:
@@ -287,7 +299,10 @@ class ConfigManager:
             Evidence score, defaults to 1.0
         """
         return self.get_nested(
-            "data_sources", source_name, "evidence_score", default=1.0,
+            "data_sources",
+            source_name,
+            "evidence_score",
+            default=1.0,
         )
 
     def get_source_category(self, source_name: str) -> str:
@@ -301,7 +316,10 @@ class ConfigManager:
             Source category, defaults to "germline"
         """
         return self.get_nested(
-            "data_sources", source_name, "category", default="germline",
+            "data_sources",
+            source_name,
+            "category",
+            default="germline",
         )
 
     def is_source_group(self, source_name: str) -> bool:
@@ -315,7 +333,10 @@ class ConfigManager:
             True if source is a source group
         """
         return self.get_nested(
-            "data_sources", source_name, "source_group", default=False,
+            "data_sources",
+            source_name,
+            "source_group",
+            default=False,
         )
 
     def get_source_normalization(self, source_name: str) -> dict[str, Any]:
@@ -338,7 +359,11 @@ class ConfigManager:
             Exon padding in base pairs, defaults to 10
         """
         return self.get_nested(
-            "output", "bed_files", "exons", "exon_padding", default=10,
+            "output",
+            "bed_files",
+            "exons",
+            "exon_padding",
+            default=10,
         )
 
     def get_transcript_types_config(self) -> dict[str, bool]:
@@ -367,7 +392,10 @@ class ConfigManager:
 
         if kwargs.get("score_threshold") is not None:
             self._set_nested(
-                "scoring", "thresholds", "score_threshold", kwargs["score_threshold"],
+                "scoring",
+                "thresholds",
+                "score_threshold",
+                kwargs["score_threshold"],
             )
 
         if kwargs.get("save_intermediate"):
@@ -375,7 +403,10 @@ class ConfigManager:
 
         if kwargs.get("intermediate_format"):
             self._set_nested(
-                "output", "intermediate_files", "format", kwargs["intermediate_format"],
+                "output",
+                "intermediate_files",
+                "format",
+                kwargs["intermediate_format"],
             )
 
         if kwargs.get("log_to_file"):
@@ -433,7 +464,8 @@ class ConfigManager:
 
     @staticmethod
     def _merge_configs(
-        base_config: dict[str, Any], override_config: dict[str, Any],
+        base_config: dict[str, Any],
+        override_config: dict[str, Any],
     ) -> dict[str, Any]:
         """Recursively merge override configuration into base configuration."""
         import copy
@@ -489,7 +521,9 @@ class ConfigManager:
             Column name string for gene symbols
         """
         return self.get_nested(
-            "genomic_targeting", "gene_column", default="gene_symbol",
+            "genomic_targeting",
+            "gene_column",
+            default="gene_symbol",
         )
 
     def get_genomic_targeting_column(self) -> str:
@@ -500,7 +534,9 @@ class ConfigManager:
             Column name string for targeting flags
         """
         return self.get_nested(
-            "genomic_targeting", "targeting_column", default="targeting",
+            "genomic_targeting",
+            "targeting_column",
+            default="targeting",
         )
 
     def get_genomic_targeting_default_value(self) -> bool:
@@ -529,7 +565,9 @@ class ConfigManager:
             True if gene symbols should be validated against HGNC
         """
         return self.get_nested(
-            "genomic_targeting", "validate_gene_symbols", default=False,
+            "genomic_targeting",
+            "validate_gene_symbols",
+            default=False,
         )
 
     def to_dict(self) -> dict[str, Any]:

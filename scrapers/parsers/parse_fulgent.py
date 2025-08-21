@@ -36,10 +36,12 @@ class FulgentParser(BaseParser):
             if os.environ.get("http_proxy") or os.environ.get("https_proxy"):
                 proxies = {
                     "http": os.environ.get(
-                        "http_proxy", "http://proxy.charite.de:8080",
+                        "http_proxy",
+                        "http://proxy.charite.de:8080",
                     ),
                     "https": os.environ.get(
-                        "https_proxy", "http://proxy.charite.de:8080",
+                        "https_proxy",
+                        "http://proxy.charite.de:8080",
                     ),
                 }
                 logger.info(f"Using proxy configuration: {proxies}")
@@ -107,7 +109,8 @@ class FulgentParser(BaseParser):
                     # Look for patterns like "AIP, ALK, APC, ATM, AXIN2, BAP1, BARD1, BMPR1A, BRCA1, BRCA2"
                     # Find sequences of comma-separated uppercase words
                     comma_separated_match = re.search(
-                        r"\b([A-Z][A-Z0-9]{1,7}(?:,\s*[A-Z][A-Z0-9]{1,7}){10,})", text,
+                        r"\b([A-Z][A-Z0-9]{1,7}(?:,\s*[A-Z][A-Z0-9]{1,7}){10,})",
+                        text,
                     )
                     if comma_separated_match:
                         genes_text = comma_separated_match.group(1)

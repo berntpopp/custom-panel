@@ -215,7 +215,10 @@ class PGSCatalogClient:
             raise
 
     def download_scoring_file(
-        self, pgs_id: str, file_url: str, genome_build: str = "GRCh38",
+        self,
+        pgs_id: str,
+        file_url: str,
+        genome_build: str = "GRCh38",
     ) -> Path:
         """
         Download and cache a PGS scoring file.
@@ -289,7 +292,10 @@ class PGSCatalogClient:
             raise
 
     def get_scoring_file_url(
-        self, pgs_metadata: dict[str, Any], pgs_id: str, genome_build: str = "GRCh38",
+        self,
+        pgs_metadata: dict[str, Any],
+        pgs_id: str,
+        genome_build: str = "GRCh38",
     ) -> str | None:
         """
         Extract the appropriate scoring file URL from PGS metadata.
@@ -337,7 +343,9 @@ class PGSCatalogClient:
         return None
 
     def fetch_and_cache_pgs_files(
-        self, pgs_ids: list[str], genome_build: str = "GRCh38",
+        self,
+        pgs_ids: list[str],
+        genome_build: str = "GRCh38",
     ) -> dict[str, dict[str, Path]]:
         """
         Fetch metadata and download scoring files for multiple PGS IDs for both genome builds.
