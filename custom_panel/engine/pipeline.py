@@ -691,16 +691,16 @@ class Pipeline:
                 logger.error(f"Error applying genomic targeting flags: {e}")
                 console.print(f"[red]Error applying genomic targeting flags: {e}[/red]")
                 # Add default targeting column on error
-                df[
-                    "genomic_targeting"
-                ] = self.config_manager.get_genomic_targeting_default_value()
+                df["genomic_targeting"] = (
+                    self.config_manager.get_genomic_targeting_default_value()
+                )
                 return df
         else:
             logger.info("Genomic targeting flags are disabled, skipping")
             # Add default targeting column when disabled
-            df[
-                "genomic_targeting"
-            ] = self.config_manager.get_genomic_targeting_default_value()
+            df["genomic_targeting"] = (
+                self.config_manager.get_genomic_targeting_default_value()
+            )
             return df
 
     def _process_snps(self) -> None:

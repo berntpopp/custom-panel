@@ -553,9 +553,9 @@ class ReportGenerator:
             # Individual SNP type tables
             for category_type, snp_df in snp_data.items():
                 if not snp_df.empty:
-                    snp_tables[
-                        f"snps_{category_type}"
-                    ] = self._convert_snp_df_to_table_data(snp_df)
+                    snp_tables[f"snps_{category_type}"] = (
+                        self._convert_snp_df_to_table_data(snp_df)
+                    )
 
         return snp_tables
 

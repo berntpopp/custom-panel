@@ -36,16 +36,16 @@ class TestSNPDeduplicationInReports:
 
         # Verify no snp_type column in table data
         for snp_entry in all_snps:
-            assert (
-                "snp_type" not in snp_entry
-            ), f"snp_type column found in table data: {snp_entry.keys()}"
+            assert "snp_type" not in snp_entry, (
+                f"snp_type column found in table data: {snp_entry.keys()}"
+            )
             assert "category" in snp_entry, "category column missing from table data"
 
         # Verify rs4149056 appears only once
         rs4149056_entries = [s for s in all_snps if s["rsid"] == "rs4149056"]
-        assert (
-            len(rs4149056_entries) == 1
-        ), f"rs4149056 should appear once, found {len(rs4149056_entries)} times"
+        assert len(rs4149056_entries) == 1, (
+            f"rs4149056 should appear once, found {len(rs4149056_entries)} times"
+        )
 
         # Verify merged category is preserved
         rs4149056_entry = rs4149056_entries[0]
@@ -115,9 +115,9 @@ class TestSNPDeduplicationInReports:
         deduplicated_df = pipeline._deduplicate_snps_in_pipeline(test_df)
 
         # Verify snp_type column is not present
-        assert (
-            "snp_type" not in deduplicated_df.columns
-        ), f"snp_type column found in deduplicated data: {deduplicated_df.columns.tolist()}"
+        assert "snp_type" not in deduplicated_df.columns, (
+            f"snp_type column found in deduplicated data: {deduplicated_df.columns.tolist()}"
+        )
 
         # Verify category column is properly merged
         assert len(deduplicated_df) == 1, "Should have one deduplicated entry"
@@ -168,6 +168,6 @@ class TestSNPDeduplicationInReports:
 
         # Check that no unexpected columns are present (especially snp_type)
         for col in row.keys():
-            assert (
-                col in expected_columns
-            ), f"Unexpected column '{col}' found in row data"
+            assert col in expected_columns, (
+                f"Unexpected column '{col}' found in row data"
+            )
