@@ -46,7 +46,7 @@ ANNOTATION_COLUMNS = [
 
 
 def validate_panel_dataframe(
-    df: pd.DataFrame, require_annotations: bool = False
+    df: pd.DataFrame, require_annotations: bool = False,
 ) -> bool:
     """
     Validate that a DataFrame follows the standard panel schema.
@@ -132,14 +132,14 @@ def create_standard_dataframe(
             "source_name": [source_name] * n_genes,
             "source_evidence_score": evidence_scores,
             "source_details": source_details,
-        }
+        },
     )
 
     return df
 
 
 def save_panel_data(
-    df: pd.DataFrame, path: str | Path, format: str = "parquet"
+    df: pd.DataFrame, path: str | Path, format: str = "parquet",
 ) -> None:
     """
     Save panel data to file.
@@ -210,7 +210,7 @@ def load_panel_data(path: str | Path, format: str | None = None) -> pd.DataFrame
 
 
 def save_master_panel(
-    df: pd.DataFrame, output_dir: str | Path, base_name: str = "master_panel"
+    df: pd.DataFrame, output_dir: str | Path, base_name: str = "master_panel",
 ) -> dict[str, Path]:
     """
     Save master panel data in multiple formats.
@@ -245,7 +245,7 @@ def save_master_panel(
 
 
 def create_bed_file(
-    df: pd.DataFrame, output_path: str | Path, filter_column: str | None = None
+    df: pd.DataFrame, output_path: str | Path, filter_column: str | None = None,
 ) -> None:
     """
     Create a BED file from annotated panel data.
@@ -286,7 +286,7 @@ def create_bed_file(
             "strand": (
                 df["gene_strand"].fillna("+") if "gene_strand" in df.columns else "+"
             ),
-        }
+        },
     )
 
     # Sort by chromosome and position with natural chromosome ordering
@@ -381,7 +381,7 @@ def create_exon_bed_file(
             + exon_df["rank"].astype(str),
             "score": 1000,  # Default score
             "strand": exon_df["strand"].fillna("+"),
-        }
+        },
     )
 
     # Sort by chromosome and position with natural chromosome ordering
@@ -413,7 +413,7 @@ def create_exon_bed_file(
     # Save BED file
     bed_df.to_csv(output_path, sep="\t", header=False, index=False)
     logger.info(
-        f"Created {transcript_type} exon BED file with {len(bed_df)} exons: {output_path}"
+        f"Created {transcript_type} exon BED file with {len(bed_df)} exons: {output_path}",
     )
 
 
@@ -464,7 +464,7 @@ def get_unique_genes(df: pd.DataFrame) -> list[str]:
 
 
 def create_genes_all_bed(
-    df: pd.DataFrame, output_path: str | Path, padding: int = 0
+    df: pd.DataFrame, output_path: str | Path, padding: int = 0,
 ) -> None:
     """
     Create a BED file containing all genes regardless of inclusion status.
@@ -495,7 +495,7 @@ def create_genes_all_bed(
         {
             "chrom": df["chromosome"].astype(str),
             "chromStart": (df["gene_start"].astype(int) - 1 - padding).clip(
-                lower=0
+                lower=0,
             ),  # BED is 0-based
             "chromEnd": df["gene_end"].astype(int) + padding,
             "name": df["approved_symbol"],
@@ -505,7 +505,7 @@ def create_genes_all_bed(
             ),
             "element_type": "gene",
             "element_subtype": "all",
-        }
+        },
     )
 
     # Sort by chromosome and position with natural chromosome ordering
@@ -517,7 +517,7 @@ def create_genes_all_bed(
 
 
 def create_genes_included_bed(
-    df: pd.DataFrame, output_path: str | Path, padding: int = 0
+    df: pd.DataFrame, output_path: str | Path, padding: int = 0,
 ) -> None:
     """
     Create a BED file containing only genes marked for inclusion.
@@ -548,7 +548,7 @@ def create_genes_included_bed(
 
     if df.empty:
         logger.warning(
-            f"No included genes with valid coordinates for BED file: {output_path}"
+            f"No included genes with valid coordinates for BED file: {output_path}",
         )
         return
 
@@ -557,7 +557,7 @@ def create_genes_included_bed(
         {
             "chrom": df["chromosome"].astype(str),
             "chromStart": (df["gene_start"].astype(int) - 1 - padding).clip(
-                lower=0
+                lower=0,
             ),  # BED is 0-based
             "chromEnd": df["gene_end"].astype(int) + padding,
             "name": df["approved_symbol"],
@@ -567,7 +567,7 @@ def create_genes_included_bed(
             ),
             "element_type": "gene",
             "element_subtype": "included",
-        }
+        },
     )
 
     # Sort by chromosome and position with natural chromosome ordering
@@ -576,26 +576,40 @@ def create_genes_included_bed(
     # Save BED file
     bed_df.to_csv(output_path, sep="\t", header=False, index=False)
     logger.info(
-        f"Created genes_included BED file with {len(bed_df)} genes: {output_path}"
+        f"Created genes_included BED file with {len(bed_df)} genes: {output_path}",
     )
 
 
 def create_snps_all_bed(
-    snp_data: dict[str, pd.DataFrame], output_path: str | Path
+    snp_data: dict[str, pd.DataFrame], output_path: str | Path,
 ) -> None:
     """
     Create a BED file containing all SNPs from all categories combined.
 
+    This function combines SNP data from multiple categories into a single BED file.
+    It handles missing 'category' columns by inferring them from the dictionary keys
+    for backward compatibility and robustness.
+
     Args:
-        snp_data: Dictionary of SNP DataFrames by type
-        output_path: Output BED file path
+        snp_data: Dictionary mapping SNP category names to DataFrames containing
+                 SNP data with columns: snp, hg38_chromosome, hg38_start, hg38_end.
+                 The 'category' column is optional and will be added if missing.
+        output_path: Path where the combined BED file will be written
+
+    Returns:
+        None: File is written to the specified output path
+
+    Raises:
+        ValueError: If snp_data is empty or contains no valid SNP data
+        FileNotFoundError: If the output directory doesn't exist and cannot be created
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not snp_data:
-        logger.warning("No SNP data provided for combined BED file")
-        return
+        msg = "No SNP data provided for combined BED file"
+        logger.error(msg)
+        raise ValueError(msg)
 
     all_snps = []
     coord_columns = ["hg38_chromosome", "hg38_start", "hg38_end"]
@@ -631,15 +645,17 @@ def create_snps_all_bed(
             logger.warning(f"No {snp_type} SNPs have valid coordinate data")
             continue
 
-        # Add SNP type information
+        # Ensure category column is present - add it if missing
         bed_data_clean = bed_data_clean.copy()
-        bed_data_clean["snp_type"] = snp_type
+        if "category" not in bed_data_clean.columns:
+            bed_data_clean["category"] = snp_type
 
         all_snps.append(bed_data_clean)
 
     if not all_snps:
-        logger.warning("No valid SNP data found for combined BED file")
-        return
+        msg = "No valid SNP data found for combined BED file - all DataFrames were empty or missing required coordinates"
+        logger.error(msg)
+        raise ValueError(msg)
 
     # Combine all SNP data
     combined_snps = pd.concat(all_snps, ignore_index=True)
@@ -649,11 +665,11 @@ def create_snps_all_bed(
         {
             "chrom": "chr" + combined_snps["hg38_chromosome"].astype(str),
             "chromStart": pd.to_numeric(
-                combined_snps["hg38_start"], errors="coerce"
+                combined_snps["hg38_start"], errors="coerce",
             ).astype(int)
             - 1,  # BED is 0-based
             "chromEnd": pd.to_numeric(
-                combined_snps["hg38_end"], errors="coerce"
+                combined_snps["hg38_end"], errors="coerce",
             ).astype(int),
             "name": (
                 combined_snps["snp"]
@@ -663,8 +679,8 @@ def create_snps_all_bed(
             "score": 1000,  # Default score
             "strand": "+",  # Default strand for SNPs
             "element_type": "snp",
-            "element_subtype": combined_snps["snp_type"],
-        }
+            "element_subtype": combined_snps["category"],
+        },
     )
 
     # Sort by chromosome and position with natural chromosome ordering
@@ -676,7 +692,7 @@ def create_snps_all_bed(
 
 
 def create_regions_all_bed(
-    regions_data: dict[str, pd.DataFrame], output_path: str | Path
+    regions_data: dict[str, pd.DataFrame], output_path: str | Path,
 ) -> None:
     """
     Create a BED file containing all regions from all categories combined.
@@ -728,11 +744,11 @@ def create_regions_all_bed(
         {
             "chrom": combined_regions["chromosome"].astype(str),
             "chromStart": pd.to_numeric(
-                combined_regions["start"], errors="coerce"
+                combined_regions["start"], errors="coerce",
             ).astype(int)
             - 1,  # BED is 0-based
             "chromEnd": pd.to_numeric(combined_regions["end"], errors="coerce").astype(
-                int
+                int,
             ),
             "name": (
                 combined_regions["region_name"]
@@ -743,7 +759,7 @@ def create_regions_all_bed(
             "strand": "+",  # Default strand for regions
             "element_type": "region",
             "element_subtype": combined_regions["region_type"],
-        }
+        },
     )
 
     # Sort by chromosome and position with natural chromosome ordering
@@ -752,7 +768,7 @@ def create_regions_all_bed(
     # Save BED file
     bed_df.to_csv(output_path, sep="\t", header=False, index=False)
     logger.info(
-        f"Created regions_all BED file with {len(bed_df)} regions: {output_path}"
+        f"Created regions_all BED file with {len(bed_df)} regions: {output_path}",
     )
 
 
@@ -789,7 +805,7 @@ def create_complete_panel_bed(
             # Filter for ONLY included genes with valid coordinates
             included_genes = df[df["include"]]
             gene_df = included_genes.dropna(
-                subset=["chromosome", "gene_start", "gene_end"]
+                subset=["chromosome", "gene_start", "gene_end"],
             )
 
             if not gene_df.empty:
@@ -810,12 +826,12 @@ def create_complete_panel_bed(
                         ),
                         "element_type": "gene",
                         "element_subtype": "included",
-                    }
+                    },
                 )
                 all_bed_records.append(gene_bed_df)
         else:
             logger.warning(
-                f"Missing required gene columns for complete BED file: {gene_missing_cols}"
+                f"Missing required gene columns for complete BED file: {gene_missing_cols}",
             )
 
     # Process SNPs
@@ -856,11 +872,11 @@ def create_complete_panel_bed(
                 {
                     "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
-                        bed_data_clean["hg38_start"], errors="coerce"
+                        bed_data_clean["hg38_start"], errors="coerce",
                     ).astype(int)
                     - 1,  # BED is 0-based
                     "chromEnd": pd.to_numeric(
-                        bed_data_clean["hg38_end"], errors="coerce"
+                        bed_data_clean["hg38_end"], errors="coerce",
                     ).astype(int),
                     "name": (
                         bed_data_clean["snp"]
@@ -870,8 +886,8 @@ def create_complete_panel_bed(
                     "score": 1000,
                     "strand": "+",
                     "element_type": "snp",
-                    "element_subtype": snp_type,
-                }
+                    "element_subtype": snp_type,  # Keep internal identifier for consistency
+                },
             )
             all_bed_records.append(snp_bed_df)
 
@@ -886,7 +902,7 @@ def create_complete_panel_bed(
             # Check if region data has coordinate information
             if not all(col in region_df.columns for col in coord_columns):
                 logger.warning(
-                    f"Skipping {region_type} regions - missing coordinate data"
+                    f"Skipping {region_type} regions - missing coordinate data",
                 )
                 continue
 
@@ -900,11 +916,11 @@ def create_complete_panel_bed(
                 {
                     "chrom": bed_data["chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
-                        bed_data["start"], errors="coerce"
+                        bed_data["start"], errors="coerce",
                     ).astype(int)
                     - 1,  # BED is 0-based
                     "chromEnd": pd.to_numeric(bed_data["end"], errors="coerce").astype(
-                        int
+                        int,
                     ),
                     "name": (
                         bed_data["region_name"]
@@ -915,7 +931,7 @@ def create_complete_panel_bed(
                     "strand": "+",
                     "element_type": "region",
                     "element_subtype": region_type,
-                }
+                },
             )
             all_bed_records.append(region_bed_df)
 
@@ -932,7 +948,7 @@ def create_complete_panel_bed(
     # Save BED file
     combined_bed_df.to_csv(output_path, sep="\t", header=False, index=False)
     logger.info(
-        f"Created complete_panel BED file with {len(combined_bed_df)} elements: {output_path}"
+        f"Created complete_panel BED file with {len(combined_bed_df)} elements: {output_path}",
     )
 
 
@@ -976,7 +992,7 @@ def create_complete_panel_exons_bed(
 
             # Extract exons from stored transcript data
             exons = _extract_exons_from_transcript_data(
-                transcript_data, gene_symbol, transcript_id, row
+                transcript_data, gene_symbol, transcript_id, row,
             )
 
             if exons:
@@ -999,7 +1015,7 @@ def create_complete_panel_exons_bed(
                     "strand": [exon.get("strand", "+") for exon in all_exons],
                     "element_type": "exon",
                     "element_subtype": "canonical",
-                }
+                },
             )
             all_bed_records.append(exon_bed_df)
 
@@ -1035,11 +1051,11 @@ def create_complete_panel_exons_bed(
                 {
                     "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
-                        bed_data_clean["hg38_start"], errors="coerce"
+                        bed_data_clean["hg38_start"], errors="coerce",
                     ).astype(int)
                     - 1,
                     "chromEnd": pd.to_numeric(
-                        bed_data_clean["hg38_end"], errors="coerce"
+                        bed_data_clean["hg38_end"], errors="coerce",
                     ).astype(int),
                     "name": (
                         bed_data_clean["snp"]
@@ -1049,8 +1065,8 @@ def create_complete_panel_exons_bed(
                     "score": 1000,
                     "strand": "+",
                     "element_type": "snp",
-                    "element_subtype": snp_type,
-                }
+                    "element_subtype": snp_type,  # Keep internal identifier for consistency
+                },
             )
             all_bed_records.append(snp_bed_df)
 
@@ -1083,11 +1099,11 @@ def create_complete_panel_exons_bed(
                 {
                     "chrom": "chr" + bed_data_clean["chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
-                        bed_data_clean["start"], errors="coerce"
+                        bed_data_clean["start"], errors="coerce",
                     ).astype(int)
                     - 1,
                     "chromEnd": pd.to_numeric(
-                        bed_data_clean["end"], errors="coerce"
+                        bed_data_clean["end"], errors="coerce",
                     ).astype(int),
                     "name": (
                         bed_data_clean["region_name"]
@@ -1098,14 +1114,14 @@ def create_complete_panel_exons_bed(
                     "strand": "+",
                     "element_type": "region",
                     "element_subtype": region_type,
-                }
+                },
             )
             all_bed_records.append(region_bed_df)
 
     # Combine all records
     if not all_bed_records:
         logger.warning(
-            "No valid genomic elements found for complete panel exons BED file"
+            "No valid genomic elements found for complete panel exons BED file",
         )
         return
 
@@ -1115,7 +1131,7 @@ def create_complete_panel_exons_bed(
     # Save BED file
     combined_bed_df.to_csv(output_path, sep="\t", header=False, index=False)
     logger.info(
-        f"Created complete_panel_exons BED file with {len(combined_bed_df)} elements: {output_path}"
+        f"Created complete_panel_exons BED file with {len(combined_bed_df)} elements: {output_path}",
     )
 
 
@@ -1151,7 +1167,7 @@ def create_complete_panel_genes_bed(
         if not gene_missing_cols:
             included_genes = df[df["include"]]
             gene_df = included_genes.dropna(
-                subset=["chromosome", "gene_start", "gene_end"]
+                subset=["chromosome", "gene_start", "gene_end"],
             )
 
             if not gene_df.empty:
@@ -1171,12 +1187,12 @@ def create_complete_panel_genes_bed(
                         ),
                         "element_type": "gene",
                         "element_subtype": "included",
-                    }
+                    },
                 )
                 all_bed_records.append(gene_bed_df)
         else:
             logger.warning(
-                f"Missing required gene columns for complete panel genes BED file: {gene_missing_cols}"
+                f"Missing required gene columns for complete panel genes BED file: {gene_missing_cols}",
             )
 
     # Add SNPs (reuse existing logic)
@@ -1211,11 +1227,11 @@ def create_complete_panel_genes_bed(
                 {
                     "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
-                        bed_data_clean["hg38_start"], errors="coerce"
+                        bed_data_clean["hg38_start"], errors="coerce",
                     ).astype(int)
                     - 1,
                     "chromEnd": pd.to_numeric(
-                        bed_data_clean["hg38_end"], errors="coerce"
+                        bed_data_clean["hg38_end"], errors="coerce",
                     ).astype(int),
                     "name": (
                         bed_data_clean["snp"]
@@ -1225,8 +1241,8 @@ def create_complete_panel_genes_bed(
                     "score": 1000,
                     "strand": "+",
                     "element_type": "snp",
-                    "element_subtype": snp_type,
-                }
+                    "element_subtype": snp_type,  # Keep internal identifier for consistency
+                },
             )
             all_bed_records.append(snp_bed_df)
 
@@ -1259,11 +1275,11 @@ def create_complete_panel_genes_bed(
                 {
                     "chrom": "chr" + bed_data_clean["chromosome"].astype(str),
                     "chromStart": pd.to_numeric(
-                        bed_data_clean["start"], errors="coerce"
+                        bed_data_clean["start"], errors="coerce",
                     ).astype(int)
                     - 1,
                     "chromEnd": pd.to_numeric(
-                        bed_data_clean["end"], errors="coerce"
+                        bed_data_clean["end"], errors="coerce",
                     ).astype(int),
                     "name": (
                         bed_data_clean["region_name"]
@@ -1274,14 +1290,14 @@ def create_complete_panel_genes_bed(
                     "strand": "+",
                     "element_type": "region",
                     "element_subtype": region_type,
-                }
+                },
             )
             all_bed_records.append(region_bed_df)
 
     # Combine all records
     if not all_bed_records:
         logger.warning(
-            "No valid genomic elements found for complete panel genes BED file"
+            "No valid genomic elements found for complete panel genes BED file",
         )
         return
 
@@ -1291,7 +1307,7 @@ def create_complete_panel_genes_bed(
     # Save BED file
     combined_bed_df.to_csv(output_path, sep="\t", header=False, index=False)
     logger.info(
-        f"Created complete_panel_genes BED file with {len(combined_bed_df)} elements: {output_path}"
+        f"Created complete_panel_genes BED file with {len(combined_bed_df)} elements: {output_path}",
     )
 
 

@@ -58,7 +58,7 @@ class CentogeneParser(BaseParser):
             chrome_options.add_argument("--proxy-server=http://proxy.charite.de:8080")
             chrome_options.add_argument("--proxy-bypass-list=localhost,127.0.0.1")
             chrome_options.add_argument(
-                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             )
 
             # Initialize driver - try manual ChromeDriver first, then fallback
@@ -80,7 +80,7 @@ class CentogeneParser(BaseParser):
 
             # Wait for content to load
             WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
+                EC.presence_of_element_located((By.TAG_NAME, "body")),
             )
 
             # Additional wait for dynamic content
@@ -92,14 +92,14 @@ class CentogeneParser(BaseParser):
             try:
                 WebDriverWait(driver, 15).until(
                     EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, ".mat-expansion-panel")
-                    )
+                        (By.CSS_SELECTOR, ".mat-expansion-panel"),
+                    ),
                 )
                 logger.info("Found expansion panel")
 
                 # Find expansion panel with "Show all genes" text
                 expansion_panels = driver.find_elements(
-                    By.CSS_SELECTOR, ".mat-expansion-panel"
+                    By.CSS_SELECTOR, ".mat-expansion-panel",
                 )
                 genes_panel = None
 
@@ -115,7 +115,7 @@ class CentogeneParser(BaseParser):
                     # Try to click the expansion panel header to expand it
                     try:
                         header = genes_panel.find_element(
-                            By.CSS_SELECTOR, ".mat-expansion-panel-header"
+                            By.CSS_SELECTOR, ".mat-expansion-panel-header",
                         )
                         driver.execute_script("arguments[0].click();", header)
                         time.sleep(2)
@@ -125,7 +125,7 @@ class CentogeneParser(BaseParser):
 
                     # Look for gene content in the expanded panel
                     panel_body = genes_panel.find_element(
-                        By.CSS_SELECTOR, ".mat-expansion-panel-body"
+                        By.CSS_SELECTOR, ".mat-expansion-panel-body",
                     )
                     if panel_body:
                         gene_text = panel_body.text.strip()
@@ -138,7 +138,7 @@ class CentogeneParser(BaseParser):
                                 gene_part = gene_part.strip()
                                 cleaned_gene = self.clean_gene_symbol(gene_part)
                                 if cleaned_gene and self.validate_gene_symbol(
-                                    cleaned_gene
+                                    cleaned_gene,
                                 ):
                                     genes.append(cleaned_gene)
 

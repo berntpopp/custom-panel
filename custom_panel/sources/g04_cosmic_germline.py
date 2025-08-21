@@ -27,7 +27,6 @@ COSMIC_FILE_DOWNLOAD_URL = "https://cancer.sanger.ac.uk/cosmic/file_download/GRC
 class COSMICAuthenticationError(Exception):
     """Raised when COSMIC authentication fails."""
 
-    pass
 
 
 class COSMICSession:
@@ -63,7 +62,7 @@ class COSMICSession:
                 "Sec-Fetch-Site": "same-origin",
                 "Sec-Fetch-User": "?1",
                 "Upgrade-Insecure-Requests": "1",
-            }
+            },
         )
 
     def login(self) -> None:
@@ -118,7 +117,7 @@ class COSMICSession:
             if "login" in login_response.url.lower():
                 if "error" in response_text_lower or "failed" in response_text_lower:
                     raise COSMICAuthenticationError(
-                        "Login failed - please check credentials"
+                        "Login failed - please check credentials",
                     )
                 # Sometimes COSMIC returns to login page even on success
                 logger.warning("Still on login page, but no explicit error detected")
@@ -153,13 +152,13 @@ class COSMICSession:
 
             logger.debug(f"Download URL response status: {response.status_code}")
             logger.debug(
-                f"Download URL response content type: {response.headers.get('content-type', 'unknown')}"
+                f"Download URL response content type: {response.headers.get('content-type', 'unknown')}",
             )
 
             # Check if we're being redirected to login (authentication failed)
             if "login" in response.url.lower():
                 raise COSMICAuthenticationError(
-                    "Authentication expired or invalid - redirected to login"
+                    "Authentication expired or invalid - redirected to login",
                 )
 
             # Parse JSON response to get the actual download URL
@@ -169,18 +168,18 @@ class COSMICSession:
                 if not download_url:
                     logger.error(f"No download URL in response: {data}")
                     raise COSMICAuthenticationError(
-                        "No download URL returned by COSMIC"
+                        "No download URL returned by COSMIC",
                     )
 
                 logger.info("Successfully obtained authenticated download URL")
                 logger.debug(
-                    f"Download URL: {download_url[:100]}..."
+                    f"Download URL: {download_url[:100]}...",
                 )  # Log first 100 chars for security
                 return download_url
 
             except ValueError as e:
                 logger.error(
-                    f"Invalid JSON response from COSMIC. Response text (first 500 chars): {response.text[:500]}"
+                    f"Invalid JSON response from COSMIC. Response text (first 500 chars): {response.text[:500]}",
                 )
                 logger.error(f"Full response headers: {dict(response.headers)}")
                 raise COSMICAuthenticationError(f"Invalid response format: {e}") from e
@@ -227,7 +226,7 @@ class COSMICSession:
                             logger.debug(f"Download progress: {progress:.1f}%")
 
             logger.info(
-                f"Successfully downloaded COSMIC file ({downloaded_size:,} bytes)"
+                f"Successfully downloaded COSMIC file ({downloaded_size:,} bytes)",
             )
 
         except requests.RequestException as e:
@@ -238,7 +237,7 @@ class COSMICSession:
 
 
 def _download_cosmic_census_authenticated(
-    email: str, password: str, cache_path: Path
+    email: str, password: str, cache_path: Path,
 ) -> None:
     """
     Download COSMIC Cancer Gene Census file with authentication.
@@ -289,7 +288,7 @@ def _download_cosmic_census(url: str, cache_path: Path) -> None:
 
     # Download with proper headers
     headers = {
-        "User-Agent": "custom-panel/1.0 (Python scientific tool for gene panel curation)"
+        "User-Agent": "custom-panel/1.0 (Python scientific tool for gene panel curation)",
     }
 
     try:
@@ -342,7 +341,7 @@ def _load_cosmic_census(cache_path: Path) -> pd.DataFrame:
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise ValueError(
-                f"COSMIC census missing required columns: {missing_columns}"
+                f"COSMIC census missing required columns: {missing_columns}",
             )
 
         # Check for germline and somatic columns (may vary by COSMIC version)
@@ -367,7 +366,7 @@ def _load_cosmic_census(cache_path: Path) -> pd.DataFrame:
             logger.warning("No germline or somatic columns found in COSMIC census")
         else:
             logger.info(
-                f"Found germline column: {germline_col}, somatic column: {somatic_col}"
+                f"Found germline column: {germline_col}, somatic column: {somatic_col}",
             )
 
         # Store column names for later use
@@ -440,7 +439,7 @@ def _calculate_cosmic_score(tier: str, tier_weights: dict[str, float]) -> float:
 
 
 def _process_cosmic_genes(
-    df: pd.DataFrame, category: str, category_config: dict[str, Any]
+    df: pd.DataFrame, category: str, category_config: dict[str, Any],
 ) -> pd.DataFrame:
     """
     Process COSMIC genes for a specific category (germline or somatic).
@@ -560,7 +559,7 @@ def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
             census_url = cosmic_config.get("census_url")
             if census_url:
                 logger.warning(
-                    "No COSMIC credentials found, trying legacy URL download"
+                    "No COSMIC credentials found, trying legacy URL download",
                 )
                 try:
                     _download_cosmic_census(census_url, cache_path)
@@ -580,7 +579,7 @@ def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
                 cached_file = _find_cosmic_census_file(cache_dir)
                 if cached_file:
                     logger.warning(
-                        f"Using existing cache file despite configuration issues: {cached_file}"
+                        f"Using existing cache file despite configuration issues: {cached_file}",
                     )
                     cache_path = cached_file
                 else:
@@ -605,7 +604,7 @@ def fetch_cosmic_germline_data(config: dict[str, Any]) -> pd.DataFrame:
     # Ensure germline scoring is enabled (default to true if section exists)
     if not germline_config.get("enabled", True):
         logger.warning(
-            "COSMIC germline scoring is disabled. Enable it in configuration to include COSMIC data."
+            "COSMIC germline scoring is disabled. Enable it in configuration to include COSMIC data.",
         )
         return pd.DataFrame()
 
@@ -647,7 +646,7 @@ def validate_cosmic_config(config: dict[str, Any]) -> list[str]:
 
     if not email and not password and not census_url:
         errors.append(
-            "COSMIC requires either credentials (email/password) or legacy census_url"
+            "COSMIC requires either credentials (email/password) or legacy census_url",
         )
     elif email and not password:
         errors.append("COSMIC email provided but password missing")
@@ -673,7 +672,7 @@ def validate_cosmic_config(config: dict[str, Any]) -> list[str]:
             for tier, weight in tier_weights.items():
                 if not isinstance(weight, int | float) or weight < 0 or weight > 1:
                     errors.append(
-                        f"COSMIC germline_scoring tier weight for '{tier}' must be between 0 and 1"
+                        f"COSMIC germline_scoring tier weight for '{tier}' must be between 0 and 1",
                     )
 
     return errors
@@ -695,7 +694,7 @@ def get_cosmic_summary(config: dict[str, Any]) -> dict[str, Any]:
     summary = {
         "enabled": cosmic_config.get("enabled", False),
         "has_credentials": bool(
-            cosmic_config.get("email") and cosmic_config.get("password")
+            cosmic_config.get("email") and cosmic_config.get("password"),
         ),
         "census_url": cosmic_config.get("census_url"),
         "cache_dir": cosmic_config.get("cache_dir", ".cache/cosmic"),
@@ -717,7 +716,7 @@ def get_cosmic_summary(config: dict[str, Any]) -> dict[str, Any]:
         cache_age = datetime.now() - datetime.fromtimestamp(cache_path.stat().st_mtime)
         summary["cache_age_days"] = cache_age.days
         summary["cache_valid"] = cache_age < timedelta(
-            days=summary["cache_expiry_days"]
+            days=summary["cache_expiry_days"],
         )
     else:
         summary["cache_age_days"] = None

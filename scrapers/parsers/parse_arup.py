@@ -47,7 +47,7 @@ class ArupParser(BaseParser):
 
             # Try multiple approaches to find "Genes Tested"
             for element in soup.find_all(
-                string=lambda text: text and "genes tested" in text.lower()
+                string=lambda text: text and "genes tested" in text.lower(),
             ):
                 parent = element.parent
                 logger.info(f"Found 'Genes Tested' text in element: {parent.name}")
@@ -66,7 +66,7 @@ class ArupParser(BaseParser):
                     if next_table:
                         tables_found += 1
                         logger.info(
-                            f"Found table {tables_found} after 'Genes Tested' text"
+                            f"Found table {tables_found} after 'Genes Tested' text",
                         )
 
                         # Extract genes from table cells
@@ -113,12 +113,12 @@ class ArupParser(BaseParser):
                                 ):
                                     cleaned_gene = self.clean_gene_symbol(text)
                                     if cleaned_gene and self.validate_gene_symbol(
-                                        cleaned_gene
+                                        cleaned_gene,
                                     ):
                                         table_genes.append(cleaned_gene)
 
                         logger.info(
-                            f"Table {tables_found} contributed {len(table_genes)} genes"
+                            f"Table {tables_found} contributed {len(table_genes)} genes",
                         )
                         genes.extend(table_genes)
 
@@ -137,10 +137,10 @@ class ArupParser(BaseParser):
             # Alternative approach: look for element with id containing "genes-tested"
             if not genes:
                 for element in soup.find_all(
-                    attrs={"id": lambda x: x and "genes-tested" in x.lower()}
+                    attrs={"id": lambda x: x and "genes-tested" in x.lower()},
                 ):
                     logger.info(
-                        f"Found element with genes-tested id: {element.get('id')}"
+                        f"Found element with genes-tested id: {element.get('id')}",
                     )
 
                     # Look for table after this element
@@ -188,7 +188,7 @@ class ArupParser(BaseParser):
                                 ):
                                     cleaned_gene = self.clean_gene_symbol(text)
                                     if cleaned_gene and self.validate_gene_symbol(
-                                        cleaned_gene
+                                        cleaned_gene,
                                     ):
                                         genes.append(cleaned_gene)
                         break

@@ -28,7 +28,7 @@ class SNPHarmonizer:
     """
 
     def __init__(
-        self, ensembl_client: EnsemblClient, config: dict[str, Any] | None = None
+        self, ensembl_client: EnsemblClient, config: dict[str, Any] | None = None,
     ):
         """
         Initialize SNP harmonizer.
@@ -84,7 +84,7 @@ class SNPHarmonizer:
         coordinate_cache = {}
         try:
             variations = self.ensembl_client.get_variations_batch(
-                unique_rsids, batch_size=self.batch_size
+                unique_rsids, batch_size=self.batch_size,
             )
 
             # Build mapping from original rsIDs to canonical rsIDs (handles merged rsIDs)
@@ -100,7 +100,7 @@ class SNPHarmonizer:
                         if original_rsid in synonyms:
                             rsid_mapping[original_rsid] = canonical_rsid
                             logger.debug(
-                                f"📍 Mapped merged rsID {original_rsid} → {canonical_rsid}"
+                                f"📍 Mapped merged rsID {original_rsid} → {canonical_rsid}",
                             )
                             break
 
@@ -110,7 +110,7 @@ class SNPHarmonizer:
                     variation_data = variations[canonical_rsid]
                     coordinates = (
                         self.ensembl_client.extract_coordinates_from_variation(
-                            variation_data, preferred_assembly="GRCh38"
+                            variation_data, preferred_assembly="GRCh38",
                         )
                     )
 
@@ -124,7 +124,7 @@ class SNPHarmonizer:
             ]
             if unresolved_rsids:
                 source_coordinates = self._extract_source_coordinates(
-                    unresolved_rsids, snp_df
+                    unresolved_rsids, snp_df,
                 )
                 for rsid, coords in source_coordinates.items():
                     if coords:
@@ -141,7 +141,7 @@ class SNPHarmonizer:
         # Preserve original rsIDs in rsid column if not already present
         if "rsid" not in result_df.columns:
             result_df["rsid"] = result_df["snp"].apply(
-                lambda x: x if str(x).startswith("rs") else pd.NA
+                lambda x: x if str(x).startswith("rs") else pd.NA,
             )
 
         for idx, row in result_df.iterrows():
@@ -177,13 +177,13 @@ class SNPHarmonizer:
         self.stats["total_processed"] = len(snp_df)
 
         logger.info(
-            f"✅ Successfully resolved coordinates for {self.stats['coordinates_resolved']}/{len(unique_rsids)} rsIDs"
+            f"✅ Successfully resolved coordinates for {self.stats['coordinates_resolved']}/{len(unique_rsids)} rsIDs",
         )
 
         return result_df
 
     def _extract_source_coordinates(
-        self, rsids: list[str], snp_df: pd.DataFrame
+        self, rsids: list[str], snp_df: pd.DataFrame,
     ) -> dict[str, dict[str, Any] | None]:
         """
         Extract genomic coordinates from source data when Ensembl lookup fails.

@@ -120,7 +120,7 @@ def fetch_pharmacogenomics_snps(config: dict[str, Any]) -> pd.DataFrame | None:
             return None
 
         logger.info(
-            f"Successfully fetched {len(snp_df)} pharmacogenomics SNPs from PharmGKB"
+            f"Successfully fetched {len(snp_df)} pharmacogenomics SNPs from PharmGKB",
         )
         return snp_df
 
@@ -142,7 +142,7 @@ def _download_and_process_pharmgkb_data(config: dict[str, Any]) -> pd.DataFrame 
     cache_dir = Path(config.get("cache_dir", ".cache/pharmgkb"))
     cache_ttl_days = config.get("cache_ttl_days", 7)
     download_url = config.get(
-        "download_url", "https://api.pharmgkb.org/v1/download/file/data/variants.zip"
+        "download_url", "https://api.pharmgkb.org/v1/download/file/data/variants.zip",
     )
 
     # Create cache directory
@@ -175,7 +175,7 @@ def _download_and_process_pharmgkb_data(config: dict[str, Any]) -> pd.DataFrame 
 
 
 def _download_pharmgkb_variants(
-    url: str, cache_dir: Path, config: dict[str, Any]
+    url: str, cache_dir: Path, config: dict[str, Any],
 ) -> pd.DataFrame | None:
     """
     Download PharmGKB variants ZIP file and extract TSV data.
@@ -217,15 +217,15 @@ def _download_pharmgkb_variants(
                             progress = (downloaded_size / total_size) * 100
                             logger.info(
                                 f"Downloaded {downloaded_size // (1024 * 1024)}MB / "
-                                f"{total_size // (1024 * 1024)}MB ({progress:.1f}%)"
+                                f"{total_size // (1024 * 1024)}MB ({progress:.1f}%)",
                             )
                         else:
                             logger.info(
-                                f"Downloaded {downloaded_size // (1024 * 1024)}MB"
+                                f"Downloaded {downloaded_size // (1024 * 1024)}MB",
                             )
 
         logger.info(
-            f"Successfully downloaded {downloaded_size // (1024 * 1024)}MB ZIP file"
+            f"Successfully downloaded {downloaded_size // (1024 * 1024)}MB ZIP file",
         )
 
         # Extract TSV file
@@ -264,7 +264,7 @@ def _download_pharmgkb_variants(
 
 
 def _filter_clinically_relevant_variants(
-    df: pd.DataFrame, config: dict[str, Any]
+    df: pd.DataFrame, config: dict[str, Any],
 ) -> pd.DataFrame:
     """
     Filter variants based on clinical relevance criteria.
@@ -305,12 +305,12 @@ def _filter_clinically_relevant_variants(
     if filter_logic == "AND":
         final_mask = guideline_mask & level12_mask
         logger.info(
-            f"Using AND logic: guideline >= {min_guideline} AND level1/2 >= {min_level12}"
+            f"Using AND logic: guideline >= {min_guideline} AND level1/2 >= {min_level12}",
         )
     else:  # OR logic (default)
         final_mask = guideline_mask | level12_mask
         logger.info(
-            f"Using OR logic: guideline >= {min_guideline} OR level1/2 >= {min_level12}"
+            f"Using OR logic: guideline >= {min_guideline} OR level1/2 >= {min_level12}",
         )
 
     filtered_df = df[final_mask].copy()
@@ -318,7 +318,7 @@ def _filter_clinically_relevant_variants(
 
     logger.info(
         f"Filtered to {filtered_count} clinically relevant variants "
-        f"({filtered_count / initial_count * 100:.1f}% of total)"
+        f"({filtered_count / initial_count * 100:.1f}% of total)",
     )
 
     # Log filter breakdown
@@ -328,7 +328,7 @@ def _filter_clinically_relevant_variants(
 
     logger.info(
         f"Filter breakdown: {guideline_only} guideline-only, "
-        f"{level12_only} level1/2-only, {both} both"
+        f"{level12_only} level1/2-only, {both} both",
     )
 
     return filtered_df
@@ -365,13 +365,13 @@ def _transform_to_snp_format(df: pd.DataFrame) -> pd.DataFrame:
                 "gene": str(row.get("Gene Symbols", "")).strip(),
                 "pharmgkb_id": str(row.get("Variant ID", "")).strip(),
                 "clinical_annotation_count": int(
-                    row.get("Clinical Annotation count", 0)
+                    row.get("Clinical Annotation count", 0),
                 ),
                 "guideline_annotation_count": int(
-                    row.get("Guideline Annotation count", 0)
+                    row.get("Guideline Annotation count", 0),
                 ),
                 "level12_clinical_annotation_count": int(
-                    row.get("Level 1/2 Clinical Annotation count", 0)
+                    row.get("Level 1/2 Clinical Annotation count", 0),
                 ),
                 "location": str(row.get("Location", "")).strip(),
             }
@@ -380,7 +380,7 @@ def _transform_to_snp_format(df: pd.DataFrame) -> pd.DataFrame:
 
         except Exception as e:
             logger.warning(
-                f"Failed to process variant {row.get('Variant ID', 'unknown')}: {e}"
+                f"Failed to process variant {row.get('Variant ID', 'unknown')}: {e}",
             )
             continue
 
@@ -521,7 +521,7 @@ def get_pharmacogenomics_snps_summary(df: pd.DataFrame) -> dict[str, Any]:
 
     if "level12_clinical_annotation_count" in df.columns:
         summary["with_level12_clinical"] = int(
-            (df["level12_clinical_annotation_count"] > 0).sum()
+            (df["level12_clinical_annotation_count"] > 0).sum(),
         )
 
     return summary

@@ -140,7 +140,7 @@ class CacheManager:
             elif data and "ids" in data:
                 gene_count = len(data["ids"])
                 logger.info(
-                    f"🚀 Cache hit: {service} {endpoint} ({gene_count} gene IDs)"
+                    f"🚀 Cache hit: {service} {endpoint} ({gene_count} gene IDs)",
                 )
             else:
                 logger.info(f"🚀 Cache hit: {service} {endpoint}")
@@ -197,12 +197,12 @@ class CacheManager:
             if data and "symbols" in data:
                 gene_count = len(data["symbols"])
                 logger.info(
-                    f"💾 Cached response: {service} {endpoint} ({gene_count} genes)"
+                    f"💾 Cached response: {service} {endpoint} ({gene_count} genes)",
                 )
             elif data and "ids" in data:
                 gene_count = len(data["ids"])
                 logger.info(
-                    f"💾 Cached response: {service} {endpoint} ({gene_count} gene IDs)"
+                    f"💾 Cached response: {service} {endpoint} ({gene_count} gene IDs)",
                 )
             else:
                 logger.info(f"💾 Cached response: {service} {endpoint}")

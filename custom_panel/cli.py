@@ -52,7 +52,6 @@ def main(
     ),
 ) -> None:
     """Custom Panel - Gene panel curation and aggregation tool."""
-    pass
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -61,10 +60,10 @@ def setup_logging(log_level: str = "INFO") -> None:
 
     # Suppress common deprecation warnings
     warnings.filterwarnings(
-        "ignore", message=".*ARC4 has been moved.*", category=DeprecationWarning
+        "ignore", message=".*ARC4 has been moved.*", category=DeprecationWarning,
     )
     warnings.filterwarnings(
-        "ignore", message=".*'BaseCommand' is deprecated.*", category=DeprecationWarning
+        "ignore", message=".*'BaseCommand' is deprecated.*", category=DeprecationWarning,
     )
 
     logging.basicConfig(
@@ -83,7 +82,7 @@ def load_config_manager(config_file: str | None = None) -> ConfigManager:
 
         # Suppress typer.echo during this process, logging is enough
         config_manager = ConfigManager.from_files(
-            default_path, override_path, local_path
+            default_path, override_path, local_path,
         )
 
         logger.info("Successfully loaded and merged configurations.")
@@ -100,10 +99,10 @@ def load_config_manager(config_file: str | None = None) -> ConfigManager:
 @app.command()
 def run(
     config_file: str | None = typer.Option(
-        None, "--config-file", "-c", help="Configuration file path"
+        None, "--config-file", "-c", help="Configuration file path",
     ),
     output_dir: str | None = typer.Option(
-        None, "--output-dir", "-o", help="Output directory"
+        None, "--output-dir", "-o", help="Output directory",
     ),
     score_threshold: float | None = typer.Option(
         None,
@@ -111,13 +110,13 @@ def run(
         help="Override the evidence score threshold for gene inclusion",
     ),
     log_level: str = typer.Option(
-        "INFO", "--log-level", help="Log level (DEBUG, INFO, WARNING, ERROR)"
+        "INFO", "--log-level", help="Log level (DEBUG, INFO, WARNING, ERROR)",
     ),
     dry_run: bool = typer.Option(
-        False, "--dry-run", help="Run without generating output files"
+        False, "--dry-run", help="Run without generating output files",
     ),
     save_intermediate: bool = typer.Option(
-        False, "--save-intermediate", help="Save intermediate files for debugging"
+        False, "--save-intermediate", help="Save intermediate files for debugging",
     ),
     intermediate_format: str | None = typer.Option(
         None,
@@ -156,7 +155,7 @@ def run(
 
     if dry_run:
         console.print(
-            "[yellow]Running in dry-run mode - no files will be generated[/yellow]"
+            "[yellow]Running in dry-run mode - no files will be generated[/yellow]",
         )
 
     try:
@@ -167,7 +166,7 @@ def run(
         # Generate outputs if not a dry run
         if not dry_run:
             _generate_pipeline_outputs(
-                pipeline, annotated_df, transcript_data, config_manager
+                pipeline, annotated_df, transcript_data, config_manager,
             )
 
         # Display summary
@@ -198,7 +197,8 @@ def _generate_pipeline_outputs(
         config=config_manager.to_dict(),
         output_dir=final_output_dir,
         transcript_data=transcript_data,
-        snp_data=pipeline.snp_data,  # Pass SNP data from pipeline
+        snp_data=pipeline.snp_data,  # Pass SNP data from pipeline (for individual files)
+        deduplicated_snp_data=pipeline.deduplicated_snp_data,  # Pass deduplicated SNPs for reports
         regions_data=pipeline.regions_data,  # Pass regions data from pipeline
     )
 
@@ -219,7 +219,7 @@ def _print_completion_messages(pipeline: Pipeline, dry_run: bool) -> None:
     if not dry_run:
         if pipeline.output_manager.use_structured:
             console.print(
-                f"[bold green]Pipeline completed successfully! Results saved to: {pipeline.output_manager.run_dir}[/bold green]"
+                f"[bold green]Pipeline completed successfully! Results saved to: {pipeline.output_manager.run_dir}[/bold green]",
             )
             if pipeline.output_manager.intermediate_enabled:
                 console.print("[blue]Intermediate files saved for debugging[/blue]")
@@ -231,7 +231,7 @@ def _print_completion_messages(pipeline: Pipeline, dry_run: bool) -> None:
                 console.print(f"[blue]Logs saved to: {log_dir}[/blue]")
         else:
             console.print(
-                f"[bold green]Pipeline completed successfully! Results saved to: {pipeline.output_manager.get_final_output_dir()}[/bold green]"
+                f"[bold green]Pipeline completed successfully! Results saved to: {pipeline.output_manager.get_final_output_dir()}[/bold green]",
             )
     else:
         console.print("[bold yellow]Dry run completed successfully![/bold yellow]")
@@ -241,13 +241,13 @@ def _print_completion_messages(pipeline: Pipeline, dry_run: bool) -> None:
 def fetch(
     source: str = typer.Argument(..., help="This command is deprecated."),
     config_file: str | None = typer.Option(
-        None, "--config-file", "-c", help="Configuration file path"
+        None, "--config-file", "-c", help="Configuration file path",
     ),
     output_dir: str = typer.Option(
-        "results/fetch", "--output-dir", "-o", help="Output directory"
+        "results/fetch", "--output-dir", "-o", help="Output directory",
     ),
     format: str = typer.Option(
-        "parquet", "--format", "-f", help="Output format (parquet, csv, excel)"
+        "parquet", "--format", "-f", help="Output format (parquet, csv, excel)",
     ),
     log_level: str = typer.Option("INFO", "--log-level", help="Log level"),
 ) -> None:
@@ -255,10 +255,10 @@ def fetch(
     (DEPRECATED) Fetch data from a single source. Please use the 'run' command instead.
     """
     console.print(
-        "[bold red]DEPRECATION WARNING: The 'fetch' command is deprecated and will be removed in a future version.[/bold red]"
+        "[bold red]DEPRECATION WARNING: The 'fetch' command is deprecated and will be removed in a future version.[/bold red]",
     )
     console.print(
-        "Please use the main 'run' command and enable the desired source in your configuration file."
+        "Please use the main 'run' command and enable the desired source in your configuration file.",
     )
     raise typer.Exit(code=1)
 
@@ -266,7 +266,7 @@ def fetch(
 @app.command()
 def config_check(
     config_file: str | None = typer.Option(
-        None, "--config-file", "-c", help="Configuration file path"
+        None, "--config-file", "-c", help="Configuration file path",
     ),
 ) -> None:
     """
@@ -301,7 +301,7 @@ def _display_data_sources_table(config_manager: ConfigManager) -> None:
 
 
 def _get_source_status(
-    config_manager: ConfigManager, source_name: str, enabled: bool
+    config_manager: ConfigManager, source_name: str, enabled: bool,
 ) -> str:
     """Get status string for a data source."""
     if not enabled:
@@ -394,7 +394,7 @@ def _display_scoring_configuration(config_manager: ConfigManager) -> None:
 def search_panels(
     query: str = typer.Argument(..., help="Search term for panel names"),
     config_file: str | None = typer.Option(
-        None, "--config-file", "-c", help="Configuration file path"
+        None, "--config-file", "-c", help="Configuration file path",
     ),
     log_level: str = typer.Option("INFO", "--log-level", help="Log level"),
 ) -> None:

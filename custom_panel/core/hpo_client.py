@@ -24,7 +24,7 @@ class HPOClient:
     BASE_URL = "https://ontology.jax.org/api"
 
     def __init__(
-        self, timeout: int = 30, max_retries: int = 3, retry_delay: float = 1.0
+        self, timeout: int = 30, max_retries: int = 3, retry_delay: float = 1.0,
     ):
         """
         Initialize the HPO client.
@@ -42,11 +42,11 @@ class HPOClient:
             {
                 "Accept": "application/json",
                 "User-Agent": "custom-panel/0.1.0",
-            }
+            },
         )
 
     def _make_request(
-        self, endpoint: str, params: dict[str, Any] | None = None
+        self, endpoint: str, params: dict[str, Any] | None = None,
     ) -> dict[str, Any] | list[dict[str, Any]]:
         """
         Make a request to the HPO API with retry logic.
@@ -71,11 +71,11 @@ class HPOClient:
             except (requests.RequestException, ValueError) as e:
                 if attempt == self.max_retries:
                     logger.error(
-                        f"Failed to fetch {url} after {self.max_retries} retries: {e}"
+                        f"Failed to fetch {url} after {self.max_retries} retries: {e}",
                     )
                     raise
                 logger.warning(
-                    f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}"
+                    f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}",
                 )
                 time.sleep(self.retry_delay * (2**attempt))  # Exponential backoff
 
@@ -191,7 +191,7 @@ class HPOClient:
         return []
 
     def get_descendant_terms(
-        self, hpo_id: str, max_depth: int = 10, include_self: bool = True
+        self, hpo_id: str, max_depth: int = 10, include_self: bool = True,
     ) -> set[str]:
         """
         Get all descendant terms of a given HPO term recursively.
@@ -221,7 +221,7 @@ class HPOClient:
         except (requests.RequestException, ValueError):
             # Fall back to recursive approach
             logger.debug(
-                f"Descendants endpoint not available for {hpo_id}, using recursive approach"
+                f"Descendants endpoint not available for {hpo_id}, using recursive approach",
             )
 
         def _collect_descendants(term_id: str, current_depth: int) -> None:
@@ -241,7 +241,7 @@ class HPOClient:
         return descendants
 
     def get_genes_for_phenotype_hierarchy(
-        self, root_hpo_id: str, max_depth: int = 10
+        self, root_hpo_id: str, max_depth: int = 10,
     ) -> dict[str, dict[str, Any]]:
         """
         Get all genes associated with a phenotype and its descendants.
@@ -255,7 +255,7 @@ class HPOClient:
         """
         # Get all descendant terms
         all_terms = self.get_descendant_terms(
-            root_hpo_id, max_depth=max_depth, include_self=True
+            root_hpo_id, max_depth=max_depth, include_self=True,
         )
 
         logger.info(f"Found {len(all_terms)} terms in hierarchy for {root_hpo_id}")
@@ -286,21 +286,21 @@ class HPOClient:
                             "frequency": gene.get("frequency"),
                             "onset": gene.get("onset"),
                             "evidence": gene.get("evidence"),
-                        }
+                        },
                     )
 
                     # Collect unique diseases and evidence
                     if gene.get("disease_name"):
                         genes_dict[gene_symbol]["diseases"].add(
-                            gene.get("disease_name")
+                            gene.get("disease_name"),
                         )
                     if gene.get("frequency"):
                         genes_dict[gene_symbol]["frequencies"].append(
-                            gene.get("frequency")
+                            gene.get("frequency"),
                         )
                     if gene.get("evidence"):
                         genes_dict[gene_symbol]["evidence_sources"].add(
-                            gene.get("evidence")
+                            gene.get("evidence"),
                         )
 
         # Convert sets to lists for JSON serialization
@@ -400,7 +400,7 @@ class HPOClient:
 
     @staticmethod
     def download_file(
-        url: str, cache_path: Path, timeout: int = 300, chunk_size: int = 8192
+        url: str, cache_path: Path, timeout: int = 300, chunk_size: int = 8192,
     ) -> None:
         """
         Download a file from URL with proper error handling.
@@ -421,7 +421,7 @@ class HPOClient:
 
         # Download with proper headers
         headers = {
-            "User-Agent": "custom-panel/1.0 (Python tool for gene panel curation)"
+            "User-Agent": "custom-panel/1.0 (Python tool for gene panel curation)",
         }
 
         try:

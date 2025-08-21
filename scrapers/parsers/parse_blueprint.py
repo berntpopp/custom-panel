@@ -35,7 +35,7 @@ class BlueprintParser(BaseParser):
                 response.raise_for_status()
             except requests.RequestException as e:
                 logger.error(
-                    f"Network request to Blueprint URL failed: {self.url} - {e}"
+                    f"Network request to Blueprint URL failed: {self.url} - {e}",
                 )
                 raise  # Re-raise the exception to be caught by the master runner
 
@@ -55,7 +55,7 @@ class BlueprintParser(BaseParser):
                 "genes tested",
             ]:
                 elements = soup.find_all(
-                    string=lambda text, kw=keyword: text and kw in text.lower()
+                    string=lambda text, kw=keyword: text and kw in text.lower(),
                 )
                 for element in elements:
                     parent = element.parent
@@ -141,7 +141,7 @@ class BlueprintParser(BaseParser):
             # Final validation - ensure we got real genes
             if len(unique_genes) > 0:
                 logger.info(
-                    f"Extracted {len(unique_genes)} genes from Blueprint Genetics panel"
+                    f"Extracted {len(unique_genes)} genes from Blueprint Genetics panel",
                 )
             else:
                 logger.warning("No genes found, attempting fallback broad scan")

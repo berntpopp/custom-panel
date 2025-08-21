@@ -57,7 +57,7 @@ class SimpleRSIDParser(BaseSNPParser):
 
             # Create DataFrame
             df = pd.DataFrame(
-                {"rsid": rsids, "source": self.name, "category": "identity"}
+                {"rsid": rsids, "source": self.name, "category": "identity"},
             )
 
             logger.info(f"Successfully parsed {len(df)} rsIDs from {self.file_path}")
@@ -101,7 +101,7 @@ class ExcelRSIDParser(BaseSNPParser):
             # Check for required columns
             if rsid_column not in df.columns:
                 raise ValueError(
-                    f"Required rsID column '{rsid_column}' not found. Available columns: {list(df.columns)}"
+                    f"Required rsID column '{rsid_column}' not found. Available columns: {list(df.columns)}",
                 )
 
             # Extract rsIDs
@@ -109,7 +109,7 @@ class ExcelRSIDParser(BaseSNPParser):
 
             if not rsids:
                 logger.warning(
-                    f"No valid rsIDs found in column '{rsid_column}' of {self.file_path}"
+                    f"No valid rsIDs found in column '{rsid_column}' of {self.file_path}",
                 )
                 return pd.DataFrame(columns=["rsid", "source", "category"])
 
@@ -119,7 +119,7 @@ class ExcelRSIDParser(BaseSNPParser):
                     "rsid": rsids,
                     "source": self.name,
                     "category": "ethnicity",  # Excel files are typically for ethnicity
-                }
+                },
             )
 
             # Add source group information if available
@@ -129,11 +129,11 @@ class ExcelRSIDParser(BaseSNPParser):
                     result_df["source_group"] = source_groups
                 else:
                     logger.warning(
-                        f"Source column '{source_column}' length doesn't match rsID column"
+                        f"Source column '{source_column}' length doesn't match rsID column",
                     )
 
             logger.info(
-                f"Successfully parsed {len(result_df)} rsIDs from {self.file_path}"
+                f"Successfully parsed {len(result_df)} rsIDs from {self.file_path}",
             )
 
             # Validate and standardize output
@@ -225,11 +225,11 @@ class PDFRSIDParser(BaseSNPParser):
 
             # Create DataFrame
             df = pd.DataFrame(
-                {"rsid": unique_rsids, "source": self.name, "category": "identity"}
+                {"rsid": unique_rsids, "source": self.name, "category": "identity"},
             )
 
             logger.info(
-                f"Successfully parsed {len(df)} unique rsIDs from PDF {self.file_path}"
+                f"Successfully parsed {len(df)} unique rsIDs from PDF {self.file_path}",
             )
 
             # Validate and standardize output
@@ -292,7 +292,7 @@ class HTMLRSIDParser(BaseSNPParser):
                                     str(rsid)
                                     for rsid in table_rsids
                                     if str(rsid).startswith("rs")
-                                ]
+                                ],
                             )
                         else:
                             # Search all columns for rsIDs
@@ -316,11 +316,11 @@ class HTMLRSIDParser(BaseSNPParser):
 
             # Create DataFrame
             df = pd.DataFrame(
-                {"rsid": rsids, "source": self.name, "category": "identity"}
+                {"rsid": rsids, "source": self.name, "category": "identity"},
             )
 
             logger.info(
-                f"Successfully parsed {len(df)} rsIDs from HTML {self.file_path}"
+                f"Successfully parsed {len(df)} rsIDs from HTML {self.file_path}",
             )
 
             # Validate and standardize output
@@ -369,19 +369,19 @@ class TSVListParser(BaseSNPParser):
 
                 if rsid_column >= len(df.columns):
                     raise ValueError(
-                        f"Column index {rsid_column} out of range. File has {len(df.columns)} columns."
+                        f"Column index {rsid_column} out of range. File has {len(df.columns)} columns.",
                     )
 
                 rsid_data = df.iloc[:, rsid_column]
             else:
                 # Column name provided
                 df = pd.read_csv(
-                    self.file_path, sep=delimiter, comment=comment_char, engine="python"
+                    self.file_path, sep=delimiter, comment=comment_char, engine="python",
                 )
 
                 if rsid_column not in df.columns:
                     raise ValueError(
-                        f"Column '{rsid_column}' not found. Available: {list(df.columns)}"
+                        f"Column '{rsid_column}' not found. Available: {list(df.columns)}",
                     )
 
                 rsid_data = df[rsid_column]
@@ -399,11 +399,11 @@ class TSVListParser(BaseSNPParser):
 
             # Create DataFrame
             result_df = pd.DataFrame(
-                {"rsid": rsids, "source": self.name, "category": "identity"}
+                {"rsid": rsids, "source": self.name, "category": "identity"},
             )
 
             logger.info(
-                f"Successfully parsed {len(result_df)} rsIDs from {self.file_path}"
+                f"Successfully parsed {len(result_df)} rsIDs from {self.file_path}",
             )
 
             # Validate and standardize output
@@ -451,7 +451,7 @@ class ScrapedJSONParser(BaseSNPParser):
             # Ensure required columns exist
             if "rsid" not in df.columns:
                 raise ValueError(
-                    f"Required 'rsid' column not found in {self.file_path}"
+                    f"Required 'rsid' column not found in {self.file_path}",
                 )
 
             # Rename 'snp' column to 'rsid' if it exists
@@ -472,7 +472,7 @@ class ScrapedJSONParser(BaseSNPParser):
                 return pd.DataFrame(columns=["rsid", "source", "category"])
 
             logger.info(
-                f"Successfully parsed {len(df)} SNPs from scraped JSON {self.file_path}"
+                f"Successfully parsed {len(df)} SNPs from scraped JSON {self.file_path}",
             )
 
             # Validate and standardize output

@@ -36,10 +36,10 @@ class FulgentParser(BaseParser):
             if os.environ.get("http_proxy") or os.environ.get("https_proxy"):
                 proxies = {
                     "http": os.environ.get(
-                        "http_proxy", "http://proxy.charite.de:8080"
+                        "http_proxy", "http://proxy.charite.de:8080",
                     ),
                     "https": os.environ.get(
-                        "https_proxy", "http://proxy.charite.de:8080"
+                        "https_proxy", "http://proxy.charite.de:8080",
                     ),
                 }
                 logger.info(f"Using proxy configuration: {proxies}")
@@ -66,7 +66,7 @@ class FulgentParser(BaseParser):
                 response.raise_for_status()
             except requests.RequestException as e:
                 logger.error(
-                    f"Network request to Fulgent Genetics URL failed: {self.url} - {e}"
+                    f"Network request to Fulgent Genetics URL failed: {self.url} - {e}",
                 )
                 raise
 
@@ -107,12 +107,12 @@ class FulgentParser(BaseParser):
                     # Look for patterns like "AIP, ALK, APC, ATM, AXIN2, BAP1, BARD1, BMPR1A, BRCA1, BRCA2"
                     # Find sequences of comma-separated uppercase words
                     comma_separated_match = re.search(
-                        r"\b([A-Z][A-Z0-9]{1,7}(?:,\s*[A-Z][A-Z0-9]{1,7}){10,})", text
+                        r"\b([A-Z][A-Z0-9]{1,7}(?:,\s*[A-Z][A-Z0-9]{1,7}){10,})", text,
                     )
                     if comma_separated_match:
                         genes_text = comma_separated_match.group(1)
                         logger.info(
-                            f"Found comma-separated genes: {genes_text[:100]}..."
+                            f"Found comma-separated genes: {genes_text[:100]}...",
                         )
 
                         gene_parts = genes_text.split(",")
@@ -166,7 +166,7 @@ class FulgentParser(BaseParser):
                             if gene not in false_positives:
                                 cleaned_gene = self.clean_gene_symbol(gene)
                                 if cleaned_gene and self.validate_gene_symbol(
-                                    cleaned_gene
+                                    cleaned_gene,
                                 ):
                                     filtered_genes.append(cleaned_gene)
 
@@ -174,7 +174,7 @@ class FulgentParser(BaseParser):
                         if len(filtered_genes) > 10:
                             genes.extend(filtered_genes)
                             logger.info(
-                                f"Found {len(filtered_genes)} genes using fallback approach"
+                                f"Found {len(filtered_genes)} genes using fallback approach",
                             )
 
             # If content-details section not found, try other approaches
@@ -219,7 +219,7 @@ class FulgentParser(BaseParser):
                     seen.add(gene)
 
             logger.info(
-                f"Extracted {len(unique_genes)} genes from Fulgent Genetics panel"
+                f"Extracted {len(unique_genes)} genes from Fulgent Genetics panel",
             )
             return unique_genes
 

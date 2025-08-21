@@ -57,7 +57,7 @@ class NateraParser(BaseParser):
             # Configure proxy for Charite network
             chrome_options.add_argument("--proxy-server=http://proxy.charite.de:8080")
             chrome_options.add_argument(
-                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             )
 
             # Initialize driver - try manual ChromeDriver first, then fallback
@@ -79,7 +79,7 @@ class NateraParser(BaseParser):
 
             # Wait for content to load
             WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
+                EC.presence_of_element_located((By.TAG_NAME, "body")),
             )
 
             # Additional wait for dynamic content
@@ -104,7 +104,7 @@ class NateraParser(BaseParser):
                             if gene:
                                 cleaned_gene = self.clean_gene_symbol(gene)
                                 if cleaned_gene and self.validate_gene_symbol(
-                                    cleaned_gene
+                                    cleaned_gene,
                                 ):
                                     genes.append(cleaned_gene)
             except Exception:
@@ -136,7 +136,7 @@ class NateraParser(BaseParser):
                                     if gene:
                                         cleaned_gene = self.clean_gene_symbol(gene)
                                         if cleaned_gene and self.validate_gene_symbol(
-                                            cleaned_gene
+                                            cleaned_gene,
                                         ):
                                             genes.append(cleaned_gene)
                         except Exception:

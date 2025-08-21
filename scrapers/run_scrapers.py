@@ -91,12 +91,12 @@ def get_parser_class(parser_module: str, parser_class: str) -> type:
 
     except (ImportError, AttributeError) as e:
         raise ImportError(
-            f"Failed to import {parser_class} from {parser_module}: {e}"
+            f"Failed to import {parser_class} from {parser_module}: {e}",
         ) from e
 
 
 def create_output_json(
-    panel_name: str, source_url: str, genes: list[str], output_path: str | Path
+    panel_name: str, source_url: str, genes: list[str], output_path: str | Path,
 ) -> None:
     """
     Create standardized JSON output file.
@@ -181,7 +181,7 @@ def run_scraper(scraper_name: str, scraper_config: dict[str, Any]) -> None:
 def main() -> None:
     """Main entry point for the scraper runner."""
     parser = argparse.ArgumentParser(
-        description="Run commercial panel scrapers to extract gene data"
+        description="Run commercial panel scrapers to extract gene data",
     )
     parser.add_argument(
         "--config",
@@ -195,7 +195,7 @@ def main() -> None:
         help="Specific scraper names to run (default: run all enabled scrapers)",
     )
     parser.add_argument(
-        "--output-dir", type=str, help="Override output directory for all scrapers"
+        "--output-dir", type=str, help="Override output directory for all scrapers",
     )
     parser.add_argument(
         "--dry-run",
@@ -240,7 +240,7 @@ def main() -> None:
             sys.exit(1)
 
         logger.info(
-            f"Will run {len(scrapers_to_run)} scrapers: {', '.join(scrapers_to_run.keys())}"
+            f"Will run {len(scrapers_to_run)} scrapers: {', '.join(scrapers_to_run.keys())}",
         )
 
         if args.dry_run:
@@ -268,7 +268,7 @@ def main() -> None:
                 continue
 
         logger.info(
-            f"Completed {success_count}/{len(scrapers_to_run)} scrapers successfully"
+            f"Completed {success_count}/{len(scrapers_to_run)} scrapers successfully",
         )
 
         if success_count == 0:

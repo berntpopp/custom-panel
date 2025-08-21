@@ -63,16 +63,16 @@ class CglParser(BaseParser):
             if not genes:
                 # Look for elements with "genes targeted" and extract following content
                 for element in soup.find_all(
-                    string=lambda text: text and "genes targeted" in text.lower()
+                    string=lambda text: text and "genes targeted" in text.lower(),
                 ):
                     parent = element.parent
                     logger.info(
-                        "Found 'GENES TARGETED' text, looking for gene content..."
+                        "Found 'GENES TARGETED' text, looking for gene content...",
                     )
 
                     # Look for content in following elements
                     for next_element in parent.find_all_next(
-                        ["p", "div", "li", "span"], limit=20
+                        ["p", "div", "li", "span"], limit=20,
                     ):
                         text = next_element.get_text(strip=True)
                         if not text:
@@ -107,10 +107,10 @@ class CglParser(BaseParser):
                                     gene_symbol = part.split("_")[0].strip()
                                     if gene_symbol and len(gene_symbol) >= 3:
                                         cleaned_gene = self.clean_gene_symbol(
-                                            gene_symbol
+                                            gene_symbol,
                                         )
                                         if cleaned_gene and self.validate_gene_symbol(
-                                            cleaned_gene
+                                            cleaned_gene,
                                         ):
                                             genes.append(cleaned_gene)
 

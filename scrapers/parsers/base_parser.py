@@ -37,7 +37,6 @@ class BaseParser(ABC):
         Raises:
             Exception: If parsing fails
         """
-        pass
 
     def clean_gene_symbol(self, gene: str) -> str:
         """

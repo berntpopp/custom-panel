@@ -59,11 +59,11 @@ class NimaGenHISTParser(BaseSNPScraper):
                         category="identity",
                         panel_specific_name="NimaGen Human Identification and Sample Tracking Kit",
                         **record_kwargs,
-                    )
+                    ),
                 )
 
             logger.info(
-                f"Successfully extracted {len(snps)} SNPs from NimaGen HIST panel"
+                f"Successfully extracted {len(snps)} SNPs from NimaGen HIST panel",
             )
 
             return {
@@ -148,7 +148,7 @@ class NimaGenHISTParser(BaseSNPScraper):
                                         and "Location" in header_text
                                     ):
                                         logger.info(
-                                            f"Found HIST coordinate table header: {header_text}"
+                                            f"Found HIST coordinate table header: {header_text}",
                                         )
                                     continue
 
@@ -184,7 +184,7 @@ class NimaGenHISTParser(BaseSNPScraper):
             # If we didn't find the specific table, try extracting from entire document
             if not target_table_found:
                 logger.warning(
-                    "Target table not found, extracting rsIDs from entire document"
+                    "Target table not found, extracting rsIDs from entire document",
                 )
                 with pdfplumber.open(pdf_path) as pdf:
                     for page in pdf.pages:
@@ -206,7 +206,7 @@ class NimaGenHISTParser(BaseSNPScraper):
 
             with_coords = sum(1 for r in unique_records if "chromosome" in r)
             logger.info(
-                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates) from NimaGen HIST PDF"
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates) from NimaGen HIST PDF",
             )
             return unique_records
 

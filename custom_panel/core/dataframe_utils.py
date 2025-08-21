@@ -112,7 +112,7 @@ def safe_column_max(df: pd.DataFrame, column: str, default: Any = None) -> Any:
 
 
 def safe_nan_check(
-    value: Any, converter_func: Callable[[Any], Any] | None = None, default: Any = None
+    value: Any, converter_func: Callable[[Any], Any] | None = None, default: Any = None,
 ) -> Any:
     """
     Safely handle NaN values with optional conversion.
@@ -198,7 +198,7 @@ def process_dataframe_rows(
 
 
 def extract_numeric_data(
-    df: pd.DataFrame, columns: list[str]
+    df: pd.DataFrame, columns: list[str],
 ) -> dict[str, list[float]]:
     """
     Extract numeric data from specified columns, filtering out NaN values.
@@ -249,7 +249,7 @@ def get_column_statistics(df: pd.DataFrame, column: str) -> dict[str, Any]:
 
 
 def check_columns_exist(
-    df: pd.DataFrame, required_columns: list[str]
+    df: pd.DataFrame, required_columns: list[str],
 ) -> dict[str, bool]:
     """
     Check which columns exist in the DataFrame.

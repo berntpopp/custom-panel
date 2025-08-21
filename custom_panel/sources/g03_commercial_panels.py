@@ -67,7 +67,7 @@ def fetch_commercial_panels_data(config: dict[str, Any]) -> pd.DataFrame:
     if all_dataframes:
         combined_df = pd.concat(all_dataframes, ignore_index=True)
         logger.info(
-            f"Fetched {len(combined_df)} total gene records from commercial panels"
+            f"Fetched {len(combined_df)} total gene records from commercial panels",
         )
         return combined_df
     else:
@@ -174,7 +174,7 @@ def read_panel_json(file_path: Path) -> dict[str, Any] | None:
 
         logger.debug(
             f"Read JSON file {file_path} with {len(data['genes'])} genes "
-            f"from {data['panel_name']} (retrieved {data['retrieval_date']})"
+            f"from {data['panel_name']} (retrieved {data['retrieval_date']})",
         )
         return data
     except json.JSONDecodeError as e:
@@ -386,7 +386,7 @@ def get_commercial_panel_summary(config: dict[str, Any]) -> dict[str, Any]:
                 if data:
                     panel_summary["gene_count"] = len(data.get("genes", []))
                     panel_summary["retrieval_date"] = data.get(
-                        "retrieval_date", "Unknown"
+                        "retrieval_date", "Unknown",
                     )
                     panel_summary["source_url"] = data.get("source_url", "Unknown")
             except Exception:

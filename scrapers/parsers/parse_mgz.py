@@ -35,7 +35,7 @@ class MgzParser(BaseParser):
                 response.raise_for_status()
             except requests.RequestException as e:
                 logger.error(
-                    f"Network request to MGZ Munich URL failed: {self.url} - {e}"
+                    f"Network request to MGZ Munich URL failed: {self.url} - {e}",
                 )
                 raise  # Re-raise the exception to be caught by the master runner
 

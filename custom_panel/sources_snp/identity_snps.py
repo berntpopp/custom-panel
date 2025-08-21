@@ -56,11 +56,11 @@ def fetch_identity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
             if panel_df is not None and not panel_df.empty:
                 all_snps.append(panel_df)
                 logger.info(
-                    f"✓ {panel_config.get('name', 'Unknown')}: {len(panel_df)} SNPs"
+                    f"✓ {panel_config.get('name', 'Unknown')}: {len(panel_df)} SNPs",
                 )
             else:
                 logger.warning(
-                    f"⚠ {panel_config.get('name', 'Unknown')}: No SNPs found"
+                    f"⚠ {panel_config.get('name', 'Unknown')}: No SNPs found",
                 )
         except Exception as e:
             logger.error(f"✗ {panel_config.get('name', 'Unknown')}: {e}")
@@ -144,7 +144,7 @@ def _aggregate_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
             {
                 "source": lambda x: "; ".join(x.dropna().astype(str).unique()),
                 "category": "first",  # Keep first category
-            }
+            },
         )
         .reset_index()
     )

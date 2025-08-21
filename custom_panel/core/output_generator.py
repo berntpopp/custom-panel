@@ -34,6 +34,7 @@ def generate_outputs(
     output_dir: Path,
     transcript_data: dict[str, Any] | None = None,
     snp_data: dict[str, pd.DataFrame] | None = None,
+    deduplicated_snp_data: pd.DataFrame | None = None,
     regions_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """
@@ -44,7 +45,8 @@ def generate_outputs(
         config: Configuration dictionary
         output_dir: Output directory path
         transcript_data: Optional transcript data for exon BED generation
-        snp_data: Optional SNP data dictionary by type
+        snp_data: Optional SNP data dictionary by type (for individual files)
+        deduplicated_snp_data: Optional deduplicated SNP data (for reports)
         regions_data: Optional regions data dictionary by type
     """
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -55,12 +57,12 @@ def generate_outputs(
 
     # Generate BED files if enabled (genes + SNPs + regions)
     _generate_bed_files(
-        df, config_manager, output_dir, transcript_data, snp_data, regions_data
+        df, config_manager, output_dir, transcript_data, snp_data, regions_data,
     )
 
     # Generate HTML report if enabled (genes + SNPs + regions)
     _generate_html_report_if_enabled(
-        df, config_manager, output_dir, snp_data, regions_data
+        df, config_manager, output_dir, deduplicated_snp_data, regions_data,
     )
 
 
@@ -126,11 +128,10 @@ def _generate_snp_data_files(
     """
     # Combine all SNPs into a master SNP table
     all_snps = []
-    for snp_type, snp_df in snp_data.items():
+    for _, snp_df in snp_data.items():
         if not snp_df.empty:
-            # Add SNP type column for identification
+            # Note: snp_type info already preserved in category column
             snp_df_copy = snp_df.copy()
-            snp_df_copy["snp_type"] = snp_type
             all_snps.append(snp_df_copy)
 
     if all_snps:
@@ -141,7 +142,7 @@ def _generate_snp_data_files(
 
         # Generate master SNP files
         console.print(
-            f"[blue]Generating master SNP files with {len(master_snp_df)} SNPs...[/blue]"
+            f"[blue]Generating master SNP files with {len(master_snp_df)} SNPs...[/blue]",
         )
         saver.save_multiple_formats(
             df=master_snp_df,
@@ -157,7 +158,7 @@ def _generate_snp_data_files(
                 # Clean coordinate columns for parquet compatibility
                 snp_df_clean = _clean_coordinate_columns(snp_df)
                 console.print(
-                    f"[blue]Generating {snp_type} SNP files with {len(snp_df_clean)} SNPs...[/blue]"
+                    f"[blue]Generating {snp_type} SNP files with {len(snp_df_clean)} SNPs...[/blue]",
                 )
                 saver.save_multiple_formats(
                     df=snp_df_clean,
@@ -195,7 +196,7 @@ def _generate_regions_data_files(
     if all_regions:
         master_regions_df = pd.concat(all_regions, ignore_index=True)
         console.print(
-            f"[blue]Generating master regions files with {len(master_regions_df)} regions...[/blue]"
+            f"[blue]Generating master regions files with {len(master_regions_df)} regions...[/blue]",
         )
         saver.save_multiple_formats(
             df=master_regions_df,
@@ -209,7 +210,7 @@ def _generate_regions_data_files(
         for region_type, region_df in regions_data.items():
             if not region_df.empty:
                 console.print(
-                    f"[blue]Generating {region_type} regions files with {len(region_df)} regions...[/blue]"
+                    f"[blue]Generating {region_type} regions files with {len(region_df)} regions...[/blue]",
                 )
                 saver.save_multiple_formats(
                     df=region_df,
@@ -246,7 +247,6 @@ def _deduplicate_snps(df: pd.DataFrame) -> pd.DataFrame:
         # Source information - merge all sources
         "source": lambda x: "; ".join(x.dropna().unique()),
         "category": lambda x: "; ".join(x.dropna().unique()),
-        "snp_type": lambda x: "; ".join(x.dropna().unique()),
         # Coordinate information - take first valid coordinate
         "hg38_chromosome": lambda x: x.dropna().iloc[0]
         if not x.dropna().empty
@@ -288,7 +288,7 @@ def _deduplicate_snps(df: pd.DataFrame) -> pd.DataFrame:
 
     # Add source count information
     source_counts = df.groupby("snp")["source"].apply(
-        lambda x: len(x.dropna().unique())
+        lambda x: len(x.dropna().unique()),
     )
     deduplicated_df["source_count"] = deduplicated_df["snp"].map(source_counts)
 
@@ -299,11 +299,11 @@ def _deduplicate_snps(df: pd.DataFrame) -> pd.DataFrame:
     if duplicates_removed > 0:
         logger.info(
             f"SNP deduplication: {duplicates_removed} duplicate entries removed "
-            f"({initial_count} -> {final_count} unique SNPs)"
+            f"({initial_count} -> {final_count} unique SNPs)",
         )
         console.print(
             f"[yellow]Deduplicated {duplicates_removed} SNP entries - "
-            f"{final_count} unique variants from {initial_count} total entries[/yellow]"
+            f"{final_count} unique variants from {initial_count} total entries[/yellow]",
         )
     else:
         logger.info(f"No duplicate SNPs found - {final_count} unique variants")
@@ -356,7 +356,7 @@ def _clean_coordinate_columns(df: pd.DataFrame) -> pd.DataFrame:
             ]:
                 # These should be integers (positions)
                 df_cleaned[col] = pd.to_numeric(
-                    df_cleaned[col], errors="coerce"
+                    df_cleaned[col], errors="coerce",
                 ).astype("Int64")
             elif col in ["chromosome", "chr", "hg38_chromosome"]:
                 # These should be strings but handle NaN properly
@@ -407,7 +407,7 @@ def _generate_bed_files(
     if config_manager.is_bed_enabled("complete_panel_exons"):
         bed_path = output_dir / "complete_panel_exons.bed"
         create_complete_panel_exons_bed(
-            df, transcript_data, snp_data, regions_data, bed_path, padding
+            df, transcript_data, snp_data, regions_data, bed_path, padding,
         )
 
     # Generate complete panel genes BED file (full genomic regions from included genes + SNPs + regions)
@@ -476,7 +476,7 @@ def _generate_snp_bed_files(
         coord_columns = ["hg38_chromosome", "hg38_start", "hg38_end"]
         if not all(col in snp_df.columns for col in coord_columns):
             console.print(
-                f"[yellow]Skipping BED file for {snp_type} SNPs - missing coordinate data[/yellow]"
+                f"[yellow]Skipping BED file for {snp_type} SNPs - missing coordinate data[/yellow]",
             )
             continue
 
@@ -484,7 +484,7 @@ def _generate_snp_bed_files(
         bed_data = snp_df.dropna(subset=coord_columns)
         if bed_data.empty:
             console.print(
-                f"[yellow]No {snp_type} SNPs have coordinate data for BED file[/yellow]"
+                f"[yellow]No {snp_type} SNPs have coordinate data for BED file[/yellow]",
             )
             continue
 
@@ -502,7 +502,7 @@ def _generate_snp_bed_files(
 
         if bed_data_clean.empty:
             console.print(
-                f"[yellow]No {snp_type} SNPs have valid coordinate data for BED file[/yellow]"
+                f"[yellow]No {snp_type} SNPs have valid coordinate data for BED file[/yellow]",
             )
             continue
 
@@ -511,11 +511,11 @@ def _generate_snp_bed_files(
             {
                 "chrom": "chr" + bed_data_clean["hg38_chromosome"].astype(str),
                 "chromStart": pd.to_numeric(
-                    bed_data_clean["hg38_start"], errors="coerce"
+                    bed_data_clean["hg38_start"], errors="coerce",
                 ).astype(int)
                 - 1,  # BED is 0-based
                 "chromEnd": pd.to_numeric(
-                    bed_data_clean["hg38_end"], errors="coerce"
+                    bed_data_clean["hg38_end"], errors="coerce",
                 ).astype(int),
                 "name": (
                     bed_data_clean["snp"]
@@ -524,7 +524,7 @@ def _generate_snp_bed_files(
                 ),
                 "score": 1000,  # Default score
                 "strand": ".",  # Unknown strand for SNPs
-            }
+            },
         )
 
         # Sort by chromosome and position
@@ -544,7 +544,7 @@ def _generate_snp_bed_files(
         bed_path = output_dir / f"{bed_filename}.bed"
         bed_df.to_csv(bed_path, sep="\t", header=False, index=False)
         console.print(
-            f"[green]Generated {bed_path.name} with {len(bed_df)} SNPs[/green]"
+            f"[green]Generated {bed_path.name} with {len(bed_df)} SNPs[/green]",
         )
 
 
@@ -567,7 +567,7 @@ def _generate_regions_bed_files(
         coord_columns = ["chromosome", "start", "end"]
         if not all(col in region_df.columns for col in coord_columns):
             console.print(
-                f"[yellow]Skipping BED file for {region_type} regions - missing coordinate data[/yellow]"
+                f"[yellow]Skipping BED file for {region_type} regions - missing coordinate data[/yellow]",
             )
             continue
 
@@ -575,7 +575,7 @@ def _generate_regions_bed_files(
         bed_data = region_df.dropna(subset=coord_columns)
         if bed_data.empty:
             console.print(
-                f"[yellow]No {region_type} regions have coordinate data for BED file[/yellow]"
+                f"[yellow]No {region_type} regions have coordinate data for BED file[/yellow]",
             )
             continue
 
@@ -589,7 +589,7 @@ def _generate_regions_bed_files(
 
         if bed_data_clean.empty:
             console.print(
-                f"[yellow]No valid {region_type} regions for BED file[/yellow]"
+                f"[yellow]No valid {region_type} regions for BED file[/yellow]",
             )
             continue
 
@@ -606,7 +606,7 @@ def _generate_regions_bed_files(
                 ),
                 "score": 1000,  # Default score
                 "strand": ".",  # Unknown strand for regions
-            }
+            },
         )
 
         # Sort by chromosome and position
@@ -616,7 +616,7 @@ def _generate_regions_bed_files(
         bed_path = output_dir / f"regions_{region_type}.bed"
         bed_df.to_csv(bed_path, sep="\t", header=False, index=False)
         console.print(
-            f"[green]Generated {bed_path.name} with {len(bed_df)} regions[/green]"
+            f"[green]Generated {bed_path.name} with {len(bed_df)} regions[/green]",
         )
 
 
@@ -624,7 +624,7 @@ def _generate_html_report_if_enabled(
     df: pd.DataFrame,
     config_manager: ConfigManager,
     output_dir: Path,
-    snp_data: dict[str, pd.DataFrame] | None = None,
+    deduplicated_snp_data: pd.DataFrame | None = None,
     regions_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """
@@ -634,13 +634,13 @@ def _generate_html_report_if_enabled(
         df: DataFrame with gene data
         config_manager: Configuration manager instance
         output_dir: Output directory
-        snp_data: Optional SNP data dictionary by type
+        deduplicated_snp_data: Optional deduplicated SNP data
         regions_data: Optional regions data dictionary by type
     """
     if config_manager.is_html_enabled():
         html_path = output_dir / "panel_report.html"
         _generate_html_report(
-            df, config_manager.to_dict(), html_path, snp_data, regions_data
+            df, config_manager.to_dict(), html_path, deduplicated_snp_data, regions_data,
         )
 
 
@@ -648,13 +648,13 @@ def _generate_html_report(
     df: pd.DataFrame,
     config: dict[str, Any],
     output_path: Path,
-    snp_data: dict[str, pd.DataFrame] | None = None,
+    deduplicated_snp_data: pd.DataFrame | None = None,
     regions_data: dict[str, pd.DataFrame] | None = None,
 ) -> None:
     """Generate HTML report using the ReportGenerator."""
     try:
         report_generator = ReportGenerator()
-        report_generator.render(df, config, output_path, snp_data, regions_data)
+        report_generator.render(df, config, output_path, deduplicated_snp_data, regions_data)
     except Exception as e:
         logger.error(f"Failed to generate HTML report: {e}")
         console.print(f"[red]Failed to generate HTML report: {e}[/red]")
@@ -671,14 +671,14 @@ def _generate_exon_bed_files(
     included_df = df[df["include"]].copy()
     if included_df.empty:
         console.print(
-            "[yellow]No included genes found for exon BED file generation[/yellow]"
+            "[yellow]No included genes found for exon BED file generation[/yellow]",
         )
         return
 
     # Check if transcript data is available
     if not transcript_data:
         console.print(
-            "[yellow]No transcript data available. Skipping exon BED file generation.[/yellow]"
+            "[yellow]No transcript data available. Skipping exon BED file generation.[/yellow]",
         )
         return
 
@@ -690,7 +690,7 @@ def _generate_exon_bed_files(
     transcript_types = _build_transcript_types_list(transcript_types_config)
 
     console.print(
-        f"[blue]Generating exon BED files from {len(transcript_data)} genes with provided transcript data...[/blue]"
+        f"[blue]Generating exon BED files from {len(transcript_data)} genes with provided transcript data...[/blue]",
     )
 
     # Generate BED file for each transcript type
@@ -750,7 +750,7 @@ def _generate_single_transcript_bed_file(
     """
     if column_name not in included_df.columns:
         console.print(
-            f"[yellow]No {column_name} column found - skipping {transcript_type} exon BED[/yellow]"
+            f"[yellow]No {column_name} column found - skipping {transcript_type} exon BED[/yellow]",
         )
         return
 
@@ -769,7 +769,7 @@ def _generate_single_transcript_bed_file(
 
         # Extract exons from stored transcript data
         exons = _extract_exons_from_stored_data(
-            transcript_data, gene_symbol, transcript_id, transcript_type, row
+            transcript_data, gene_symbol, transcript_id, transcript_type, row,
         )
 
         if exons:
@@ -782,11 +782,11 @@ def _generate_single_transcript_bed_file(
         bed_path = output_dir / bed_filename
         create_exon_bed_file(all_exons, bed_path, transcript_type, exon_padding)
         console.print(
-            f"[green]Generated {bed_filename} with {len(all_exons)} exons from {genes_with_transcripts}/{genes_processed} genes[/green]"
+            f"[green]Generated {bed_filename} with {len(all_exons)} exons from {genes_with_transcripts}/{genes_processed} genes[/green]",
         )
     else:
         console.print(
-            f"[yellow]No {transcript_type} exon data available for BED generation[/yellow]"
+            f"[yellow]No {transcript_type} exon data available for BED generation[/yellow]",
         )
 
 
@@ -805,14 +805,14 @@ def _extract_exons_from_stored_data(
 
     # Find the specific transcript in the stored data
     target_transcript = _find_target_transcript(
-        gene_data["all_transcripts"], transcript_id
+        gene_data["all_transcripts"], transcript_id,
     )
     if not target_transcript or "Exon" not in target_transcript:
         return []
 
     # Extract and process exon information
     exons = _process_transcript_exons(
-        target_transcript["Exon"], gene_symbol, transcript_id, transcript_type, row
+        target_transcript["Exon"], gene_symbol, transcript_id, transcript_type, row,
     )
 
     # Sort by rank to maintain exon order
@@ -821,7 +821,7 @@ def _extract_exons_from_stored_data(
 
 
 def _find_target_transcript(
-    transcripts: list[dict[str, Any]], transcript_id: str
+    transcripts: list[dict[str, Any]], transcript_id: str,
 ) -> dict[str, Any] | None:
     """Find target transcript by ID in the transcripts list."""
     for transcript in transcripts:

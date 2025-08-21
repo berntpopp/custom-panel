@@ -39,7 +39,7 @@ sys.stderr = _temp_stderr
 # Import everything else now
 try:
     # Import version from centralized location
-    from ._version import __version__  # noqa: E402
+    from ._version import __version__
 finally:
     # Restore original stderr
     sys.stderr = _temp_stderr._original_stderr

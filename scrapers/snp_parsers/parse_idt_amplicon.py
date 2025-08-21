@@ -46,10 +46,10 @@ class IDTAmpliconParser(BaseSNPScraper):
                     logger.info("Successfully fetched content with requests")
                 except Exception as requests_error:
                     logger.error(
-                        f"Both Selenium and requests failed. Selenium: {selenium_error}, Requests: {requests_error}"
+                        f"Both Selenium and requests failed. Selenium: {selenium_error}, Requests: {requests_error}",
                     )
                     raise Exception(
-                        f"All download methods failed. Last error: {requests_error}"
+                        f"All download methods failed. Last error: {requests_error}",
                     ) from requests_error
 
             if not html_content:
@@ -75,11 +75,11 @@ class IDTAmpliconParser(BaseSNPScraper):
                         category="identity",
                         panel_specific_name="IDT xGen Sample ID Amplicon Panel",
                         **record_kwargs,
-                    )
+                    ),
                 )
 
             logger.info(
-                f"Successfully extracted {len(snps)} SNPs from IDT Amplicon panel"
+                f"Successfully extracted {len(snps)} SNPs from IDT Amplicon panel",
             )
 
             return {
@@ -135,7 +135,7 @@ class IDTAmpliconParser(BaseSNPScraper):
                 if tables:
                     for rsid_col in rsid_columns:
                         table_rsids = self.parse_table_for_rsids(
-                            soup, f"table.{table_class}", rsid_col
+                            soup, f"table.{table_class}", rsid_col,
                         )
                         if table_rsids:
                             snp_records.extend([{"rsid": rsid} for rsid in table_rsids])
@@ -182,7 +182,7 @@ class IDTAmpliconParser(BaseSNPScraper):
 
         with_coords = sum(1 for r in unique_records if "chromosome" in r)
         logger.info(
-            f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)"
+            f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)",
         )
         return unique_records
 
@@ -236,7 +236,7 @@ class IDTAmpliconParser(BaseSNPScraper):
                 return records
 
             logger.info(
-                f"Found coordinate table: chr={chr_col}, pos={pos_col}, snp={snp_col}"
+                f"Found coordinate table: chr={chr_col}, pos={pos_col}, snp={snp_col}",
             )
 
             # Parse data rows

@@ -53,7 +53,6 @@ class BaseSNPParser(ABC):
             ValueError: If the file format is invalid
             Exception: For other parsing errors
         """
-        pass
 
     def validate_file_exists(self) -> None:
         """
@@ -93,7 +92,7 @@ class BaseSNPParser(ABC):
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise ValueError(
-                f"Missing required columns in parser output: {missing_columns}"
+                f"Missing required columns in parser output: {missing_columns}",
             )
 
         df = df.copy()

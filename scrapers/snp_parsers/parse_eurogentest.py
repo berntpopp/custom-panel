@@ -58,11 +58,11 @@ class EurogentestParser(BaseSNPScraper):
                         category="identity",
                         panel_specific_name="Eurogentest NGS 2014",
                         **record_kwargs,
-                    )
+                    ),
                 )
 
             logger.info(
-                f"Successfully extracted {len(snps)} SNPs from Eurogentest panel"
+                f"Successfully extracted {len(snps)} SNPs from Eurogentest panel",
             )
 
             return {
@@ -137,7 +137,7 @@ class EurogentestParser(BaseSNPScraper):
 
             with_coords = sum(1 for r in unique_records if "chromosome" in r)
             logger.info(
-                f"Extracted {len(unique_records)} SNPs ({with_coords} with chromosome info)"
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with chromosome info)",
             )
             return unique_records
 

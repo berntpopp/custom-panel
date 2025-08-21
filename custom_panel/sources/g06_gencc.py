@@ -86,7 +86,7 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
 
                 # Make request with User-Agent header
                 headers = {
-                    "User-Agent": "custom-panel/1.0 (Python scientific tool for gene panel curation)"
+                    "User-Agent": "custom-panel/1.0 (Python scientific tool for gene panel curation)",
                 }
 
                 response = requests.get(url, headers=headers, timeout=60)
@@ -99,12 +99,12 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
                 # Cache the downloaded data
                 if cache_manager and cache_manager.enabled:
                     cache_manager.set(
-                        "gencc", url, "GET", None, df_source.to_dict("records")
+                        "gencc", url, "GET", None, df_source.to_dict("records"),
                     )
                     logger.info("Cached GenCC data for future use")
 
                 logger.info(
-                    f"Successfully downloaded GenCC data with {len(df_source)} records from live URL"
+                    f"Successfully downloaded GenCC data with {len(df_source)} records from live URL",
                 )
 
             except Exception as e:
@@ -128,12 +128,12 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
 
                 source_prefix = f"File:{file_path_obj.name}"
                 logger.info(
-                    f"Loaded GenCC data with {len(df_source)} records from fallback file: {file_path}"
+                    f"Loaded GenCC data with {len(df_source)} records from fallback file: {file_path}",
                 )
 
         except Exception as e:
             logger.warning(
-                f"Could not load GenCC data from fallback file {file_path}: {e}"
+                f"Could not load GenCC data from fallback file {file_path}: {e}",
             )
 
     if df_source is None:
@@ -142,7 +142,7 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
 
     # Filter for cancer-related diseases
     logger.info(
-        f"Filtering GenCC data for cancer-related diseases using keywords: {filter_keywords}"
+        f"Filtering GenCC data for cancer-related diseases using keywords: {filter_keywords}",
     )
 
     # Look for disease information in various possible columns
@@ -196,7 +196,7 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
 
     if not gene_column:
         logger.error(
-            f"No suitable gene column found in GenCC data. Available columns: {list(df_filtered.columns)}"
+            f"No suitable gene column found in GenCC data. Available columns: {list(df_filtered.columns)}",
         )
         return pd.DataFrame()
 
@@ -253,7 +253,7 @@ def fetch_gencc_data(config: dict[str, Any]) -> pd.DataFrame:
     gene_dict: dict[str, tuple[float, str]] = {}
 
     for gene, score, detail in zip(
-        genes, evidence_scores, source_details, strict=False
+        genes, evidence_scores, source_details, strict=False,
     ):
         if gene not in gene_dict or score > gene_dict[gene][0]:
             gene_dict[gene] = (score, detail)

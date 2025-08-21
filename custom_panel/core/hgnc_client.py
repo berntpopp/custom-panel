@@ -44,7 +44,7 @@ class HGNCClient:
         self.cache_manager = cache_manager
         self.session = requests.Session()
         self.session.headers.update(
-            {"Accept": "application/json", "User-Agent": "custom-panel/0.1.0"}
+            {"Accept": "application/json", "User-Agent": "custom-panel/0.1.0"},
         )
 
     def _make_request(
@@ -74,7 +74,7 @@ class HGNCClient:
             # Create a cache key that includes params
             cache_data = {"params": params} if params else data
             cached_response = self.cache_manager.get(
-                "hgnc", endpoint, method, cache_data
+                "hgnc", endpoint, method, cache_data,
             )
             if cached_response is not None:
                 return cached_response
@@ -85,11 +85,11 @@ class HGNCClient:
             try:
                 if method.upper() == "POST":
                     response = self.session.post(
-                        url, json=data, params=params, timeout=self.timeout
+                        url, json=data, params=params, timeout=self.timeout,
                     )
                 else:
                     response = self.session.get(
-                        url, params=params, timeout=self.timeout
+                        url, params=params, timeout=self.timeout,
                     )
                 response.raise_for_status()
                 json_response = response.json()
@@ -98,18 +98,18 @@ class HGNCClient:
                 if self.cache_manager:
                     cache_data = {"params": params} if params else data
                     self.cache_manager.set(
-                        "hgnc", endpoint, method, cache_data, json_response
+                        "hgnc", endpoint, method, cache_data, json_response,
                     )
 
                 return json_response
             except (requests.RequestException, ValueError) as e:
                 if attempt == self.max_retries:
                     logger.error(
-                        f"Failed to fetch {url} after {self.max_retries} retries: {e}"
+                        f"Failed to fetch {url} after {self.max_retries} retries: {e}",
                     )
                     raise
                 logger.warning(
-                    f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}"
+                    f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}",
                 )
                 time.sleep(self.retry_delay * (2**attempt))  # Exponential backoff
 
@@ -226,7 +226,7 @@ class HGNCClient:
 
     @functools.lru_cache(maxsize=1000)  # noqa: B019
     def standardize_symbols_batch(
-        self, symbols: tuple[str, ...]
+        self, symbols: tuple[str, ...],
     ) -> dict[str, dict[str, str | None]]:
         """
         Standardize multiple gene symbols using HGNC batch API.
@@ -282,13 +282,13 @@ class HGNCClient:
             exact_matches = len(found_symbols)
             need_postprocess = len(original_symbols) - exact_matches
             logger.debug(
-                f"HGNC batch API results: {len(original_symbols)} symbols submitted, {exact_matches} exact matches found, {need_postprocess} need further processing"
+                f"HGNC batch API results: {len(original_symbols)} symbols submitted, {exact_matches} exact matches found, {need_postprocess} need further processing",
             )
 
             if need_postprocess > 0 and logger.isEnabledFor(logging.DEBUG):
                 unmatched = [s for s in original_symbols if s not in found_symbols]
                 logger.debug(
-                    f"Symbols requiring alias/prev_symbol search: {unmatched[:10]}{'...' if len(unmatched) > 10 else ''}"
+                    f"Symbols requiring alias/prev_symbol search: {unmatched[:10]}{'...' if len(unmatched) > 10 else ''}",
                 )
 
             # For symbols not found in batch, try individual lookups with aliases/prev symbols
@@ -315,12 +315,12 @@ class HGNCClient:
 
             if need_postprocess > 0:
                 logger.debug(
-                    f"Alias/prev_symbol search results: {postprocess_fixed} out of {need_postprocess} symbols were successfully resolved"
+                    f"Alias/prev_symbol search results: {postprocess_fixed} out of {need_postprocess} symbols were successfully resolved",
                 )
 
         except requests.RequestException as e:
             logger.warning(
-                f"Batch symbol standardization failed: {e}. Falling back to individual lookups."
+                f"Batch symbol standardization failed: {e}. Falling back to individual lookups.",
             )
             # Fallback to individual, slower lookups if batch fails
             for original_symbol in original_symbols:
@@ -339,7 +339,7 @@ class HGNCClient:
             and k.upper() != v["approved_symbol"].upper()
         )
         logger.debug(
-            f"HGNC batch complete: {len(symbols)} symbols processed, {changed_count} standardized to different symbols"
+            f"HGNC batch complete: {len(symbols)} symbols processed, {changed_count} standardized to different symbols",
         )
 
         if changed_count > 0 and logger.isEnabledFor(logging.DEBUG):
@@ -354,7 +354,7 @@ class HGNCClient:
         return result
 
     def standardize_symbols(
-        self, symbols: list[str]
+        self, symbols: list[str],
     ) -> dict[str, dict[str, str | None]]:
         """
         Standardize multiple gene symbols.

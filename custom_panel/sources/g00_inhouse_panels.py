@@ -66,7 +66,7 @@ def fetch_inhouse_panels_data(config: dict[str, Any]) -> pd.DataFrame:
     if all_dataframes:
         combined_df = pd.concat(all_dataframes, ignore_index=True)
         logger.info(
-            f"Fetched {len(combined_df)} total gene records from in-house panels"
+            f"Fetched {len(combined_df)} total gene records from in-house panels",
         )
         return combined_df
     else:
@@ -148,7 +148,7 @@ def process_inhouse_panel(panel_config: dict[str, Any]) -> pd.DataFrame | None:
 
 
 def read_excel_panel(
-    file_path: Path, gene_column: str, sheet_name: str | None = None
+    file_path: Path, gene_column: str, sheet_name: str | None = None,
 ) -> pd.DataFrame:
     """
     Read gene panel from Excel file.
@@ -169,7 +169,7 @@ def read_excel_panel(
             df = pd.read_excel(file_path, engine="openpyxl")
 
         logger.debug(
-            f"Read Excel file {file_path} with {len(df)} rows and columns: {list(df.columns)}"
+            f"Read Excel file {file_path} with {len(df)} rows and columns: {list(df.columns)}",
         )
         return df
     except Exception as e:
@@ -273,7 +273,7 @@ def extract_genes_from_column(df: pd.DataFrame, gene_column: str) -> list[str]:
     """
     if gene_column not in df.columns:
         logger.error(
-            f"Column '{gene_column}' not found in DataFrame. Available columns: {list(df.columns)}"
+            f"Column '{gene_column}' not found in DataFrame. Available columns: {list(df.columns)}",
         )
         return []
 
@@ -304,7 +304,7 @@ def extract_genes_from_column(df: pd.DataFrame, gene_column: str) -> list[str]:
             seen.add(gene)
 
     logger.debug(
-        f"Extracted {len(unique_genes)} unique genes from column '{gene_column}'"
+        f"Extracted {len(unique_genes)} unique genes from column '{gene_column}'",
     )
     return unique_genes
 

@@ -54,7 +54,7 @@ def fetch_manual_curation_data(config: dict[str, Any]) -> pd.DataFrame:
                 all_dataframes.append(df)
         except Exception as e:
             logger.error(
-                f"Failed to process manual list {list_config.get('name', 'unknown')}: {e}"
+                f"Failed to process manual list {list_config.get('name', 'unknown')}: {e}",
             )
             continue
 
@@ -65,7 +65,7 @@ def fetch_manual_curation_data(config: dict[str, Any]) -> pd.DataFrame:
     # Combine all dataframes
     combined_df = pd.concat(all_dataframes, ignore_index=True)
     logger.info(
-        f"Successfully processed {len(combined_df)} genes from {len(all_dataframes)} manual lists"
+        f"Successfully processed {len(combined_df)} genes from {len(all_dataframes)} manual lists",
     )
 
     return combined_df
@@ -110,7 +110,7 @@ def process_manual_list(list_config: dict[str, Any]) -> pd.DataFrame:
             df = read_text_panel(file_path, gene_column)
         else:
             logger.error(
-                f"Unsupported file format '{file_extension}' for manual list '{name}'"
+                f"Unsupported file format '{file_extension}' for manual list '{name}'",
             )
             return pd.DataFrame()
 
@@ -127,7 +127,7 @@ def process_manual_list(list_config: dict[str, Any]) -> pd.DataFrame:
         genes = extract_genes_from_column(df, gene_column)
         if not genes:
             logger.warning(
-                f"No genes extracted from column '{gene_column}' in manual list '{name}'"
+                f"No genes extracted from column '{gene_column}' in manual list '{name}'",
             )
             return pd.DataFrame()
 
@@ -141,7 +141,7 @@ def process_manual_list(list_config: dict[str, Any]) -> pd.DataFrame:
     source_name = f"Manual_Curation:{name}"
     evidence_scores = [evidence_score] * len(genes)
     source_details = [
-        f"File:{file_path.name}|Column:{gene_column}|Category:{category}"
+        f"File:{file_path.name}|Column:{gene_column}|Category:{category}",
     ] * len(genes)
 
     standardized_df = create_standard_dataframe(
@@ -156,7 +156,7 @@ def process_manual_list(list_config: dict[str, Any]) -> pd.DataFrame:
     standardized_df["category"] = category
 
     logger.info(
-        f"Created standardized dataframe for manual list '{name}' with {len(standardized_df)} genes (category: {category})"
+        f"Created standardized dataframe for manual list '{name}' with {len(standardized_df)} genes (category: {category})",
     )
     return standardized_df
 
@@ -193,17 +193,17 @@ def validate_manual_curation_config(config: dict[str, Any]) -> list[str]:
         name = list_config.get("name")
         if not name or not isinstance(name, str):
             errors.append(
-                f"manual_curation.lists[{i}].name is required and must be a string"
+                f"manual_curation.lists[{i}].name is required and must be a string",
             )
 
         file_path = list_config.get("file_path")
         if not file_path or not isinstance(file_path, str):
             errors.append(
-                f"manual_curation.lists[{i}].file_path is required and must be a string"
+                f"manual_curation.lists[{i}].file_path is required and must be a string",
             )
         elif not Path(file_path).exists():
             errors.append(
-                f"manual_curation.lists[{i}].file_path does not exist: {file_path}"
+                f"manual_curation.lists[{i}].file_path does not exist: {file_path}",
             )
 
         # Check optional fields
@@ -214,7 +214,7 @@ def validate_manual_curation_config(config: dict[str, Any]) -> list[str]:
             or evidence_score > 1
         ):
             errors.append(
-                f"manual_curation.lists[{i}].evidence_score must be a number between 0 and 1"
+                f"manual_curation.lists[{i}].evidence_score must be a number between 0 and 1",
             )
 
         gene_column = list_config.get("gene_column", "gene_symbol")

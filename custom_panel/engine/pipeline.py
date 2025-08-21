@@ -61,7 +61,7 @@ class Pipeline:
         """
         self.config_manager = ConfigManager(config)
         self.output_dir_path = output_dir_path or Path(
-            self.config_manager.get_output_dir()
+            self.config_manager.get_output_dir(),
         )
         self.output_manager = OutputManager(config, self.output_dir_path)
         self.annotator = GeneAnnotator(config)
@@ -69,6 +69,7 @@ class Pipeline:
         self.snp_harmonizer: SNPHarmonizer | None = None
         self.transcript_data: dict[str, Any] = {}
         self.snp_data: dict[str, pd.DataFrame] = {}
+        self.deduplicated_snp_data: pd.DataFrame = pd.DataFrame()  # Store deduplicated SNPs for reports
         self.regions_data: dict[str, pd.DataFrame] = {}
 
         # Initialize SNP harmonizer once if SNP processing is enabled
@@ -82,7 +83,7 @@ class Pipeline:
         """Initialize simplified SNP harmonizer with Ensembl client only."""
         try:
             logger.info(
-                "Initializing simplified SNP harmonization system (hg38 only)..."
+                "Initializing simplified SNP harmonization system (hg38 only)...",
             )
 
             # Initialize Ensembl client for batch variation API
@@ -126,7 +127,7 @@ class Pipeline:
             return self._run_without_progress()
 
     def _run_with_progress(
-        self, progress: Progress
+        self, progress: Progress,
     ) -> tuple[pd.DataFrame, dict[str, Any]]:
         """Run pipeline with progress indicators."""
         task = progress.add_task("Starting pipeline...", total=None)
@@ -136,13 +137,13 @@ class Pipeline:
         raw_dataframes = self._fetch_all_sources()
         self._validate_fetched_data(raw_dataframes)
         progress.update(
-            task, description=f"Fetched data from {len(raw_dataframes)} sources"
+            task, description=f"Fetched data from {len(raw_dataframes)} sources",
         )
 
         # Step 2: Centralized gene symbol standardization
         progress.update(task, description="Centralizing gene symbol standardization...")
         unified_df, symbol_map = self._standardize_symbols(
-            raw_dataframes, progress, task
+            raw_dataframes, progress, task,
         )
 
         # Step 3: Pre-aggregate by source groups
@@ -152,10 +153,10 @@ class Pipeline:
 
         # Step 4: Merge and score pre-aggregated sources
         progress.update(
-            task, description="Merging and scoring pre-aggregated sources..."
+            task, description="Merging and scoring pre-aggregated sources...",
         )
         master_df = self.merger.create_master_list(
-            aggregated_sources, self.output_manager
+            aggregated_sources, self.output_manager,
         )
         self._validate_master_data(master_df)
 
@@ -193,7 +194,7 @@ class Pipeline:
 
         # Step 4: Merge and score
         master_df = self.merger.create_master_list(
-            aggregated_sources, self.output_manager
+            aggregated_sources, self.output_manager,
         )
         self._validate_master_data(master_df)
 
@@ -237,7 +238,6 @@ class Pipeline:
             # Source information - merge all sources
             "source": lambda x: "; ".join(sorted(x.dropna().unique())),
             "category": lambda x: "; ".join(sorted(x.dropna().unique())),
-            "snp_type": lambda x: "; ".join(sorted(x.dropna().unique())),
             # Coordinate information - take first valid coordinate
             "hg38_chromosome": lambda x: x.dropna().iloc[0]
             if not x.dropna().empty
@@ -295,26 +295,49 @@ class Pipeline:
 
         # Add source count information
         source_counts = df.groupby("snp")["source"].apply(
-            lambda x: len(x.dropna().unique())
+            lambda x: len(x.dropna().unique()),
         )
         deduplicated_df["source_count"] = deduplicated_df["snp"].map(source_counts)
 
-        # Log deduplication results
+        # Explicitly ensure snp_type column is not included
+        if "snp_type" in deduplicated_df.columns:
+            deduplicated_df = deduplicated_df.drop(columns=["snp_type"])
+
+        # Log deduplication results with detailed information
         final_count = len(deduplicated_df)
         duplicates_removed = initial_count - final_count
 
         if duplicates_removed > 0:
             logger.info(
                 f"SNP deduplication: {duplicates_removed} duplicate entries removed "
-                f"({initial_count} -> {final_count} unique SNPs)"
+                f"({initial_count} -> {final_count} unique SNPs)",
             )
+
+            # Show detailed information about merged SNPs
+            vcf_counts = df.groupby("snp").size()
+            merged_vcf_ids = vcf_counts[vcf_counts > 1].index
+
+            logger.info(
+                f"Detailed deduplication report: {len(merged_vcf_ids)} VCF IDs were merged:",
+            )
+            for vcf_id in merged_vcf_ids:
+                duplicate_rows = df[df["snp"] == vcf_id]
+                categories = sorted(duplicate_rows["category"].unique())
+                rsids = sorted(duplicate_rows["rsid"].dropna().unique())
+                count = len(duplicate_rows)
+
+                logger.info(f"  {vcf_id}: {count} entries merged")
+                logger.info(f"    Categories: {'; '.join(categories)}")
+                if rsids:
+                    logger.info(f"    rsIDs: {'; '.join(rsids)}")
+
             console.print(
                 f"[yellow]Pipeline deduplication: {duplicates_removed} SNP entries merged - "
-                f"{final_count} unique variants from {initial_count} total entries[/yellow]"
+                f"{final_count} unique variants from {initial_count} total entries[/yellow]",
             )
         else:
             logger.info(
-                f"No duplicate SNPs found in pipeline - {final_count} unique variants"
+                f"No duplicate SNPs found in pipeline - {final_count} unique variants",
             )
 
         return deduplicated_df
@@ -338,17 +361,17 @@ class Pipeline:
         for source_name, fetch_function in source_functions.items():
             if self.config_manager.is_source_enabled(source_name):
                 dataframes.extend(
-                    self._fetch_single_source(source_name, fetch_function)
+                    self._fetch_single_source(source_name, fetch_function),
                 )
             else:
                 console.print(
-                    f"[yellow]Skipping disabled source: {source_name}[/yellow]"
+                    f"[yellow]Skipping disabled source: {source_name}[/yellow]",
                 )
 
         return dataframes
 
     def _fetch_single_source(
-        self, source_name: str, fetch_function: Any
+        self, source_name: str, fetch_function: Any,
     ) -> list[pd.DataFrame]:
         """Fetch data from a single source with error handling."""
         try:
@@ -397,7 +420,7 @@ class Pipeline:
         # Extract ALL unique symbols across all sources
         all_unique_symbols = unified_df["approved_symbol"].dropna().unique().tolist()
         logger.info(
-            f"Total unique symbols across all sources: {len(all_unique_symbols)}"
+            f"Total unique symbols across all sources: {len(all_unique_symbols)}",
         )
 
         # Make a single batch call to standardize ALL symbols
@@ -416,7 +439,7 @@ class Pipeline:
         return unified_df, symbol_map
 
     def _log_standardization_results(
-        self, symbol_map: dict[str, dict[str, Any]], all_symbols: list[str]
+        self, symbol_map: dict[str, dict[str, Any]], all_symbols: list[str],
     ) -> None:
         """Log standardization results."""
         total_changed = sum(
@@ -427,7 +450,7 @@ class Pipeline:
         logger.info(f"Standardized {total_changed}/{len(all_symbols)} gene symbols")
 
     def _apply_symbol_standardization(
-        self, unified_df: pd.DataFrame, symbol_map: dict[str, dict[str, Any]]
+        self, unified_df: pd.DataFrame, symbol_map: dict[str, dict[str, Any]],
     ) -> pd.DataFrame:
         """Apply symbol standardization to the unified DataFrame."""
         # Create mapping dictionaries
@@ -455,13 +478,13 @@ class Pipeline:
         return unified_df
 
     def _pre_aggregate_sources(
-        self, unified_df: pd.DataFrame, symbol_map: dict[str, dict[str, Any]]
+        self, unified_df: pd.DataFrame, symbol_map: dict[str, dict[str, Any]],
     ) -> list[pd.DataFrame]:
         """Pre-aggregate source groups."""
         # Add source_group column based on configuration
         source_to_group = self._build_source_group_mapping()
         unified_df["source_group"] = unified_df["source_name"].apply(
-            lambda x: self._map_source_to_group(x, source_to_group)
+            lambda x: self._map_source_to_group(x, source_to_group),
         )
 
         # Pre-aggregate each source group
@@ -470,12 +493,12 @@ class Pipeline:
 
         for group_name, group_df in unified_df.groupby("source_group"):
             aggregated_df = self._aggregate_source_group(
-                str(group_name), group_df, hgnc_id_map
+                str(group_name), group_df, hgnc_id_map,
             )
             aggregated_sources.append(aggregated_df)
             logger.info(
                 f"Source group '{group_name}': {len(aggregated_df)} unique genes "
-                f"from {group_df['source_name'].nunique()} sources"
+                f"from {group_df['source_name'].nunique()} sources",
             )
 
         return aggregated_sources
@@ -500,7 +523,7 @@ class Pipeline:
         return source_to_group
 
     def _map_source_to_group(
-        self, source_name: str, source_to_group: dict[str, str]
+        self, source_name: str, source_to_group: dict[str, str],
     ) -> str:
         """Map source name to its group."""
         # Try exact match first
@@ -522,14 +545,14 @@ class Pipeline:
         return source_name
 
     def _aggregate_source_group(
-        self, group_name: str, group_df: pd.DataFrame, hgnc_id_map: dict[str, str]
+        self, group_name: str, group_df: pd.DataFrame, hgnc_id_map: dict[str, str],
     ) -> pd.DataFrame:
         """Aggregate genes within a source group."""
         gene_groups = []
 
         for gene_symbol, gene_df in group_df.groupby("approved_symbol"):
             aggregated_record = self._create_aggregated_record(
-                str(gene_symbol), gene_df, group_name
+                str(gene_symbol), gene_df, group_name,
             )
             gene_groups.append(aggregated_record)
 
@@ -549,7 +572,7 @@ class Pipeline:
         return group_aggregated_df
 
     def _create_aggregated_record(
-        self, gene_symbol: str, gene_df: pd.DataFrame, group_name: str
+        self, gene_symbol: str, gene_df: pd.DataFrame, group_name: str,
     ) -> dict[str, Any]:
         """Create an aggregated record for a gene within a source group."""
         # Count internal sources
@@ -578,7 +601,7 @@ class Pipeline:
             ),
             "source_name": group_name,  # Use group name as source for aggregated data
             "source_evidence_score": self.config_manager.get_source_evidence_score(
-                group_name
+                group_name,
             ),
             "source_details": f"{internal_source_count} sources in {group_name}",
             "source_group": group_name,
@@ -621,17 +644,17 @@ class Pipeline:
             logger.info("Applying genomic targeting flags...")
             try:
                 df_with_targeting = apply_genomic_targeting_flags(
-                    df, self.config_manager.to_dict()
+                    df, self.config_manager.to_dict(),
                 )
                 # Log summary of targeting flags applied
                 if "genomic_targeting" in df_with_targeting.columns:
                     targeting_count = df_with_targeting["genomic_targeting"].sum()
                     total_genes = len(df_with_targeting)
                     logger.info(
-                        f"Genomic targeting flags applied: {targeting_count}/{total_genes} genes marked for targeting"
+                        f"Genomic targeting flags applied: {targeting_count}/{total_genes} genes marked for targeting",
                     )
                     console.print(
-                        f"[green]Applied genomic targeting flags: {targeting_count}/{total_genes} genes marked for targeting[/green]"
+                        f"[green]Applied genomic targeting flags: {targeting_count}/{total_genes} genes marked for targeting[/green]",
                     )
                 return df_with_targeting
             except Exception as e:
@@ -695,11 +718,9 @@ class Pipeline:
                     raw_df = fetch_function(self.config_manager.to_dict())
 
                     if raw_df is not None and not raw_df.empty:
-                        # Add SNP type tracking column
-                        raw_df["snp_type"] = snp_type
                         raw_snp_data[snp_type] = raw_df
                         console.print(
-                            f"[green]✓ {snp_type}: {len(raw_df)} raw SNPs[/green]"
+                            f"[green]✓ {snp_type}: {len(raw_df)} raw SNPs[/green]",
                         )
                         logger.info(f"Fetched {len(raw_df)} raw {snp_type} SNPs")
                     else:
@@ -710,7 +731,7 @@ class Pipeline:
                     logger.exception(f"Error fetching {snp_type} SNPs")
             else:
                 console.print(
-                    f"[yellow]Skipping disabled SNP type: {snp_type}[/yellow]"
+                    f"[yellow]Skipping disabled SNP type: {snp_type}[/yellow]",
                 )
 
         # Step 2: Check if we have any data to process
@@ -720,7 +741,7 @@ class Pipeline:
 
         # Step 3: Combine all raw data for batch harmonization
         logger.info(
-            f"Combining {len(raw_snp_data)} SNP sources for batch harmonization..."
+            f"Combining {len(raw_snp_data)} SNP sources for batch harmonization...",
         )
         combined_raw_df = pd.concat(raw_snp_data.values(), ignore_index=True)
         logger.info(f"Combined {len(combined_raw_df)} total SNPs for processing")
@@ -735,7 +756,7 @@ class Pipeline:
                     logger.info(f"Successfully harmonized {len(harmonized_df)} SNPs")
                 else:
                     logger.warning(
-                        "Harmonization returned empty DataFrame, using raw data"
+                        "Harmonization returned empty DataFrame, using raw data",
                     )
                     harmonized_df = combined_raw_df
 
@@ -752,44 +773,101 @@ class Pipeline:
         harmonized_df = self._deduplicate_snps_in_pipeline(harmonized_df)
         logger.info(f"After deduplication: {len(harmonized_df)} unique SNPs")
 
+        # Store deduplicated data for reports (without duplicates)
+        self.deduplicated_snp_data = harmonized_df.copy()
+
         # Step 5: Split harmonized data back into type-specific datasets
+        logger.info("Splitting deduplicated data back into type-specific datasets...")
+
+        # Map snp_type keys to their corresponding category values
+        category_mapping = {
+            "manual_snps": "manual",
+            "prs": "prs",
+            "pharmacogenomics": "pharmacogenomics",
+            "ethnicity": "ethnicity",
+            "identity": "identity",
+            "deep_intronic_clinvar": "deep_intronic_clinvar",
+        }
+
+        # Debug: Show unique category values after deduplication
+        unique_categories = harmonized_df["category"].unique()
+        logger.info(
+            f"Unique category values after deduplication: {len(unique_categories)}",
+        )
+        for category_value in sorted(unique_categories):
+            count = (harmonized_df["category"] == category_value).sum()
+            logger.debug(f"  '{category_value}': {count} SNPs")
+
         for snp_type in raw_snp_data.keys():
             try:
-                # Filter harmonized data by SNP type
+                logger.info(f"Processing {snp_type} SNPs from deduplicated data...")
+
+                # Count original SNPs for this type
+                original_count = len(raw_snp_data[snp_type])
+                logger.info(f"  Original {snp_type} count: {original_count}")
+
+                # Get the category value for this snp_type
+                target_category = category_mapping.get(snp_type, snp_type)
+
+                # FIXED: Use contains() on category instead of snp_type to handle merged categories
+                # This handles cases like "manual; prs" which should match "manual"
                 type_specific_df = harmonized_df[
-                    harmonized_df["snp_type"] == snp_type
+                    harmonized_df["category"].str.contains(
+                        target_category, na=False, regex=False,
+                    )
                 ].copy()
 
-                # Remove the tracking column
-                if "snp_type" in type_specific_df.columns:
-                    type_specific_df = type_specific_df.drop(columns=["snp_type"])
+                # Debug: Show what we found
+                matched_count = len(type_specific_df)
+                logger.info(
+                    f"  Matched {snp_type} SNPs after deduplication: {matched_count}",
+                )
+
+                if matched_count != original_count:
+                    # Show detailed breakdown of what happened
+                    logger.warning(
+                        f"SNP count change for {snp_type}: {original_count} original → {matched_count} after deduplication",
+                    )
+
+                    # Find SNPs that were merged with other categories
+                    merged_snps = type_specific_df[
+                        type_specific_df["category"] != target_category
+                    ]
+                    if len(merged_snps) > 0:
+                        logger.info(
+                            f"  {len(merged_snps)} {snp_type} SNPs were merged with other sources:",
+                        )
+                        for _, row in merged_snps.iterrows():
+                            logger.info(
+                                f"    {row.get('rsid', 'N/A')} → category: '{row['category']}'",
+                            )
 
                 if not type_specific_df.empty:
                     # Store processed SNP data
                     self.snp_data[snp_type] = type_specific_df
 
                     # Save SNP data using dedicated SNP save method
-                    self.output_manager.save_snp_data(type_specific_df, snp_type)
+                    self.output_manager.save_snp_data(type_specific_df, target_category)
 
                     console.print(
-                        f"[green]✓ {snp_type}: {len(type_specific_df)} processed SNPs[/green]"
+                        f"[green]✓ {snp_type}: {len(type_specific_df)} processed SNPs[/green]",
                     )
                     logger.info(
-                        f"Successfully processed {len(type_specific_df)} {snp_type} SNPs"
+                        f"Successfully processed {len(type_specific_df)} {snp_type} SNPs",
                     )
                 else:
                     logger.warning(f"No processed SNPs for {snp_type}")
 
             except Exception as e:
                 logger.error(
-                    f"Error processing {snp_type} SNPs after harmonization: {e}"
+                    f"Error processing {snp_type} SNPs after harmonization: {e}",
                 )
 
         # Log SNP processing summary
         total_snps = sum(len(df) for df in self.snp_data.values())
         if total_snps > 0:
             logger.info(
-                f"Centralized SNP processing completed: {total_snps} total SNPs across {len(self.snp_data)} categories"
+                f"Centralized SNP processing completed: {total_snps} total SNPs across {len(self.snp_data)} categories",
             )
         else:
             logger.info("No SNPs were processed")
@@ -826,35 +904,26 @@ class Pipeline:
                 # Deduplicate ClinVar SNPs to handle within-source duplicates
                 logger.info("Deduplicating ClinVar SNPs...")
 
-                # Add snp_type column for deduplication
-                clinvar_snps["snp_type"] = "deep_intronic_clinvar"
-
-                # Apply deduplication
+                # Apply deduplication (ClinVar SNPs already have category column)
                 deduplicated_clinvar = self._deduplicate_snps_in_pipeline(clinvar_snps)
-
-                # Remove the temporary snp_type column
-                if "snp_type" in deduplicated_clinvar.columns:
-                    deduplicated_clinvar = deduplicated_clinvar.drop(
-                        columns=["snp_type"]
-                    )
 
                 # Store deduplicated ClinVar SNP data
                 self.snp_data["deep_intronic_clinvar"] = deduplicated_clinvar
 
                 # Save deduplicated ClinVar SNP data
                 self.output_manager.save_snp_data(
-                    deduplicated_clinvar, "deep_intronic_clinvar"
+                    deduplicated_clinvar, "deep_intronic_clinvar",
                 )
 
                 console.print(
-                    f"[green]✓ Deep intronic ClinVar: {len(deduplicated_clinvar)} SNPs[/green]"
+                    f"[green]✓ Deep intronic ClinVar: {len(deduplicated_clinvar)} SNPs[/green]",
                 )
                 logger.info(
-                    f"Successfully processed {len(deduplicated_clinvar)} deep intronic ClinVar SNPs for gene panel"
+                    f"Successfully processed {len(deduplicated_clinvar)} deep intronic ClinVar SNPs for gene panel",
                 )
             else:
                 console.print(
-                    "[yellow]⚠ Deep intronic ClinVar: No SNPs found in gene panel regions[/yellow]"
+                    "[yellow]⚠ Deep intronic ClinVar: No SNPs found in gene panel regions[/yellow]",
                 )
                 logger.info("No deep intronic ClinVar SNPs found in gene panel regions")
 
@@ -891,7 +960,7 @@ class Pipeline:
 
                     console.print(f"[green]✓ {region_type}: {len(df)} regions[/green]")
                     logger.info(
-                        f"Successfully processed {len(df)} {region_type} regions"
+                        f"Successfully processed {len(df)} {region_type} regions",
                     )
 
                 except Exception as e:
@@ -901,7 +970,7 @@ class Pipeline:
             # Log regions processing summary
             total_regions = sum(len(df) for df in self.regions_data.values())
             logger.info(
-                f"Regions processing completed: {total_regions} total regions across {len(self.regions_data)} types"
+                f"Regions processing completed: {total_regions} total regions across {len(self.regions_data)} types",
             )
 
         except Exception as e:

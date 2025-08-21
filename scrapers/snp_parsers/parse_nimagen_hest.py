@@ -59,11 +59,11 @@ class NimaGenHESTParser(BaseSNPScraper):
                         category="identity",
                         panel_specific_name="NimaGen EasySeq Human DNA Sample Identification Kit",
                         **record_kwargs,
-                    )
+                    ),
                 )
 
             logger.info(
-                f"Successfully extracted {len(snps)} SNPs from NimaGen HEST panel"
+                f"Successfully extracted {len(snps)} SNPs from NimaGen HEST panel",
             )
 
             return {
@@ -156,7 +156,7 @@ class NimaGenHESTParser(BaseSNPScraper):
             # If we didn't find the specific table, try extracting from entire document
             if not target_table_found:
                 logger.warning(
-                    "Target table not found, extracting rsIDs from entire document"
+                    "Target table not found, extracting rsIDs from entire document",
                 )
                 with pdfplumber.open(pdf_path) as pdf:
                     for page in pdf.pages:
@@ -178,7 +178,7 @@ class NimaGenHESTParser(BaseSNPScraper):
 
             with_coords = sum(1 for r in unique_records if "chromosome" in r)
             logger.info(
-                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates) from NimaGen HEST PDF"
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates) from NimaGen HEST PDF",
             )
             return unique_records
 
@@ -225,7 +225,7 @@ class NimaGenHESTParser(BaseSNPScraper):
                 hg38_coords = self.parse_genomic_position(location_hg38)
                 if hg38_coords:
                     record["hg38_chromosome"] = hg38_coords.get(
-                        "chromosome", chromosome
+                        "chromosome", chromosome,
                     )
                     if "position" in hg38_coords:
                         record["hg38_position"] = hg38_coords["position"]
@@ -239,7 +239,7 @@ class NimaGenHESTParser(BaseSNPScraper):
                 hg19_coords = self.parse_genomic_position(location_hg19)
                 if hg19_coords:
                     record["hg19_chromosome"] = hg19_coords.get(
-                        "chromosome", chromosome
+                        "chromosome", chromosome,
                     )
                     if "position" in hg19_coords:
                         record["hg19_position"] = hg19_coords["position"]

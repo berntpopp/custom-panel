@@ -148,20 +148,20 @@ class BCACParser(BaseSNPParser):
             # Check for required rsID column
             if rsid_column not in df.columns:
                 raise ValueError(
-                    f"Required rsID column '{rsid_column}' not found. Available columns: {list(df.columns)}"
+                    f"Required rsID column '{rsid_column}' not found. Available columns: {list(df.columns)}",
                 )
 
             # Extract rsIDs and remove empty ones
             rsids = df[rsid_column].dropna()
             if rsids.empty:
                 logger.warning(
-                    f"No valid rsIDs found in column '{rsid_column}' of {self.file_path}"
+                    f"No valid rsIDs found in column '{rsid_column}' of {self.file_path}",
                 )
                 return pd.DataFrame(columns=["rsid", "source", "category"])
 
             # Create base DataFrame with required columns
             result_df = pd.DataFrame(
-                {"rsid": rsids, "source": self.name, "category": "prs"}
+                {"rsid": rsids, "source": self.name, "category": "prs"},
             )
 
             # Add PRS-specific metadata columns if available
@@ -177,7 +177,7 @@ class BCACParser(BaseSNPParser):
                     result_df[result_col] = df.loc[rsids.index, source_col].values
                 else:
                     logger.debug(
-                        f"Optional column '{source_col}' not found in {self.file_path}"
+                        f"Optional column '{source_col}' not found in {self.file_path}",
                     )
 
             # Add any additional columns that might be useful for PRS
@@ -187,7 +187,7 @@ class BCACParser(BaseSNPParser):
                     result_df[col] = df.loc[rsids.index, col].values
 
             logger.info(
-                f"Successfully parsed {len(result_df)} PRS SNPs from {self.file_path}"
+                f"Successfully parsed {len(result_df)} PRS SNPs from {self.file_path}",
             )
 
             # Validate and standardize output
@@ -221,7 +221,7 @@ class GenericPRSParser(BaseSNPParser):
         rsid_column = self.config.get("rsid_column")
         if not rsid_column:
             raise ValueError(
-                "rsid_column must be specified in config for generic PRS parser"
+                "rsid_column must be specified in config for generic PRS parser",
             )
 
         # Get file format (default to CSV)
@@ -243,20 +243,20 @@ class GenericPRSParser(BaseSNPParser):
             # Check for required rsID column
             if rsid_column not in df.columns:
                 raise ValueError(
-                    f"Required rsID column '{rsid_column}' not found. Available columns: {list(df.columns)}"
+                    f"Required rsID column '{rsid_column}' not found. Available columns: {list(df.columns)}",
                 )
 
             # Extract rsIDs
             rsids = df[rsid_column].dropna()
             if rsids.empty:
                 logger.warning(
-                    f"No valid rsIDs found in column '{rsid_column}' of {self.file_path}"
+                    f"No valid rsIDs found in column '{rsid_column}' of {self.file_path}",
                 )
                 return pd.DataFrame(columns=["rsid", "source", "category"])
 
             # Create base DataFrame
             result_df = pd.DataFrame(
-                {"rsid": rsids, "source": self.name, "category": "prs"}
+                {"rsid": rsids, "source": self.name, "category": "prs"},
             )
 
             # Add any additional columns specified in column mappings
@@ -266,7 +266,7 @@ class GenericPRSParser(BaseSNPParser):
                     result_df[result_col] = df.loc[rsids.index, source_col].values
 
             logger.info(
-                f"Successfully parsed {len(result_df)} PRS SNPs from {self.file_path}"
+                f"Successfully parsed {len(result_df)} PRS SNPs from {self.file_path}",
             )
 
             # Validate and standardize output
@@ -316,7 +316,7 @@ class PGSCatalogParser(BaseSNPParser):
             valid_mask = self._validate_variant_identifiers(vcf_ids)
             if not valid_mask.any():
                 logger.warning(
-                    f"No valid variants found after filtering in {self.file_path}"
+                    f"No valid variants found after filtering in {self.file_path}",
                 )
                 return pd.DataFrame(columns=["snp", "rsid", "source", "category"])
 
@@ -331,7 +331,7 @@ class PGSCatalogParser(BaseSNPParser):
                     "rsid": rsids,
                     "source": self.name,
                     "category": "prs",
-                }
+                },
             )
 
             # Add coordinate information (prefer harmonized if available)
@@ -341,7 +341,7 @@ class PGSCatalogParser(BaseSNPParser):
             self._add_prs_metadata(result_df, df, header_metadata)
 
             logger.info(
-                f"Successfully parsed {len(result_df)} PRS variants from {self.file_path}"
+                f"Successfully parsed {len(result_df)} PRS variants from {self.file_path}",
             )
 
             # Validate and standardize output
@@ -431,13 +431,13 @@ class PGSCatalogParser(BaseSNPParser):
                     # Likely missing rsID at the beginning - pad at start
                     padded_values = [""] + values
                     logger.debug(
-                        f"Missing rsID detected in rsID column, padding at start: {line[:50]}..."
+                        f"Missing rsID detected in rsID column, padding at start: {line[:50]}...",
                     )
                 else:
                     # Missing values at the end - pad at end (most common case)
                     padded_values = values[:]
                     logger.debug(
-                        f"Missing values at end, padding {len(columns) - len(values)} columns: {line[:50]}..."
+                        f"Missing values at end, padding {len(columns) - len(values)} columns: {line[:50]}...",
                     )
 
                 # Ensure we have the right number of columns
@@ -471,7 +471,7 @@ class PGSCatalogParser(BaseSNPParser):
 
         logger.info(f"Parsed header metadata: {len(header_metadata)} fields")
         logger.info(
-            f"Parsed variant data: {len(df)} variants with {len(df.columns)} columns"
+            f"Parsed variant data: {len(df)} variants with {len(df.columns)} columns",
         )
 
         return header_metadata, df
@@ -508,7 +508,7 @@ class PGSCatalogParser(BaseSNPParser):
         return config_build
 
     def _add_coordinate_columns(
-        self, result_df: pd.DataFrame, data_df: pd.DataFrame, genome_build: str
+        self, result_df: pd.DataFrame, data_df: pd.DataFrame, genome_build: str,
     ) -> None:
         """
         Add coordinate columns to result DataFrame.
@@ -609,7 +609,7 @@ class PGSCatalogParser(BaseSNPParser):
             result_df["other_allele"] = data_df["other_allele"]
         if "effect_weight" in data_df.columns:
             result_df["effect_weight"] = pd.to_numeric(
-                data_df["effect_weight"], errors="coerce"
+                data_df["effect_weight"], errors="coerce",
             )
 
         # Add PGS-level metadata from header
@@ -649,7 +649,7 @@ class PGSCatalogParser(BaseSNPParser):
             valid_hm_rsids = (hm_rsids != "") & hm_rsids.notna()
             if valid_hm_rsids.any():
                 logger.info(
-                    f"Found {valid_hm_rsids.sum()} variants with harmonized rsIDs"
+                    f"Found {valid_hm_rsids.sum()} variants with harmonized rsIDs",
                 )
                 variant_ids = hm_rsids.copy()
                 # For missing harmonized rsIDs, we'll fill them below
@@ -673,7 +673,7 @@ class PGSCatalogParser(BaseSNPParser):
             valid_orig_rsids = (orig_rsids != "") & orig_rsids.notna() & needs_fallback
             if valid_orig_rsids.any():
                 logger.info(
-                    f"Found {valid_orig_rsids.sum()} variants with original rsIDs from column '{rsid_column}'"
+                    f"Found {valid_orig_rsids.sum()} variants with original rsIDs from column '{rsid_column}'",
                 )
                 variant_ids.loc[valid_orig_rsids] = orig_rsids.loc[valid_orig_rsids]
                 needs_fallback = needs_fallback & ~valid_orig_rsids
@@ -681,7 +681,7 @@ class PGSCatalogParser(BaseSNPParser):
         # Strategy 3: Create chr:pos:ref:alt identifier for remaining variants
         if needs_fallback.any():
             logger.info(
-                f"Creating coordinate-based IDs for {needs_fallback.sum()} variants"
+                f"Creating coordinate-based IDs for {needs_fallback.sum()} variants",
             )
 
             # Determine coordinate columns (prefer harmonized)
@@ -800,7 +800,7 @@ class PGSCatalogParser(BaseSNPParser):
             valid_hm_rsids = (hm_rsids != "") & hm_rsids.notna()
             if valid_hm_rsids.any():
                 logger.info(
-                    f"Found {valid_hm_rsids.sum()} variants with harmonized rsIDs"
+                    f"Found {valid_hm_rsids.sum()} variants with harmonized rsIDs",
                 )
                 rsids.loc[valid_hm_rsids] = hm_rsids.loc[valid_hm_rsids]
 
@@ -818,14 +818,14 @@ class PGSCatalogParser(BaseSNPParser):
             valid_orig_rsids = (orig_rsids != "") & orig_rsids.notna() & rsids_are_empty
             if valid_orig_rsids.any():
                 logger.info(
-                    f"Found {valid_orig_rsids.sum()} variants with original rsIDs from column '{rsid_column}'"
+                    f"Found {valid_orig_rsids.sum()} variants with original rsIDs from column '{rsid_column}'",
                 )
                 rsids.loc[valid_orig_rsids] = orig_rsids.loc[valid_orig_rsids]
 
         # Count valid rsIDs before conversion
         rsids_count = (rsids != "").sum()
         logger.info(
-            f"Successfully extracted {rsids_count} rsIDs from {len(df)} variants"
+            f"Successfully extracted {rsids_count} rsIDs from {len(df)} variants",
         )
 
         # Convert empty strings to None for proper handling (do this at the very end)
@@ -833,7 +833,7 @@ class PGSCatalogParser(BaseSNPParser):
         return rsids
 
     def _validate_variant_identifiers(
-        self, variant_ids: pd.Series[Any]
+        self, variant_ids: pd.Series[Any],
     ) -> pd.Series[Any]:
         """
         Validate variant identifiers and filter out problematic entries.
@@ -857,7 +857,7 @@ class PGSCatalogParser(BaseSNPParser):
         # seems to be during aggregation, not during individual file parsing
 
         logger.info(
-            f"Validation complete: {valid_mask.sum()}/{len(variant_ids)} entries are valid"
+            f"Validation complete: {valid_mask.sum()}/{len(variant_ids)} entries are valid",
         )
         return valid_mask
 
@@ -891,7 +891,7 @@ class PGSCatalogFetcher(BaseSNPParser):
         try:
             # Initialize PGS Catalog client
             client = PGSCatalogClient(
-                cache_dir=cache_dir, cache_ttl_days=cache_ttl_days
+                cache_dir=cache_dir, cache_ttl_days=cache_ttl_days,
             )
 
             # Fetch and download scoring files for both builds
@@ -921,7 +921,7 @@ class PGSCatalogFetcher(BaseSNPParser):
                     if not build_df.empty:
                         build_dataframes[build] = build_df
                         logger.info(
-                            f"✓ Parsed {len(build_df)} variants from {pgs_id} ({build})"
+                            f"✓ Parsed {len(build_df)} variants from {pgs_id} ({build})",
                         )
                     else:
                         logger.warning(f"⚠ No variants found in {pgs_id} ({build})")
@@ -943,7 +943,7 @@ class PGSCatalogFetcher(BaseSNPParser):
             combined_df = pd.concat(all_pgs_data, ignore_index=True)
 
             logger.info(
-                f"Successfully fetched and parsed {len(combined_df)} total variants from {len(downloaded_files)} PGS scores"
+                f"Successfully fetched and parsed {len(combined_df)} total variants from {len(downloaded_files)} PGS scores",
             )
 
             return combined_df
@@ -953,7 +953,7 @@ class PGSCatalogFetcher(BaseSNPParser):
             raise ValueError(f"Failed to fetch PGS data: {e}") from e
 
     def _merge_dual_build_data(
-        self, build_dataframes: dict[str, pd.DataFrame], pgs_id: str
+        self, build_dataframes: dict[str, pd.DataFrame], pgs_id: str,
     ) -> pd.DataFrame:
         """
         Merge coordinate data from different genome builds for the same PGS.
@@ -1016,7 +1016,7 @@ class PGSCatalogFetcher(BaseSNPParser):
                 if self._get_variant_key(row) in grch37_coords
             )
             logger.info(
-                f"Matched {matched_variants}/{len(result_df)} variants between builds for {pgs_id}"
+                f"Matched {matched_variants}/{len(result_df)} variants between builds for {pgs_id}",
             )
 
         return result_df

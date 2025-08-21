@@ -98,7 +98,7 @@ DEFAULT_ACMG_GENES = [
 
 
 def _scrape_acmg_genes_from_ncbi(
-    url: str, cache_manager: CacheManager | None = None
+    url: str, cache_manager: CacheManager | None = None,
 ) -> list[str]:
     """
     Scrape ACMG genes from NCBI ClinVar website with caching support.
@@ -125,7 +125,7 @@ def _scrape_acmg_genes_from_ncbi(
 
     # Make request with User-Agent header
     headers = {
-        "User-Agent": "custom-panel/1.0 (Python scientific tool for gene panel curation)"
+        "User-Agent": "custom-panel/1.0 (Python scientific tool for gene panel curation)",
     }
 
     try:
@@ -142,7 +142,7 @@ def _scrape_acmg_genes_from_ncbi(
     main_content = soup.find("div", id="maincontent")
     if not main_content:
         raise ValueError(
-            "Could not find the main content div on the NCBI page. The website structure may have changed."
+            "Could not find the main content div on the NCBI page. The website structure may have changed.",
         )
     assert isinstance(main_content, Tag)  # Help MyPy understand the type
 
@@ -150,7 +150,7 @@ def _scrape_acmg_genes_from_ncbi(
     table_element = main_content.find("table")
     if not table_element:
         raise ValueError(
-            "Could not find the ACMG gene table on the NCBI page. The website structure may have changed."
+            "Could not find the ACMG gene table on the NCBI page. The website structure may have changed.",
         )
 
     # Use robust parsing method due to malformed HTML in the NCBI table
@@ -165,7 +165,7 @@ def _scrape_acmg_genes_from_ncbi(
     gene_links: list[Tag] = []
     if isinstance(table_element, Tag):
         found_links = table_element.find_all(
-            "a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x)
+            "a", href=lambda x: x and ("/gtr/genes/" in x or "/gene/" in x),
         )
         gene_links = [link for link in found_links if isinstance(link, Tag)]
 
@@ -267,7 +267,7 @@ def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
             genes = _scrape_acmg_genes_from_ncbi(url, cache_manager)
             if genes:
                 logger.info(
-                    f"Successfully fetched {len(genes)} ACMG genes from live URL: {url}"
+                    f"Successfully fetched {len(genes)} ACMG genes from live URL: {url}",
                 )
                 source_details = [f"URL:{url}|Date:{retrieval_date}"] * len(genes)
         except Exception as e:  # Catch all exceptions from scraper
@@ -308,7 +308,7 @@ def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
                             gene for gene in genes if gene and not gene.startswith("#")
                         ]
                         logger.info(
-                            f"Loaded {len(genes)} ACMG genes from CSV fallback file: {file_path}"
+                            f"Loaded {len(genes)} ACMG genes from CSV fallback file: {file_path}",
                         )
                         source_details = [f"File:{file_path_obj.name}"] * len(genes)
                 else:
@@ -328,12 +328,12 @@ def fetch_acmg_incidental_data(config: dict[str, Any]) -> pd.DataFrame:
 
                     if genes:
                         logger.info(
-                            f"Loaded {len(genes)} ACMG genes from text fallback file: {file_path}"
+                            f"Loaded {len(genes)} ACMG genes from text fallback file: {file_path}",
                         )
                         source_details = [f"File:{file_path_obj.name}"] * len(genes)
         except Exception as e:
             logger.warning(
-                f"Could not load ACMG genes from fallback file {file_path}: {e}"
+                f"Could not load ACMG genes from fallback file {file_path}: {e}",
             )
 
     # Priority 3: Use default list if all else fails

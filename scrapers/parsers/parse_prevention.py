@@ -35,7 +35,7 @@ class PreventionParser(BaseParser):
                 response.raise_for_status()
             except requests.RequestException as e:
                 logger.error(
-                    f"Network request to Prevention Genetics URL failed: {self.url} - {e}"
+                    f"Network request to Prevention Genetics URL failed: {self.url} - {e}",
                 )
                 raise  # Re-raise the exception to be caught by the master runner
 
@@ -71,7 +71,7 @@ class PreventionParser(BaseParser):
                                 if gene_text:
                                     cleaned_gene = self.clean_gene_symbol(gene_text)
                                     if cleaned_gene and self.validate_gene_symbol(
-                                        cleaned_gene
+                                        cleaned_gene,
                                     ):
                                         genes.append(cleaned_gene)
 
@@ -96,7 +96,7 @@ class PreventionParser(BaseParser):
                     seen.add(gene)
 
             logger.info(
-                f"Extracted {len(unique_genes)} genes from Prevention Genetics panel"
+                f"Extracted {len(unique_genes)} genes from Prevention Genetics panel",
             )
             return unique_genes
 

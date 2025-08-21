@@ -33,12 +33,10 @@ class FormatStrategy(ABC):
             path: Output file path
             **kwargs: Additional format-specific options
         """
-        pass
 
     @abstractmethod
     def get_extension(self) -> str:
         """Get file extension for this format."""
-        pass
 
     def prepare_path(self, base_path: Path, filename: str) -> Path:
         """
@@ -89,7 +87,7 @@ class ParquetStrategy(FormatStrategy):
                 df_clean[strand_col] = df_clean[strand_col].replace(["", "nan"], None)
                 # Convert numeric strings back to integers where appropriate
                 df_clean[strand_col] = df_clean[strand_col].apply(
-                    lambda x: int(x) if x and x.isdigit() else x
+                    lambda x: int(x) if x and x.isdigit() else x,
                 )
 
         return df_clean
@@ -136,7 +134,7 @@ class ExcelStrategy(FormatStrategy):
                 regions_data and isinstance(regions_data, dict)
             ):
                 self._save_multi_sheet_excel(
-                    df, path, snp_data, regions_data, index, engine
+                    df, path, snp_data, regions_data, index, engine,
                 )
             else:
                 # Single sheet Excel
@@ -169,10 +167,10 @@ class ExcelStrategy(FormatStrategy):
             if snp_data and isinstance(snp_data, dict):
                 # Combine all SNPs for master SNP sheet
                 all_snps = []
-                for snp_type, snp_df in snp_data.items():
+                for _, snp_df in snp_data.items():
                     if not snp_df.empty:
                         snp_df_copy = snp_df.copy()
-                        snp_df_copy["snp_type"] = snp_type
+                        # Note: snp_type info already preserved in category column
                         all_snps.append(snp_df_copy)
 
                 if all_snps:
@@ -180,7 +178,7 @@ class ExcelStrategy(FormatStrategy):
                     master_snp_df.to_excel(writer, sheet_name="All_SNPs", index=index)
                     logger.debug(f"Saved {len(master_snp_df)} SNPs to All_SNPs sheet")
                     console.print(
-                        f"[blue]Added All_SNPs sheet with {len(master_snp_df)} SNPs[/blue]"
+                        f"[blue]Added All_SNPs sheet with {len(master_snp_df)} SNPs[/blue]",
                     )
 
                     # Add individual SNP type sheets
@@ -190,11 +188,11 @@ class ExcelStrategy(FormatStrategy):
                             sheet_name = f"SNPs_{snp_type}"[:31]
                             snp_df.to_excel(writer, sheet_name=sheet_name, index=index)
                             logger.debug(
-                                f"Saved {len(snp_df)} SNPs to {sheet_name} sheet"
+                                f"Saved {len(snp_df)} SNPs to {sheet_name} sheet",
                             )
                             console.print(
                                 f"[blue]Added {sheet_name} sheet with "
-                                f"{len(snp_df)} SNPs[/blue]"
+                                f"{len(snp_df)} SNPs[/blue]",
                             )
 
             # Process regions data if available
@@ -210,13 +208,13 @@ class ExcelStrategy(FormatStrategy):
                 if all_regions:
                     master_regions_df = pd.concat(all_regions, ignore_index=True)
                     master_regions_df.to_excel(
-                        writer, sheet_name="All_Regions", index=index
+                        writer, sheet_name="All_Regions", index=index,
                     )
                     logger.debug(
-                        f"Saved {len(master_regions_df)} regions to All_Regions sheet"
+                        f"Saved {len(master_regions_df)} regions to All_Regions sheet",
                     )
                     console.print(
-                        f"[blue]Added All_Regions sheet with {len(master_regions_df)} regions[/blue]"
+                        f"[blue]Added All_Regions sheet with {len(master_regions_df)} regions[/blue]",
                     )
 
                     # Add individual region type sheets
@@ -225,14 +223,14 @@ class ExcelStrategy(FormatStrategy):
                             # Create valid sheet name (Excel sheet names <= 31 chars)
                             sheet_name = f"Regions_{region_type}"[:31]
                             region_df.to_excel(
-                                writer, sheet_name=sheet_name, index=index
+                                writer, sheet_name=sheet_name, index=index,
                             )
                             logger.debug(
-                                f"Saved {len(region_df)} regions to {sheet_name} sheet"
+                                f"Saved {len(region_df)} regions to {sheet_name} sheet",
                             )
                             console.print(
                                 f"[blue]Added {sheet_name} sheet with "
-                                f"{len(region_df)} regions[/blue]"
+                                f"{len(region_df)} regions[/blue]",
                             )
 
     def get_extension(self) -> str:
@@ -310,7 +308,7 @@ class FormatStrategyFactory:
         if format_name not in cls._strategies:
             available = ", ".join(cls._strategies.keys())
             raise ValueError(
-                f"Unsupported format: {format_name}. Available: {available}"
+                f"Unsupported format: {format_name}. Available: {available}",
             )
 
         return cls._strategies[format_name]()
@@ -322,7 +320,7 @@ class FormatStrategyFactory:
 
     @classmethod
     def register_strategy(
-        cls, format_name: str, strategy_class: type[FormatStrategy]
+        cls, format_name: str, strategy_class: type[FormatStrategy],
     ) -> None:
         """
         Register a new format strategy.
@@ -341,7 +339,7 @@ class DataFrameSaver:
         self.factory = FormatStrategyFactory()
 
     def save(
-        self, df: pd.DataFrame, path: Path, format_name: str, **kwargs: Any
+        self, df: pd.DataFrame, path: Path, format_name: str, **kwargs: Any,
     ) -> None:
         """
         Save DataFrame using specified format strategy.
@@ -391,7 +389,7 @@ class DataFrameSaver:
         return saved_files
 
     def get_file_path(
-        self, base_path: Path, filename_base: str, format_name: str
+        self, base_path: Path, filename_base: str, format_name: str,
     ) -> Path:
         """
         Get the file path for a specific format without saving.
@@ -410,7 +408,7 @@ class DataFrameSaver:
 
 # Convenience function for backward compatibility
 def save_dataframe(
-    df: pd.DataFrame, path: Path, format_name: str, **kwargs: Any
+    df: pd.DataFrame, path: Path, format_name: str, **kwargs: Any,
 ) -> None:
     """
     Convenience function to save a DataFrame in the specified format.

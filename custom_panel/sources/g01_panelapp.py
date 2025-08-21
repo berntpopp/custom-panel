@@ -72,11 +72,11 @@ class PanelAppClient:
             except requests.RequestException as e:
                 if attempt == self.max_retries:
                     logger.error(
-                        f"Failed to fetch {url} after {self.max_retries} retries: {e}"
+                        f"Failed to fetch {url} after {self.max_retries} retries: {e}",
                     )
                     return None
                 logger.warning(
-                    f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}"
+                    f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}",
                 )
         return None
 
@@ -174,7 +174,7 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
 
     # Evidence level to score mapping
     evidence_scores = panelapp_config.get(
-        "evidence_scores", {"Green": 1.0, "Amber": 0.5, "Red": 0.1}
+        "evidence_scores", {"Green": 1.0, "Amber": 0.5, "Red": 0.1},
     )
 
     # Process each PanelApp instance
@@ -194,7 +194,7 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
         if not panels_to_fetch:
             # If no specific panels specified, get all panels
             logger.info(
-                f"No specific panels configured, fetching all panels from {instance_name}"
+                f"No specific panels configured, fetching all panels from {instance_name}",
             )
             all_panels = client.get_panel_list(base_url)
             panels_to_fetch = [
@@ -306,7 +306,7 @@ def fetch_panelapp_data(config: dict[str, Any]) -> pd.DataFrame:
 
 
 def search_panelapp_panels(
-    config: dict[str, Any], search_term: str
+    config: dict[str, Any], search_term: str,
 ) -> list[dict[str, Any]]:
     """
     Search for panels in PanelApp by name or description.
@@ -352,7 +352,7 @@ def search_panelapp_panels(
                         "version": panel.get("version"),
                         "source": panelapp_instance.get("name", "PanelApp"),
                         "base_url": base_url,
-                    }
+                    },
                 )
 
     return matching_panels

@@ -58,7 +58,7 @@ class IDTHybridizationParser(BaseSNPScraper):
                             "end": data.get("end"),
                             "strand": data.get("strand"),
                             "assembly": data.get("assembly"),
-                        }
+                        },
                     )
 
                 snps.append(
@@ -67,11 +67,11 @@ class IDTHybridizationParser(BaseSNPScraper):
                         category="identity",
                         panel_specific_name="IDT xGen Human ID Hybridization Panel",
                         **coord_args,
-                    )
+                    ),
                 )
 
             logger.info(
-                f"Successfully extracted {len(snps)} SNPs from IDT Hybridization panel"
+                f"Successfully extracted {len(snps)} SNPs from IDT Hybridization panel",
             )
 
             return {
@@ -146,7 +146,7 @@ class IDTHybridizationParser(BaseSNPScraper):
                                     "end": end,
                                     "strand": strand,
                                     "assembly": "GRCh37",  # IDT typically uses GRCh37/hg19
-                                }
+                                },
                             )
                         else:
                             logger.debug(f"Invalid rsID: {rsid}")
@@ -157,7 +157,7 @@ class IDTHybridizationParser(BaseSNPScraper):
 
             elif len(df.columns) >= 1:
                 logger.warning(
-                    f"Expected BED format but got {len(df.columns)} columns, extracting rsIDs only"
+                    f"Expected BED format but got {len(df.columns)} columns, extracting rsIDs only",
                 )
 
                 # Fallback: try to find rsIDs in any column
@@ -170,7 +170,7 @@ class IDTHybridizationParser(BaseSNPScraper):
             # If no records found, try line-by-line parsing
             if not snp_records:
                 logger.info(
-                    "No records found in tabular format, trying line-by-line parsing"
+                    "No records found in tabular format, trying line-by-line parsing",
                 )
 
                 with open(list_path, encoding="utf-8") as f:
@@ -200,7 +200,7 @@ class IDTHybridizationParser(BaseSNPScraper):
                                             "end": end,
                                             "strand": strand,
                                             "assembly": "GRCh37",
-                                        }
+                                        },
                                     )
                             except (ValueError, IndexError):
                                 # Extract rsIDs from the line using regex
@@ -224,7 +224,7 @@ class IDTHybridizationParser(BaseSNPScraper):
 
             with_coords = sum(1 for r in unique_records if "chromosome" in r)
             logger.info(
-                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)"
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)",
             )
 
             return unique_records

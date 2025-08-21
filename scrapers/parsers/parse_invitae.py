@@ -254,7 +254,7 @@ class InvitaeParser(BaseParser):
             # Configure proxy for Charite network
             chrome_options.add_argument("--proxy-server=http://proxy.charite.de:8080")
             chrome_options.add_argument(
-                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             )
 
             # Initialize driver - try manual ChromeDriver first, then fallback
@@ -276,7 +276,7 @@ class InvitaeParser(BaseParser):
 
             # Wait for content to load
             WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
+                EC.presence_of_element_located((By.TAG_NAME, "body")),
             )
 
             # Additional wait for dynamic content
@@ -318,7 +318,7 @@ class InvitaeParser(BaseParser):
 
                         # Extract potential gene symbols with basic pattern
                         potential_genes = re.findall(
-                            r"\b[A-Z][A-Z0-9]{1,7}\b", script_content
+                            r"\b[A-Z][A-Z0-9]{1,7}\b", script_content,
                         )
 
                         # Apply better filtering

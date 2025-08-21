@@ -240,7 +240,7 @@ class EnsemblVariantClient:
         for variant in variants:
             try:
                 converted = self._convert_single_variant(
-                    variant, source_assembly, target_assembly
+                    variant, source_assembly, target_assembly,
                 )
                 if converted:
                     converted_variants.append(converted)
@@ -290,7 +290,7 @@ class EnsemblVariantClient:
         return enriched_variants
 
     def _convert_single_variant(
-        self, variant: dict[str, Any], source_assembly: str, target_assembly: str
+        self, variant: dict[str, Any], source_assembly: str, target_assembly: str,
     ) -> dict[str, Any] | None:
         """Convert a single variant between assemblies."""
 
@@ -328,7 +328,7 @@ class EnsemblVariantClient:
                 mapping = data["mappings"][0]
                 converted_data = {
                     f"{target_assembly.lower()}_chromosome": str(
-                        mapping["mapped"]["seq_region_name"]
+                        mapping["mapped"]["seq_region_name"],
                     ),
                     f"{target_assembly.lower()}_position": mapping["mapped"]["start"],
                     f"{target_assembly.lower()}_end": mapping["mapped"]["end"],
@@ -347,7 +347,7 @@ class EnsemblVariantClient:
 
         except Exception as e:
             logger.debug(
-                f"Coordinate conversion failed for {chromosome}:{position}: {e}"
+                f"Coordinate conversion failed for {chromosome}:{position}: {e}",
             )
             if self.cache_enabled:
                 self._cache[cache_key] = None
@@ -438,7 +438,7 @@ class EnsemblVariantClient:
 
         # Convert coordinates
         logger.info(
-            f"Converting coordinates from {source_assembly} to {target_assembly}"
+            f"Converting coordinates from {source_assembly} to {target_assembly}",
         )
         variants = self.convert_coordinates(variants, source_assembly, target_assembly)
 

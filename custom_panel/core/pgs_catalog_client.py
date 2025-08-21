@@ -215,7 +215,7 @@ class PGSCatalogClient:
             raise
 
     def download_scoring_file(
-        self, pgs_id: str, file_url: str, genome_build: str = "GRCh38"
+        self, pgs_id: str, file_url: str, genome_build: str = "GRCh38",
     ) -> Path:
         """
         Download and cache a PGS scoring file.
@@ -245,7 +245,7 @@ class PGSCatalogClient:
                 return cache_path
             else:
                 logger.info(
-                    f"Cached file is {file_age_days} days old, re-downloading..."
+                    f"Cached file is {file_age_days} days old, re-downloading...",
                 )
 
         logger.info(f"Downloading PGS scoring file: {file_url}")
@@ -274,11 +274,11 @@ class PGSCatalogClient:
                                 progress = (downloaded_size / total_size) * 100
                                 logger.info(
                                     f"Downloaded {downloaded_size // (1024 * 1024)}MB / "
-                                    f"{total_size // (1024 * 1024)}MB ({progress:.1f}%)"
+                                    f"{total_size // (1024 * 1024)}MB ({progress:.1f}%)",
                                 )
                             else:
                                 logger.info(
-                                    f"Downloaded {downloaded_size // (1024 * 1024)}MB"
+                                    f"Downloaded {downloaded_size // (1024 * 1024)}MB",
                                 )
 
             logger.info(f"Successfully downloaded PGS file to: {cache_path}")
@@ -289,7 +289,7 @@ class PGSCatalogClient:
             raise
 
     def get_scoring_file_url(
-        self, pgs_metadata: dict[str, Any], pgs_id: str, genome_build: str = "GRCh38"
+        self, pgs_metadata: dict[str, Any], pgs_id: str, genome_build: str = "GRCh38",
     ) -> str | None:
         """
         Extract the appropriate scoring file URL from PGS metadata.
@@ -321,7 +321,7 @@ class PGSCatalogClient:
             positions_info = harmonized_files[fallback_build]
             if "positions" in positions_info:
                 logger.warning(
-                    f"Using {fallback_build} build for {pgs_id} (preferred {genome_build} not available)"
+                    f"Using {fallback_build} build for {pgs_id} (preferred {genome_build} not available)",
                 )
                 return positions_info["positions"]
 
@@ -329,7 +329,7 @@ class PGSCatalogClient:
         original_file = pgs_data.get("ftp_scoring_file")
         if original_file:
             logger.warning(
-                f"Using original scoring file for {pgs_id} (harmonized files not available)"
+                f"Using original scoring file for {pgs_id} (harmonized files not available)",
             )
             return original_file
 
@@ -337,7 +337,7 @@ class PGSCatalogClient:
         return None
 
     def fetch_and_cache_pgs_files(
-        self, pgs_ids: list[str], genome_build: str = "GRCh38"
+        self, pgs_ids: list[str], genome_build: str = "GRCh38",
     ) -> dict[str, dict[str, Path]]:
         """
         Fetch metadata and download scoring files for multiple PGS IDs for both genome builds.
@@ -390,11 +390,11 @@ class PGSCatalogClient:
                 variants_num = pgs_data.get("variants_number", "Unknown")
                 builds_available = list(pgs_files.keys())
                 logger.info(
-                    f"✓ {pgs_id}: {trait} ({variants_num} variants) - {builds_available}"
+                    f"✓ {pgs_id}: {trait} ({variants_num} variants) - {builds_available}",
                 )
             else:
                 failed_downloads.append(
-                    f"{pgs_id}: No scoring files available for any build"
+                    f"{pgs_id}: No scoring files available for any build",
                 )
 
         if failed_downloads:
@@ -407,6 +407,6 @@ class PGSCatalogClient:
 
         total_files = sum(len(files) for files in downloaded_files.values())
         logger.info(
-            f"Successfully downloaded {total_files} PGS scoring files for {len(downloaded_files)} scores"
+            f"Successfully downloaded {total_files} PGS scoring files for {len(downloaded_files)} scores",
         )
         return downloaded_files

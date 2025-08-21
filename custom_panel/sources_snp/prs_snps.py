@@ -187,11 +187,11 @@ def fetch_prs_snps(config: dict[str, Any]) -> pd.DataFrame | None:
             if panel_df is not None and not panel_df.empty:
                 all_snps.append(panel_df)
                 logger.info(
-                    f"✓ {panel_config.get('name', 'Unknown')}: {len(panel_df)} SNPs"
+                    f"✓ {panel_config.get('name', 'Unknown')}: {len(panel_df)} SNPs",
                 )
             else:
                 logger.warning(
-                    f"⚠ {panel_config.get('name', 'Unknown')}: No SNPs found"
+                    f"⚠ {panel_config.get('name', 'Unknown')}: No SNPs found",
                 )
         except Exception as e:
             logger.error(f"✗ {panel_config.get('name', 'Unknown')}: {e}")
@@ -208,7 +208,7 @@ def fetch_prs_snps(config: dict[str, Any]) -> pd.DataFrame | None:
         conflicts = _check_effect_allele_conflicts(combined_df)
         if conflicts:
             logger.warning(
-                f"Found {len(conflicts)} rsIDs with conflicting effect alleles"
+                f"Found {len(conflicts)} rsIDs with conflicting effect alleles",
             )
             for rsid, alleles in conflicts.items():
                 logger.warning(f"  {rsid}: {alleles}")
@@ -238,7 +238,7 @@ def _fetch_single_prs_panel(panel_config: dict[str, Any]) -> pd.DataFrame | None
 
     # For PGS Catalog fetcher, no file path is needed (downloads via API)
     if parser_type == "pgs_catalog_fetcher":
-        file_path = Path(".")  # Dummy path - fetcher doesn't use it
+        file_path = Path()  # Dummy path - fetcher doesn't use it
     else:
         file_path = Path(panel_config.get("file_path", ""))
 
@@ -302,22 +302,22 @@ def _aggregate_prs_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
         for pattern in invalid_snp_patterns:
             try:
                 pattern_mask = snp_series.str.match(
-                    f"^{pattern}$", case=False, na=False
+                    f"^{pattern}$", case=False, na=False,
                 )
                 if pattern_mask.any():
                     logger.info(
-                        f"Filtering out {pattern_mask.sum()} entries with SNP ID '{pattern}'"
+                        f"Filtering out {pattern_mask.sum()} entries with SNP ID '{pattern}'",
                     )
                     valid_mask = valid_mask & ~pattern_mask
             except AttributeError as e:
                 logger.warning(
-                    f"Could not apply string pattern matching for '{pattern}': {e}"
+                    f"Could not apply string pattern matching for '{pattern}': {e}",
                 )
                 # Fallback to exact string comparison
                 pattern_mask = snp_series == pattern
                 if pattern_mask.any():
                     logger.info(
-                        f"Filtering out {pattern_mask.sum()} entries with exact SNP ID '{pattern}'"
+                        f"Filtering out {pattern_mask.sum()} entries with exact SNP ID '{pattern}'",
                     )
                     valid_mask = valid_mask & ~pattern_mask
 
@@ -325,7 +325,7 @@ def _aggregate_prs_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
         null_mask = snp_series.isna() | (snp_series == "nan") | (snp_series == "")
         if null_mask.any():
             logger.info(
-                f"Filtering out {null_mask.sum()} entries with null/empty SNP IDs"
+                f"Filtering out {null_mask.sum()} entries with null/empty SNP IDs",
             )
             valid_mask = valid_mask & ~null_mask
 
@@ -335,7 +335,7 @@ def _aggregate_prs_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
 
         if filtered_count > 0:
             logger.info(
-                f"Filtered out {filtered_count} problematic entries before aggregation"
+                f"Filtered out {filtered_count} problematic entries before aggregation",
             )
 
         # Reset index to ensure clean structure

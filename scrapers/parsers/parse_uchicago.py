@@ -35,7 +35,7 @@ class UChicagoParser(BaseParser):
                 response.raise_for_status()
             except requests.RequestException as e:
                 logger.error(
-                    f"Network request to University of Chicago URL failed: {self.url} - {e}"
+                    f"Network request to University of Chicago URL failed: {self.url} - {e}",
                 )
                 raise  # Re-raise the exception to be caught by the master runner
 
@@ -78,7 +78,7 @@ class UChicagoParser(BaseParser):
                     seen.add(gene)
 
             logger.info(
-                f"Extracted {len(unique_genes)} genes from University of Chicago panel"
+                f"Extracted {len(unique_genes)} genes from University of Chicago panel",
             )
             return unique_genes
 

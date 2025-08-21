@@ -52,7 +52,7 @@ class EnsemblClient:
                 "Content-Type": "application/json",
                 "Accept": "application/json",
                 "User-Agent": "custom-panel/0.1.0",
-            }
+            },
         )
 
     def _make_request(
@@ -89,15 +89,15 @@ class EnsemblClient:
         if data:
             if "symbols" in data:
                 logger.debug(
-                    f"Making {method} request to {url} with {len(data['symbols'])} symbols"
+                    f"Making {method} request to {url} with {len(data['symbols'])} symbols",
                 )
             elif "ids" in data:
                 logger.debug(
-                    f"Making {method} request to {url} with {len(data['ids'])} gene IDs"
+                    f"Making {method} request to {url} with {len(data['ids'])} gene IDs",
                 )
             else:
                 logger.debug(
-                    f"Making {method} request to {url} with data keys: {list(data.keys())}"
+                    f"Making {method} request to {url} with data keys: {list(data.keys())}",
                 )
         else:
             logger.debug(f"Making {method} request to {url}")
@@ -111,7 +111,7 @@ class EnsemblClient:
             try:
                 if method.upper() == "POST":
                     response = self.session.post(
-                        url, json=data, timeout=request_timeout
+                        url, json=data, timeout=request_timeout,
                     )
                 else:
                     response = self.session.get(url, timeout=request_timeout)
@@ -124,24 +124,24 @@ class EnsemblClient:
                     logger.debug(f"Received response with {len(json_response)} items")
                 elif isinstance(json_response, list):
                     logger.debug(
-                        f"Received response with {len(json_response)} list items"
+                        f"Received response with {len(json_response)} list items",
                     )
 
                 # Cache successful response
                 if self.cache_manager:
                     self.cache_manager.set(
-                        "ensembl", endpoint, method, data, json_response
+                        "ensembl", endpoint, method, data, json_response,
                     )
 
                 return json_response
             except (requests.RequestException, ValueError) as e:
                 if attempt == self.max_retries:
                     logger.error(
-                        f"Failed to fetch {url} after {self.max_retries} retries: {e}"
+                        f"Failed to fetch {url} after {self.max_retries} retries: {e}",
                     )
                     raise
                 logger.warning(
-                    f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}"
+                    f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}",
                 )
                 time.sleep(self.retry_delay * (2**attempt))  # Exponential backoff
 
@@ -150,7 +150,7 @@ class EnsemblClient:
 
     @functools.lru_cache(maxsize=5000)  # noqa: B019
     def get_gene_coordinates(
-        self, gene_symbol: str, species: str = "human"
+        self, gene_symbol: str, species: str = "human",
     ) -> dict[str, Any] | None:
         """
         Get genomic coordinates for a gene symbol.
@@ -179,7 +179,7 @@ class EnsemblClient:
         return None
 
     def get_genes_coordinates(
-        self, gene_symbols: list[str], species: str = "human"
+        self, gene_symbols: list[str], species: str = "human",
     ) -> dict[str, dict[str, Any] | None]:
         """
         Get genomic coordinates for multiple gene symbols using batch request.
@@ -197,7 +197,7 @@ class EnsemblClient:
         return self.get_symbols_data_batch(gene_symbols, species, expand=False)
 
     def get_symbols_data_batch(
-        self, gene_symbols: list[str], species: str = "human", expand: bool = False
+        self, gene_symbols: list[str], species: str = "human", expand: bool = False,
     ) -> dict[str, dict[str, Any] | None]:
         """
         Get genomic data for multiple gene symbols using optimized batch requests.
@@ -216,7 +216,7 @@ class EnsemblClient:
         try:
             data = {"symbols": gene_symbols}
             response = self._make_request(
-                f"lookup/symbol/{species}", method="POST", data=data
+                f"lookup/symbol/{species}", method="POST", data=data,
             )
 
             result: dict[str, dict[str, Any] | None] = {}
@@ -291,14 +291,14 @@ class EnsemblClient:
         # Use fewer workers for transcript requests as they're memory-intensive
         max_transcript_workers = min(3, len(batches))
         logger.info(
-            f"Processing {len(batches)} transcript batches in parallel (workers={max_transcript_workers})"
+            f"Processing {len(batches)} transcript batches in parallel (workers={max_transcript_workers})",
         )
 
         with ThreadPoolExecutor(max_workers=max_transcript_workers) as executor:
             # Submit all transcript batch jobs
             future_to_batch = {
                 executor.submit(
-                    self._process_transcript_batch, batch_items, result, species
+                    self._process_transcript_batch, batch_items, result, species,
                 ): i
                 for i, batch_items in enumerate(batches)
             }
@@ -311,7 +311,7 @@ class EnsemblClient:
                     future.result()  # This will raise if there was an exception
                     completed += 1
                     logger.info(
-                        f"✓ Completed transcript batch {completed}/{len(batches)}"
+                        f"✓ Completed transcript batch {completed}/{len(batches)}",
                     )
                 except Exception as e:
                     logger.error(f"✗ Transcript batch {batch_num + 1} failed: {e}")
@@ -337,7 +337,7 @@ class EnsemblClient:
             # Use batch lookup for gene IDs with expand and MANE transcript data
             data = {"ids": batch_gene_ids}
             logger.debug(
-                f"Fetching transcript data for batch of {len(batch_gene_ids)} gene IDs"
+                f"Fetching transcript data for batch of {len(batch_gene_ids)} gene IDs",
             )
             # Use longer timeout for transcript queries as they return more data
             response = self._make_request(
@@ -443,7 +443,7 @@ class EnsemblClient:
 
     @functools.lru_cache(maxsize=1000)  # noqa: B019
     def rsid_to_coordinates(
-        self, rsid: str, species: str = "human"
+        self, rsid: str, species: str = "human",
     ) -> dict[str, Any] | None:
         """
         Convert rsID to genomic coordinates.
@@ -474,7 +474,7 @@ class EnsemblClient:
         return None
 
     def calculate_gene_size(
-        self, gene_symbol: str, species: str = "human"
+        self, gene_symbol: str, species: str = "human",
     ) -> int | None:
         """
         Calculate the genomic size of a gene (end - start + 1).
@@ -492,7 +492,7 @@ class EnsemblClient:
         return None
 
     def get_gene_annotation(
-        self, gene_symbol: str, species: str = "human"
+        self, gene_symbol: str, species: str = "human",
     ) -> dict[str, Any]:
         """
         Get comprehensive gene annotation information.
@@ -553,7 +553,7 @@ class EnsemblClient:
         }
 
     def calculate_transcript_coverage(
-        self, transcript_data: dict[str, Any], padding: int = 0
+        self, transcript_data: dict[str, Any], padding: int = 0,
     ) -> int | None:
         """
         Calculate transcript coverage including exons and padding.
@@ -587,7 +587,7 @@ class EnsemblClient:
             return None
 
     def calculate_gene_coverage(
-        self, gene_start: int, gene_end: int, padding: int = 0
+        self, gene_start: int, gene_end: int, padding: int = 0,
     ) -> int | None:
         """
         Calculate gene coverage including padding.
@@ -610,12 +610,12 @@ class EnsemblClient:
 
         except (TypeError, ValueError):
             logger.warning(
-                f"Failed to calculate gene coverage for positions {gene_start}-{gene_end}"
+                f"Failed to calculate gene coverage for positions {gene_start}-{gene_end}",
             )
             return None
 
     def get_transcript_exons(
-        self, transcript_id: str, species: str = "human"
+        self, transcript_id: str, species: str = "human",
     ) -> list[dict[str, Any]]:
         """
         Get exon coordinates for a specific transcript.
@@ -653,7 +653,7 @@ class EnsemblClient:
         return []
 
     def get_gene_exons_by_transcript_type(
-        self, gene_data: dict[str, Any], transcript_type: str = "canonical"
+        self, gene_data: dict[str, Any], transcript_type: str = "canonical",
     ) -> list[dict[str, Any]]:
         """
         Get exon coordinates for a gene using a specific transcript type.
@@ -700,7 +700,7 @@ class EnsemblClient:
         return exons
 
     def get_variations_batch(
-        self, rsids: list[str], species: str = "homo_sapiens", batch_size: int = 25
+        self, rsids: list[str], species: str = "homo_sapiens", batch_size: int = 25,
     ) -> dict[str, dict[str, Any]]:
         """
         Get variation information for multiple rsIDs using batched requests.
@@ -747,7 +747,7 @@ class EnsemblClient:
 
         for batch_idx, batch_rsids in enumerate(batches):
             logger.debug(
-                f"Processing batch {batch_idx + 1}/{len(batches)} with {len(batch_rsids)} rsIDs"
+                f"Processing batch {batch_idx + 1}/{len(batches)} with {len(batch_rsids)} rsIDs",
             )
 
             try:
@@ -755,7 +755,7 @@ class EnsemblClient:
                 all_results.update(batch_results)
 
                 logger.debug(
-                    f"✅ Batch {batch_idx + 1}/{len(batches)} completed: {len(batch_results)} variations fetched"
+                    f"✅ Batch {batch_idx + 1}/{len(batches)} completed: {len(batch_results)} variations fetched",
                 )
 
                 # Add a small delay between batches to avoid overwhelming the API
@@ -801,7 +801,7 @@ class EnsemblClient:
         return all_results
 
     def _get_variations_single_batch(
-        self, rsids: list[str], species: str = "homo_sapiens"
+        self, rsids: list[str], species: str = "homo_sapiens",
     ) -> dict[str, dict[str, Any]]:
         """
         Get variation information for a single batch of rsIDs.
@@ -822,7 +822,7 @@ class EnsemblClient:
         if len(rsids) > 200:
             logger.warning(
                 f"Batch size {len(rsids)} exceeds Ensembl API limit of 200. "
-                f"Consider using get_variations_batch() instead."
+                f"Consider using get_variations_batch() instead.",
             )
 
         url = f"variation/{species}/"
@@ -832,7 +832,7 @@ class EnsemblClient:
             # Use longer timeout for batch variation requests as they take more time
             timeout_override = 90 if len(rsids) > 10 else None
             response = self._make_request(
-                url, method="POST", data=data, timeout_override=timeout_override
+                url, method="POST", data=data, timeout_override=timeout_override,
             )
 
             if isinstance(response, dict):
@@ -843,7 +843,7 @@ class EnsemblClient:
 
         except requests.RequestException as e:
             logger.error(
-                f"❌ Failed to fetch variations from Ensembl: {str(e)}",
+                f"❌ Failed to fetch variations from Ensembl: {e!s}",
                 extra={
                     "rsid_count": len(rsids),
                     "species": species,
@@ -852,7 +852,7 @@ class EnsemblClient:
             raise
 
     def extract_coordinates_from_variation(
-        self, variation_data: dict[str, Any], preferred_assembly: str = "GRCh38"
+        self, variation_data: dict[str, Any], preferred_assembly: str = "GRCh38",
     ) -> dict[str, Any] | None:
         """
         Extract coordinate information from Ensembl variation data.

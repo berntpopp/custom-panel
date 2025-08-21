@@ -769,8 +769,8 @@ class TestSNPDeduplication:
             dup_entry["source"] == "Manual_SNPs; PGS_Catalog"
         )  # Sources merged and sorted
         assert dup_entry["category"] == "manual; prs"  # Categories merged and sorted
-        assert dup_entry["snp_type"] == "manual_snps; prs"  # Types merged and sorted
         assert dup_entry["source_count"] == 2  # Two sources
+        # Note: snp_type column has been removed - info preserved in category column
 
         # Check the non-duplicate entry remains unchanged
         single_entry = result[result["snp"] == "rs123456"].iloc[0]
@@ -1022,7 +1022,7 @@ class TestNewBEDFileGeneration:
         """Test creating BED file with all SNPs combined."""
         from custom_panel.core.io import create_snps_all_bed
 
-        # Create test SNP data
+        # Create test SNP data with all required columns for robustness
         snp_data = {
             "identity": pd.DataFrame(
                 {
@@ -1030,6 +1030,7 @@ class TestNewBEDFileGeneration:
                     "hg38_chromosome": ["1", "2"],
                     "hg38_start": [1000, 2000],
                     "hg38_end": [1000, 2000],
+                    "category": ["identity", "identity"],
                 }
             ),
             "ethnicity": pd.DataFrame(
@@ -1038,6 +1039,7 @@ class TestNewBEDFileGeneration:
                     "hg38_chromosome": ["3", "4"],
                     "hg38_start": [3000, 4000],
                     "hg38_end": [3000, 4000],
+                    "category": ["ethnicity", "ethnicity"],
                 }
             ),
         }
@@ -1058,6 +1060,70 @@ class TestNewBEDFileGeneration:
             assert "rs5678" in bed_content
             assert "rs9876" in bed_content
             assert "rs5432" in bed_content
+
+    def test_create_snps_all_bed_missing_category(self):
+        """Test creating BED file when category column is missing (robustness test)."""
+        from custom_panel.core.io import create_snps_all_bed
+
+        # Create test SNP data without category column (legacy format)
+        snp_data = {
+            "manual": pd.DataFrame(
+                {
+                    "snp": ["rs1111", "rs2222"],
+                    "hg38_chromosome": ["1", "2"],
+                    "hg38_start": [1000, 2000],
+                    "hg38_end": [1000, 2000],
+                    # Note: no category column - should be added automatically
+                }
+            ),
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "snps_all.bed"
+            create_snps_all_bed(snp_data, bed_path)
+
+            # Should include all SNPs with category inferred from key
+            with open(bed_path) as f:
+                lines = f.readlines()
+
+            assert len(lines) == 2  # All SNPs included
+            bed_content = "".join(lines)
+            assert "rs1111" in bed_content
+            assert "rs2222" in bed_content
+            assert "manual" in bed_content  # Category should be added
+
+    def test_create_snps_all_bed_empty_data(self):
+        """Test error handling for empty SNP data."""
+        from custom_panel.core.io import create_snps_all_bed
+        import pytest
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "snps_all.bed"
+            
+            # Test empty dictionary
+            with pytest.raises(ValueError, match="No SNP data provided"):
+                create_snps_all_bed({}, bed_path)
+
+    def test_create_snps_all_bed_no_valid_coordinates(self):
+        """Test error handling when no SNPs have valid coordinates."""
+        from custom_panel.core.io import create_snps_all_bed
+        import pytest
+
+        # Create SNP data with missing coordinate columns
+        snp_data = {
+            "invalid": pd.DataFrame(
+                {
+                    "snp": ["rs1111"],
+                    # Missing coordinate columns
+                }
+            ),
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bed_path = Path(tmpdir) / "snps_all.bed"
+            
+            with pytest.raises(ValueError, match="No valid SNP data found"):
+                create_snps_all_bed(snp_data, bed_path)
 
     def test_create_regions_all_bed(self):
         """Test creating BED file with all regions combined."""

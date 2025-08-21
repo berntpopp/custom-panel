@@ -35,7 +35,7 @@ class NeogenomicsParser(BaseParser):
                 response.raise_for_status()
             except requests.RequestException as e:
                 logger.error(
-                    f"Network request to NeoGenomics URL failed: {self.url} - {e}"
+                    f"Network request to NeoGenomics URL failed: {self.url} - {e}",
                 )
                 raise  # Re-raise the exception to be caught by the master runner
 
@@ -46,7 +46,7 @@ class NeogenomicsParser(BaseParser):
 
             # Find paragraphs containing "AIP"
             aip_paragraphs = soup.find_all(
-                "p", string=lambda text: text and "AIP" in text
+                "p", string=lambda text: text and "AIP" in text,
             )
 
             for paragraph in aip_paragraphs:

@@ -35,7 +35,7 @@ class PanelMerger:
         self.qc_config = config.get("quality_control", {})
 
     def create_master_list(
-        self, dataframes: list[pd.DataFrame], output_manager: Any = None
+        self, dataframes: list[pd.DataFrame], output_manager: Any = None,
     ) -> pd.DataFrame:
         """
         Create master gene list from multiple source DataFrames.
@@ -54,7 +54,7 @@ class PanelMerger:
             return pd.DataFrame(columns=STANDARD_COLUMNS)
 
         logger.info(
-            f"Starting merger pipeline with {len(dataframes)} source dataframes"
+            f"Starting merger pipeline with {len(dataframes)} source dataframes",
         )
 
         # Log source group statistics
@@ -147,10 +147,10 @@ class PanelMerger:
 
         logger.info("Calculating gene scores")
         logger.debug(
-            f"Scoring configuration - Source group weights: {self.source_group_weights}"
+            f"Scoring configuration - Source group weights: {self.source_group_weights}",
         )
         logger.debug(
-            f"Scoring configuration - Max evidence score: {self.scoring_config.get('max_evidence_score', 'No limit')}"
+            f"Scoring configuration - Max evidence score: {self.scoring_config.get('max_evidence_score', 'No limit')}",
         )
 
         # Group by approved gene symbol
@@ -209,7 +209,7 @@ class PanelMerger:
                 "source_names": source_names_list,
                 "source_details": source_details_list,
                 "veto_reasons": veto_reasons_list,
-            }
+            },
         )
 
         # Sort by score (highest first)
@@ -222,7 +222,7 @@ class PanelMerger:
             score_stats = scored_df["score"].describe()
             logger.info(
                 f"Score distribution - mean: {score_stats['mean']:.2f}, "
-                f"median: {score_stats['50%']:.2f}, max: {score_stats['max']:.2f}"
+                f"median: {score_stats['50%']:.2f}, max: {score_stats['max']:.2f}",
             )
 
         if "source_count" in scored_df.columns:
@@ -262,7 +262,7 @@ class PanelMerger:
 
             logger.debug(
                 f"Gene score contribution from {source_identifier}: "
-                f"{base_score:.2f} * {internal_confidence:.2f} * {weight:.2f} = {score_contribution:.2f}"
+                f"{base_score:.2f} * {internal_confidence:.2f} * {weight:.2f} = {score_contribution:.2f}",
             )
 
         # Apply maximum score limit if configured
@@ -283,7 +283,7 @@ class PanelMerger:
         # Log threshold configuration
         logger.info(
             f"Applying decision thresholds - Score: {score_threshold}, "
-            f"Min sources: {min_sources}"
+            f"Min sources: {min_sources}",
         )
 
         # Apply decision logic
@@ -317,7 +317,7 @@ class PanelMerger:
         logger.info(f"Decision results: {included_genes}/{total_genes} genes included")
         if veto_genes > 0:
             logger.info(
-                f"Veto override: {veto_only_genes} genes included only due to veto (total with veto: {veto_genes})"
+                f"Veto override: {veto_only_genes} genes included only due to veto (total with veto: {veto_genes})",
             )
 
         # Log examples of included/excluded genes for debugging
@@ -328,7 +328,7 @@ class PanelMerger:
                 logger.debug("Top 5 included genes:")
                 for _, gene in top_genes.iterrows():
                     logger.debug(
-                        f"  {gene['approved_symbol']}: score={gene['score']:.2f}, sources={gene['source_count']}"
+                        f"  {gene['approved_symbol']}: score={gene['score']:.2f}, sources={gene['source_count']}",
                     )
 
             # Show some excluded genes close to threshold
@@ -341,7 +341,7 @@ class PanelMerger:
                 logger.debug("\nGenes close to threshold but excluded:")
                 for _, gene in close_to_threshold.head(5).iterrows():
                     logger.debug(
-                        f"  {gene['approved_symbol']}: score={gene['score']:.2f}, sources={gene['source_count']}"
+                        f"  {gene['approved_symbol']}: score={gene['score']:.2f}, sources={gene['source_count']}",
                     )
 
         return df
@@ -374,7 +374,7 @@ class PanelMerger:
                 reason = veto_config.get("reason", f"Veto from {source_identifier}")
                 veto_reasons.append(reason)
                 logger.debug(
-                    f"Veto applied for {row.get('approved_symbol', 'unknown')}: {reason}"
+                    f"Veto applied for {row.get('approved_symbol', 'unknown')}: {reason}",
                 )
 
         return "; ".join(veto_reasons) if veto_reasons else ""
@@ -417,7 +417,7 @@ class PanelMerger:
         # Top scoring genes
         if "score" in df.columns:
             top_genes = df.nlargest(10, "score")[["approved_symbol", "score"]].to_dict(
-                "records"
+                "records",
             )
             summary["top_scoring_genes"] = top_genes
 
@@ -451,7 +451,7 @@ class PanelMerger:
         return filtered_df
 
     def export_gene_lists(
-        self, df: pd.DataFrame, output_dir: str | Path
+        self, df: pd.DataFrame, output_dir: str | Path,
     ) -> dict[str, str]:
         """
         Export gene lists for different categories.
@@ -480,7 +480,7 @@ class PanelMerger:
 
             exported_files["included_genes"] = str(gene_list_file)
             logger.info(
-                f"Exported {len(filtered_df)} included genes to {gene_list_file}"
+                f"Exported {len(filtered_df)} included genes to {gene_list_file}",
             )
 
         return exported_files

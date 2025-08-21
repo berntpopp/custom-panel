@@ -90,7 +90,7 @@ class PanelDownloader:
             chrome_options.add_argument("--window-size=1920,1080")
             chrome_options.add_argument("--disable-blink-features=AutomationControlled")
             chrome_options.add_experimental_option(
-                "excludeSwitches", ["enable-automation"]
+                "excludeSwitches", ["enable-automation"],
             )
             chrome_options.add_experimental_option("useAutomationExtension", False)
 
@@ -100,7 +100,7 @@ class PanelDownloader:
                 self._driver = driver
                 # Execute script to hide webdriver property
                 driver.execute_script(
-                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
                 )
             except Exception as e:
                 logger.error(f"Failed to create webdriver: {e}")
@@ -133,7 +133,7 @@ class PanelDownloader:
 
             # Wait for page to load
             WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
+                EC.presence_of_element_located((By.TAG_NAME, "body")),
             )
 
             # Additional wait for dynamic content

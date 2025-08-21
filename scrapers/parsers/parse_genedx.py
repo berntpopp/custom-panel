@@ -58,7 +58,7 @@ class GenedxParser(BaseParser):
             chrome_options.add_argument("--proxy-server=http://proxy.charite.de:8080")
             chrome_options.add_argument("--proxy-bypass-list=localhost,127.0.0.1")
             chrome_options.add_argument(
-                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             )
 
             # Initialize driver - try manual ChromeDriver first, then fallback
@@ -80,7 +80,7 @@ class GenedxParser(BaseParser):
 
             # Wait for content to load
             WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
+                EC.presence_of_element_located((By.TAG_NAME, "body")),
             )
 
             # Additional wait for dynamic content
@@ -92,14 +92,14 @@ class GenedxParser(BaseParser):
             try:
                 WebDriverWait(driver, 15).until(
                     EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, ".list-item__title")
-                    )
+                        (By.CSS_SELECTOR, ".list-item__title"),
+                    ),
                 )
                 time.sleep(2)  # Additional wait for dynamic content
                 logger.info("Custom panel interface loaded")
             except Exception:
                 logger.warning(
-                    "Custom panel interface not found, trying alternative selectors"
+                    "Custom panel interface not found, trying alternative selectors",
                 )
 
             # Extract genes from all pages of the custom panel checkbox list
@@ -111,7 +111,7 @@ class GenedxParser(BaseParser):
 
                 # Extract genes from current page
                 gene_title_elements = driver.find_elements(
-                    By.CSS_SELECTOR, ".list-item__title"
+                    By.CSS_SELECTOR, ".list-item__title",
                 )
                 current_page_genes = 0
 
@@ -120,7 +120,7 @@ class GenedxParser(BaseParser):
                     if text:
                         # R script removes " (GREM1)" pattern and other annotations
                         text = text.replace(" (GREM1)", "").replace(
-                            "SCG5 (GREM1)", "GREM1"
+                            "SCG5 (GREM1)", "GREM1",
                         )
                         cleaned_gene = self.clean_gene_symbol(text)
                         if cleaned_gene and self.validate_gene_symbol(cleaned_gene):
@@ -134,14 +134,14 @@ class GenedxParser(BaseParser):
                 try:
                     # Look for next page button that's not disabled
                     next_buttons = driver.find_elements(
-                        By.CSS_SELECTOR, "button[aria-label='']:not([disabled])"
+                        By.CSS_SELECTOR, "button[aria-label='']:not([disabled])",
                     )
                     next_button = None
 
                     for btn in next_buttons:
                         # Check if it contains a right arrow icon
                         arrow_icons = btn.find_elements(
-                            By.CSS_SELECTOR, "svg path[d*='M7.293 14.707']"
+                            By.CSS_SELECTOR, "svg path[d*='M7.293 14.707']",
                         )
                         if arrow_icons:
                             next_button = btn
@@ -163,7 +163,7 @@ class GenedxParser(BaseParser):
             # If no gene titles found, try checkbox labels
             if not genes:
                 checkbox_labels = driver.find_elements(
-                    By.CSS_SELECTOR, "input[id*='selection-'] + span"
+                    By.CSS_SELECTOR, "input[id*='selection-'] + span",
                 )
                 for element in checkbox_labels:
                     text = element.text.strip()
@@ -177,7 +177,7 @@ class GenedxParser(BaseParser):
                 try:
                     # Look for genes in data attributes
                     custom_panel_element = driver.find_element(
-                        By.CSS_SELECTOR, "[genes]"
+                        By.CSS_SELECTOR, "[genes]",
                     )
                     genes_attribute = custom_panel_element.get_attribute("genes")
                     if genes_attribute:
@@ -210,7 +210,7 @@ class GenedxParser(BaseParser):
                             if text and len(text) <= 20:
                                 cleaned_gene = self.clean_gene_symbol(text)
                                 if cleaned_gene and self.validate_gene_symbol(
-                                    cleaned_gene
+                                    cleaned_gene,
                                 ):
                                     genes.append(cleaned_gene)
                     except Exception:
@@ -238,7 +238,7 @@ class GenedxParser(BaseParser):
                         import re
 
                         potential_genes = re.findall(
-                            r"\b[A-Z][A-Z0-9]{1,7}\b", script_content
+                            r"\b[A-Z][A-Z0-9]{1,7}\b", script_content,
                         )
                         for gene in potential_genes:
                             cleaned_gene = self.clean_gene_symbol(gene)

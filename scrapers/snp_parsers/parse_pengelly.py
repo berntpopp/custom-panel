@@ -58,7 +58,7 @@ class PengellyParser(BaseSNPScraper):
                         category="identity",
                         panel_specific_name="Pengelly et al. 2013",
                         **record_kwargs,
-                    )
+                    ),
                 )
 
             logger.info(f"Successfully extracted {len(snps)} SNPs from Pengelly panel")
@@ -109,7 +109,7 @@ class PengellyParser(BaseSNPScraper):
                         if coords_found:
                             snp_records.extend(coords_found)
                             logger.info(
-                                f"Found Pengelly coordinate table with {len(coords_found)} SNPs"
+                                f"Found Pengelly coordinate table with {len(coords_found)} SNPs",
                             )
 
                     # If no coordinate table found, fall back to text extraction
@@ -118,7 +118,7 @@ class PengellyParser(BaseSNPScraper):
                         if text:
                             # Extract all rsIDs from text
                             rsid_matches = re.findall(
-                                r"\b(rs\d+)\b", text, re.IGNORECASE
+                                r"\b(rs\d+)\b", text, re.IGNORECASE,
                             )
                             for rsid in rsid_matches:
                                 if self.validate_rsid(rsid):
@@ -135,7 +135,7 @@ class PengellyParser(BaseSNPScraper):
 
             with_coords = sum(1 for r in unique_records if "chromosome" in r)
             logger.info(
-                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)"
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)",
             )
             return unique_records
 
@@ -189,7 +189,7 @@ class PengellyParser(BaseSNPScraper):
                 return records
 
             logger.info(
-                f"Found Pengelly coordinate table: chr={chr_col}, pos={pos_col}, rsid={rsid_col}"
+                f"Found Pengelly coordinate table: chr={chr_col}, pos={pos_col}, rsid={rsid_col}",
             )
 
             # Parse data rows

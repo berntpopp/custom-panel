@@ -58,11 +58,11 @@ def fetch_ethnicity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
             if panel_df is not None and not panel_df.empty:
                 all_snps.append(panel_df)
                 logger.info(
-                    f"✓ {panel_config.get('name', 'Unknown')}: {len(panel_df)} SNPs"
+                    f"✓ {panel_config.get('name', 'Unknown')}: {len(panel_df)} SNPs",
                 )
             else:
                 logger.warning(
-                    f"⚠ {panel_config.get('name', 'Unknown')}: No SNPs found"
+                    f"⚠ {panel_config.get('name', 'Unknown')}: No SNPs found",
                 )
         except Exception as e:
             logger.error(f"✗ {panel_config.get('name', 'Unknown')}: {e}")
@@ -78,7 +78,7 @@ def fetch_ethnicity_snps(config: dict[str, Any]) -> pd.DataFrame | None:
     ethnicity_snps_panel = _aggregate_snps_by_rsid(combined_df)
 
     logger.info(
-        f"Successfully fetched {len(ethnicity_snps_panel)} unique ethnicity SNPs"
+        f"Successfully fetched {len(ethnicity_snps_panel)} unique ethnicity SNPs",
     )
     return ethnicity_snps_panel
 
@@ -118,7 +118,7 @@ def _fetch_single_ethnicity_panel(panel_config: dict[str, Any]) -> pd.DataFrame 
         # Check for required columns
         if rsid_column not in df.columns:
             raise ValueError(
-                f"Required rsID column '{rsid_column}' not found. Available columns: {list(df.columns)}"
+                f"Required rsID column '{rsid_column}' not found. Available columns: {list(df.columns)}",
             )
 
         # Extract and validate data
@@ -141,7 +141,7 @@ def _fetch_single_ethnicity_panel(panel_config: dict[str, Any]) -> pd.DataFrame 
                     "snp": df[rsid_column].dropna(),
                     "source": name,
                     "category": "ethnicity",
-                }
+                },
             )
 
         if result_df.empty:
@@ -184,11 +184,11 @@ def _aggregate_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
             .agg(
                 {
                     "source_group": lambda x: "; ".join(
-                        x.dropna().astype(str).unique()
+                        x.dropna().astype(str).unique(),
                     ),
                     "source": "first",  # Keep first source name
                     "category": "first",  # Keep first category
-                }
+                },
             )
             .reset_index()
         )
@@ -207,7 +207,7 @@ def _aggregate_snps_by_rsid(df: pd.DataFrame) -> pd.DataFrame:
                 {
                     "source": lambda x: "; ".join(x.dropna().astype(str).unique()),
                     "category": "first",
-                }
+                },
             )
             .reset_index()
         )

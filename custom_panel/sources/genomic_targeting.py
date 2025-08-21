@@ -46,7 +46,7 @@ def fetch_genomic_targeting_flags(config: dict[str, Any]) -> dict[str, bool]:
     if not file_path.exists():
         if allow_missing_file:
             logger.warning(
-                f"Genomic targeting file not found: {file_path} - using defaults"
+                f"Genomic targeting file not found: {file_path} - using defaults",
             )
             return {}
         else:
@@ -57,7 +57,7 @@ def fetch_genomic_targeting_flags(config: dict[str, Any]) -> dict[str, bool]:
     try:
         targeting_flags = process_targeting_file(file_path, targeting_config)
         logger.info(
-            f"Successfully loaded {len(targeting_flags)} genomic targeting flags"
+            f"Successfully loaded {len(targeting_flags)} genomic targeting flags",
         )
         return targeting_flags
     except Exception as e:
@@ -70,7 +70,7 @@ def fetch_genomic_targeting_flags(config: dict[str, Any]) -> dict[str, bool]:
 
 
 def process_targeting_file(
-    file_path: Path, targeting_config: dict[str, Any]
+    file_path: Path, targeting_config: dict[str, Any],
 ) -> dict[str, bool]:
     """
     Process genomic targeting file and return gene -> targeting flag mapping.
@@ -112,7 +112,7 @@ def process_targeting_file(
 
     if targeting_column not in df.columns:
         raise ValueError(
-            f"Targeting column '{targeting_column}' not found in targeting file"
+            f"Targeting column '{targeting_column}' not found in targeting file",
         )
 
     # Clean and process the data
@@ -145,7 +145,7 @@ def process_targeting_file(
     false_count = len(targeting_flags) - true_count
     logger.info(
         f"Processed {len(targeting_flags)} genes: {true_count} with targeting=True, "
-        f"{false_count} with targeting=False"
+        f"{false_count} with targeting=False",
     )
 
     return targeting_flags
@@ -179,18 +179,18 @@ def convert_to_boolean(value: Any, default: bool = False) -> bool:
             return False
         else:
             logger.warning(
-                f"Unrecognized targeting value '{value}', using default: {default}"
+                f"Unrecognized targeting value '{value}', using default: {default}",
             )
             return default
 
     logger.warning(
-        f"Cannot convert targeting value '{value}' to boolean, using default: {default}"
+        f"Cannot convert targeting value '{value}' to boolean, using default: {default}",
     )
     return default
 
 
 def apply_genomic_targeting_flags(
-    df: pd.DataFrame, config: dict[str, Any]
+    df: pd.DataFrame, config: dict[str, Any],
 ) -> pd.DataFrame:
     """
     Apply genomic targeting flags to an annotated gene DataFrame.
@@ -213,7 +213,7 @@ def apply_genomic_targeting_flags(
     # Check if gene symbol column exists
     if "approved_symbol" not in df.columns:
         logger.error(
-            "approved_symbol column not found - cannot apply genomic targeting flags"
+            "approved_symbol column not found - cannot apply genomic targeting flags",
         )
         return df
 
@@ -223,7 +223,7 @@ def apply_genomic_targeting_flags(
     # Get default value from config
     config_manager = ConfigManager(config)
     default_value = config_manager.get_nested(
-        "genomic_targeting", "default_value", default=False
+        "genomic_targeting", "default_value", default=False,
     )
 
     # Apply targeting flags
@@ -249,7 +249,7 @@ def apply_genomic_targeting_flags(
     # Log summary
     logger.info(
         f"Applied genomic targeting flags: {genes_found} genes found in targeting file, "
-        f"{genes_not_found} genes using default value ({default_value})"
+        f"{genes_not_found} genes using default value ({default_value})",
     )
 
     return df_with_targeting
@@ -346,7 +346,7 @@ def get_genomic_targeting_summary(config: dict[str, Any]) -> dict[str, Any]:
             summary["total_genes"] = len(targeting_flags)
             summary["genes_with_targeting"] = sum(targeting_flags.values())
             summary["genes_without_targeting"] = len(targeting_flags) - sum(
-                targeting_flags.values()
+                targeting_flags.values(),
             )
         except Exception as e:
             summary["error"] = str(e)

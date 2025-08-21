@@ -44,7 +44,7 @@ class OutputManager:
 
         # Debug: Log the configuration
         logger.info(
-            f"OutputManager initialized with intermediate_enabled={self.intermediate_enabled}, format={self.intermediate_config.get('format', 'NOT_SET')}"
+            f"OutputManager initialized with intermediate_enabled={self.intermediate_enabled}, format={self.intermediate_config.get('format', 'NOT_SET')}",
         )
         logger.debug(f"Full intermediate config: {self.intermediate_config}")
 
@@ -88,7 +88,7 @@ class OutputManager:
         self._setup_component_logger("pipeline", log_dir, log_format, log_level)
 
     def _setup_component_logger(
-        self, component: str, log_dir: Path, log_format: str, log_level: int
+        self, component: str, log_dir: Path, log_format: str, log_level: int,
     ) -> None:
         """Set up logging for a specific component."""
         log_file = log_dir / f"{component}.log"
@@ -102,7 +102,7 @@ class OutputManager:
             formatter: logging.Formatter = JsonFormatter()
         else:
             formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             )
         file_handler.setFormatter(formatter)
 
@@ -138,7 +138,7 @@ class OutputManager:
         subdir_mapping = {
             "raw_data": self.subdirs.get("raw_data", "01_raw_data"),
             "standardized_data": self.subdirs.get(
-                "standardized_data", "02_standardized_data"
+                "standardized_data", "02_standardized_data",
             ),
             "merged_data": self.subdirs.get("merged_data", "03_merged_data"),
             "scored_data": self.subdirs.get("scored_data", "04_scored_data"),
@@ -206,10 +206,10 @@ class OutputManager:
             return None
 
         return self.save_intermediate_data(
-            data, "raw_data", f"source_{source_name}", {"source": source_name}
+            data, "raw_data", f"source_{source_name}", {"source": source_name},
         )
 
-    def save_snp_data(self, data: pd.DataFrame, snp_type: str) -> Path | None:
+    def save_snp_data(self, data: pd.DataFrame, category: str) -> Path | None:
         """Save SNP data with appropriate handling for different schema."""
         if not self.intermediate_config.get("include_raw_data", True):
             return None
@@ -218,8 +218,8 @@ class OutputManager:
         return self.save_intermediate_data(
             data,
             "raw_data",
-            f"SNP_{snp_type}",
-            {"snp_type": snp_type, "data_type": "snp"},
+            f"SNP_{category}",
+            {"category": category, "data_type": "snp"},
         )
 
     def save_regions_data(self, data: pd.DataFrame, region_type: str) -> Path | None:
@@ -259,11 +259,11 @@ class OutputManager:
         }
 
         return self.save_intermediate_data(
-            data, "standardized_data", f"standardized_{source_name}", metadata
+            data, "standardized_data", f"standardized_{source_name}", metadata,
         )
 
     def save_merged_data(
-        self, data: pd.DataFrame, source_stats: dict[str, int]
+        self, data: pd.DataFrame, source_stats: dict[str, int],
     ) -> Path | None:
         """Save merged data before scoring."""
         if not self.intermediate_config.get("include_merged_data", True):
@@ -280,29 +280,29 @@ class OutputManager:
         }
 
         return self.save_intermediate_data(
-            data, "merged_data", "merged_all_sources", metadata
+            data, "merged_data", "merged_all_sources", metadata,
         )
 
     def save_scored_data(
-        self, data: pd.DataFrame, scoring_summary: dict[str, Any]
+        self, data: pd.DataFrame, scoring_summary: dict[str, Any],
     ) -> Path | None:
         """Save scored data before decision logic."""
         if not self.intermediate_config.get("include_scored_data", True):
             return None
 
         return self.save_intermediate_data(
-            data, "scored_data", "scored_genes", scoring_summary
+            data, "scored_data", "scored_genes", scoring_summary,
         )
 
     def save_annotated_data(
-        self, data: pd.DataFrame, annotation_summary: dict[str, Any]
+        self, data: pd.DataFrame, annotation_summary: dict[str, Any],
     ) -> Path | None:
         """Save final annotated data."""
         if not self.intermediate_config.get("include_annotated_data", True):
             return None
 
         return self.save_intermediate_data(
-            data, "annotated_data", "final_annotated", annotation_summary
+            data, "annotated_data", "final_annotated", annotation_summary,
         )
 
     def get_final_output_dir(self) -> Path:

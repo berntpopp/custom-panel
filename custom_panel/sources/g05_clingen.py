@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def _fetch_clingen_genes_api(
-    url: str, cache_manager: CacheManager | None = None
+    url: str, cache_manager: CacheManager | None = None,
 ) -> list[dict[str, Any]]:
     """
     Fetch ClinGen genes from the ClinGen API with caching support.
@@ -100,7 +100,7 @@ def _fetch_clingen_genes_api(
                 filtered_genes.append(record)
 
         logger.info(
-            f"Filtered out refuted genes: {len(filtered_genes)} remaining from {len(gene_data)} total"
+            f"Filtered out refuted genes: {len(filtered_genes)} remaining from {len(gene_data)} total",
         )
 
         # Cache the processed data
@@ -200,19 +200,19 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
 
                 # Calculate evidence score based on classification
                 classification_multiplier = classification_scores.get(
-                    classification, 1.0
+                    classification, 1.0,
                 )
                 evidence_score = base_evidence_score * classification_multiplier
 
                 genes.append(gene_symbol)
                 evidence_scores.append(evidence_score)
                 source_details.append(
-                    f"URL:{url}|Date:{retrieval_date}|Classification:{classification}"
+                    f"URL:{url}|Date:{retrieval_date}|Classification:{classification}",
                 )
 
             if genes:
                 logger.info(
-                    f"Successfully fetched {len(genes)} ClinGen genes from live URL: {url}"
+                    f"Successfully fetched {len(genes)} ClinGen genes from live URL: {url}",
                 )
 
         except Exception as e:
@@ -269,10 +269,10 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
                             if gene_symbol and gene_symbol not in ["", "nan", "NaN"]:
                                 classification = "Unknown"
                                 if classification_column and pd.notna(
-                                    row[classification_column]
+                                    row[classification_column],
                                 ):
                                     classification = str(
-                                        row[classification_column]
+                                        row[classification_column],
                                     ).strip()
 
                                 # Skip refuted genes
@@ -281,7 +281,7 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
 
                                 # Calculate evidence score based on classification
                                 classification_multiplier = classification_scores.get(
-                                    classification, 1.0
+                                    classification, 1.0,
                                 )
                                 evidence_score = (
                                     base_evidence_score * classification_multiplier
@@ -290,11 +290,11 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
                                 genes.append(gene_symbol)
                                 evidence_scores.append(evidence_score)
                                 source_details.append(
-                                    f"File:{file_path_obj.name}|Classification:{classification}"
+                                    f"File:{file_path_obj.name}|Classification:{classification}",
                                 )
 
                         logger.info(
-                            f"Loaded {len(genes)} ClinGen genes from fallback file: {file_path}"
+                            f"Loaded {len(genes)} ClinGen genes from fallback file: {file_path}",
                         )
                     else:
                         logger.warning(f"No suitable gene column found in {file_path}")
@@ -342,10 +342,10 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
                             if gene_symbol and gene_symbol not in ["", "nan", "NaN"]:
                                 classification = "Unknown"
                                 if classification_column and pd.notna(
-                                    row[classification_column]
+                                    row[classification_column],
                                 ):
                                     classification = str(
-                                        row[classification_column]
+                                        row[classification_column],
                                     ).strip()
 
                                 # Skip refuted genes
@@ -354,7 +354,7 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
 
                                 # Calculate evidence score based on classification
                                 classification_multiplier = classification_scores.get(
-                                    classification, 1.0
+                                    classification, 1.0,
                                 )
                                 evidence_score = (
                                     base_evidence_score * classification_multiplier
@@ -363,18 +363,18 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
                                 genes.append(gene_symbol)
                                 evidence_scores.append(evidence_score)
                                 source_details.append(
-                                    f"File:{file_path_obj.name}|Classification:{classification}"
+                                    f"File:{file_path_obj.name}|Classification:{classification}",
                                 )
 
                         logger.info(
-                            f"Loaded {len(genes)} ClinGen genes from fallback file: {file_path}"
+                            f"Loaded {len(genes)} ClinGen genes from fallback file: {file_path}",
                         )
                     else:
                         logger.warning(f"No suitable gene column found in {file_path}")
 
         except Exception as e:
             logger.warning(
-                f"Could not load ClinGen genes from fallback file {file_path}: {e}"
+                f"Could not load ClinGen genes from fallback file {file_path}: {e}",
             )
 
     if not genes:
@@ -385,7 +385,7 @@ def fetch_clingen_data(config: dict[str, Any]) -> pd.DataFrame:
     gene_dict: dict[str, tuple[float, str]] = {}
 
     for gene, score, detail in zip(
-        genes, evidence_scores, source_details, strict=False
+        genes, evidence_scores, source_details, strict=False,
     ):
         if gene not in gene_dict or score > gene_dict[gene][0]:
             gene_dict[gene] = (score, detail)

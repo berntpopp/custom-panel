@@ -58,7 +58,7 @@ class AmpliseqParser(BaseSNPScraper):
                         category="identity",
                         panel_specific_name="Illumina AmpliSeq Sample ID Panel",
                         **record_kwargs,
-                    )
+                    ),
                 )
 
             logger.info(f"Successfully extracted {len(snps)} SNPs from Ampliseq panel")
@@ -113,7 +113,7 @@ class AmpliseqParser(BaseSNPScraper):
                         if coords_found:
                             snp_records.extend(coords_found)
                             logger.info(
-                                f"Found coordinate table with {len(coords_found)} SNPs"
+                                f"Found coordinate table with {len(coords_found)} SNPs",
                             )
 
                     # If no coordinate table found, fall back to text extraction
@@ -155,7 +155,7 @@ class AmpliseqParser(BaseSNPScraper):
 
             with_coords = sum(1 for r in unique_records if "chromosome" in r)
             logger.info(
-                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)"
+                f"Extracted {len(unique_records)} SNPs ({with_coords} with coordinates)",
             )
             return unique_records
 
@@ -212,7 +212,7 @@ class AmpliseqParser(BaseSNPScraper):
                 return records
 
             logger.info(
-                f"Found AmpliseQ coordinate table: chr={chr_col}, start={start_col}, id={id_col}"
+                f"Found AmpliseQ coordinate table: chr={chr_col}, start={start_col}, id={id_col}",
             )
 
             # Parse data rows

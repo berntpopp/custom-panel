@@ -544,7 +544,7 @@
                         <div class="stat-label">Total SNPs</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number">{{ snp_stats.snp_types }}</div>
+                        <div class="stat-number">{{ snp_stats.category_types }}</div>
                         <div class="stat-label">SNP Categories</div>
                     </div>
                     <div class="stat-card">
@@ -561,10 +561,10 @@
                 <div style="margin-top: 20px;">
                     <h3 style="color: #495057; margin-bottom: 15px;">SNP Categories</h3>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
-                        {% for snp_type, count in snp_stats.snp_type_counts.items() %}
+                        {% for category_type, count in snp_stats.category_type_counts.items() %}
                         <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-weight: 600; color: #495057;">{{ snp_type.replace('_', ' ').title() }}</span>
+                                <span style="font-weight: 600; color: #495057;">{{ category_type.replace('_', ' ').title() }}</span>
                                 <span style="color: #6c757d; font-size: 0.9em;">{{ "{:,}".format(count) }} SNPs</span>
                             </div>
                             <div style="margin-top: 8px;">
@@ -608,9 +608,9 @@
                                 <button class="snp-tab-button active" data-table="all_snps" style="padding: 10px 20px; border: none; background: #667eea; color: white; cursor: pointer; border-radius: 6px 6px 0 0; font-weight: 500;">
                                     All SNPs ({{ "{:,}".format(snp_stats.total_snps) }})
                                 </button>
-                                {% for snp_type, count in snp_stats.snp_type_counts.items() %}
-                                <button class="snp-tab-button" data-table="snps_{{ snp_type }}" style="padding: 10px 20px; border: none; background: #f8f9fa; color: #495057; cursor: pointer; border-radius: 6px 6px 0 0; margin-left: 2px; font-weight: 500;">
-                                    {{ snp_type.replace('_', ' ').title() }} ({{ "{:,}".format(count) }})
+                                {% for category_type, count in snp_stats.category_type_counts.items() %}
+                                <button class="snp-tab-button" data-table="snps_{{ category_type }}" style="padding: 10px 20px; border: none; background: #f8f9fa; color: #495057; cursor: pointer; border-radius: 6px 6px 0 0; margin-left: 2px; font-weight: 500;">
+                                    {{ category_type.replace('_', ' ').title() }} ({{ "{:,}".format(count) }})
                                 </button>
                                 {% endfor %}
                             </div>
@@ -1458,7 +1458,6 @@
                 },
                 'source': { title: 'Source' },
                 'category': { title: 'Category' },
-                'snp_type': { title: 'SNP Type' },
                 'hg38_chromosome': { title: 'Chr (hg38)' },
                 'hg38_start': {
                     title: 'Position (hg38)',

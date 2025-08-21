@@ -88,7 +88,7 @@ def _load_manual_regions(config: dict[str, Any]) -> pd.DataFrame:
         if filter_column in df.columns:
             df = df[df[filter_column].astype(str).str.lower() == filter_value.lower()]
             logger.info(
-                f"Filtered to {len(df)} regions with {filter_column}={filter_value}"
+                f"Filtered to {len(df)} regions with {filter_column}={filter_value}",
             )
 
         # Clean column names (remove trailing spaces)
@@ -115,7 +115,7 @@ def _load_manual_regions(config: dict[str, Any]) -> pd.DataFrame:
                 end = int(row["hg38_stop"])
             except (ValueError, TypeError):
                 logger.warning(
-                    f"Invalid coordinates for region {region_name}, skipping"
+                    f"Invalid coordinates for region {region_name}, skipping",
                 )
                 continue
 
@@ -137,7 +137,7 @@ def _load_manual_regions(config: dict[str, Any]) -> pd.DataFrame:
                     "source_type": "manual",
                     "region_type": region_type,
                     "comment": comment,
-                }
+                },
             )
 
         if not standardized_data:
@@ -197,7 +197,7 @@ def _load_stripy_regions(config: dict[str, Any]) -> pd.DataFrame:
             try:
                 if ":" not in reference_region or "-" not in reference_region:
                     logger.warning(
-                        f"Invalid reference region format: {reference_region}"
+                        f"Invalid reference region format: {reference_region}",
                     )
                     continue
 
@@ -230,7 +230,7 @@ def _load_stripy_regions(config: dict[str, Any]) -> pd.DataFrame:
                         "source_type": "stripy",
                         "region_type": region_type,
                         "comment": comment,
-                    }
+                    },
                 )
 
             except (ValueError, IndexError) as e:

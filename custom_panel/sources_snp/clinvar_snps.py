@@ -77,7 +77,7 @@ def fetch_clinvar_snps(
 
     if pysam is None:
         logger.error(
-            "pysam is required for tabix support. Install with: pip install pysam"
+            "pysam is required for tabix support. Install with: pip install pysam",
         )
         return pd.DataFrame()
 
@@ -112,7 +112,7 @@ def fetch_clinvar_snps(
     required_coords = ["chromosome", "gene_start", "gene_end"]
     if not all(col in panel_genes.columns for col in required_coords):
         logger.warning(
-            f"Gene panel missing required coordinate columns {required_coords}"
+            f"Gene panel missing required coordinate columns {required_coords}",
         )
         return pd.DataFrame()
 
@@ -126,7 +126,7 @@ def fetch_clinvar_snps(
         # Step 1: Extract exon regions from existing transcript data
         intronic_padding = clinvar_config.get("intronic_padding", 50)
         exon_intervals = _extract_exon_regions_from_transcript_data(
-            transcript_data, panel_genes, intronic_padding
+            transcript_data, panel_genes, intronic_padding,
         )
 
         if not exon_intervals.intervals:
@@ -146,7 +146,7 @@ def fetch_clinvar_snps(
         # Step 3: Stream ClinVar variants by gene regions using tabix
         logger.info("Streaming ClinVar variants using tabix queries...")
         variants = list(
-            _stream_clinvar_variants_by_genes(vcf_file, panel_genes, clinvar_config)
+            _stream_clinvar_variants_by_genes(vcf_file, panel_genes, clinvar_config),
         )
 
         if not variants:
@@ -158,7 +158,7 @@ def fetch_clinvar_snps(
         # Step 4: Filter for deep intronic variants (outside padded exon regions)
         logger.info("Filtering for deep intronic variants...")
         deep_intronic_variants = _filter_deep_intronic_streaming(
-            variants, exon_intervals
+            variants, exon_intervals,
         )
 
         if not deep_intronic_variants:
@@ -166,7 +166,7 @@ def fetch_clinvar_snps(
             return pd.DataFrame()
 
         logger.info(
-            f"Found {len(deep_intronic_variants)} deep intronic ClinVar variants"
+            f"Found {len(deep_intronic_variants)} deep intronic ClinVar variants",
         )
 
         # Step 5: Convert to standardized SNP format
@@ -176,7 +176,7 @@ def fetch_clinvar_snps(
         return snp_formatted
 
     except Exception as e:
-        logger.error(f"Error processing ClinVar SNPs: {str(e)}")
+        logger.error(f"Error processing ClinVar SNPs: {e!s}")
         return pd.DataFrame()
 
 
@@ -197,7 +197,7 @@ def _extract_exon_regions_from_transcript_data(
         IntervalTree with padded exon regions
     """
     logger.info(
-        f"Extracting exon regions with {intronic_padding}bp padding from transcript data"
+        f"Extracting exon regions with {intronic_padding}bp padding from transcript data",
     )
 
     exon_intervals = IntervalTree()
@@ -216,11 +216,11 @@ def _extract_exon_regions_from_transcript_data(
         canonical_transcript_id = gene_row.get("canonical_transcript")
         if pd.notna(canonical_transcript_id):
             transcript = _find_transcript_by_id(
-                gene_data["all_transcripts"], canonical_transcript_id
+                gene_data["all_transcripts"], canonical_transcript_id,
             )
             if transcript and "Exon" in transcript:
                 exons = _extract_exons_from_transcript(
-                    transcript, gene_symbol, intronic_padding
+                    transcript, gene_symbol, intronic_padding,
                 )
 
                 for exon in exons:
@@ -238,7 +238,7 @@ def _extract_exon_regions_from_transcript_data(
 
 
 def _find_transcript_by_id(
-    transcripts: list[dict[str, Any]], transcript_id: str
+    transcripts: list[dict[str, Any]], transcript_id: str,
 ) -> dict[str, Any] | None:
     """Find transcript by ID in the transcripts list."""
     for transcript in transcripts:
@@ -248,7 +248,7 @@ def _find_transcript_by_id(
 
 
 def _extract_exons_from_transcript(
-    transcript: dict[str, Any], gene_symbol: str, intronic_padding: int
+    transcript: dict[str, Any], gene_symbol: str, intronic_padding: int,
 ) -> list[dict[str, Any]]:
     """Extract exon coordinates from transcript data."""
     exons: list[dict[str, Any]] = []
@@ -342,7 +342,7 @@ def _get_clinvar_vcf_with_index(
             return vcf_file, tbi_file
         else:
             logger.warning(
-                f"Provided ClinVar VCF or index file not found or corrupted: {vcf_path}"
+                f"Provided ClinVar VCF or index file not found or corrupted: {vcf_path}",
             )
 
     # Download ClinVar VCF and index if not provided or not found
@@ -367,7 +367,7 @@ def _get_clinvar_vcf_with_index(
             return downloaded_vcf, downloaded_tbi
         else:
             logger.warning(
-                "Downloaded ClinVar files are corrupted, removing cache and retrying..."
+                "Downloaded ClinVar files are corrupted, removing cache and retrying...",
             )
             # Remove corrupted files
             if downloaded_vcf.exists():
@@ -377,10 +377,10 @@ def _get_clinvar_vcf_with_index(
 
             # Retry download once
             downloaded_vcf = _download_clinvar_vcf(
-                vcf_url, cache_dir, cache_expiry_days
+                vcf_url, cache_dir, cache_expiry_days,
             )
             downloaded_tbi = _download_clinvar_index(
-                vcf_url, cache_dir, cache_expiry_days
+                vcf_url, cache_dir, cache_expiry_days,
             )
 
             if (
@@ -394,7 +394,7 @@ def _get_clinvar_vcf_with_index(
 
 
 def _download_clinvar_vcf(
-    url: str, cache_dir: Path, cache_expiry_days: int
+    url: str, cache_dir: Path, cache_expiry_days: int,
 ) -> Path | None:
     """Download ClinVar VCF file with caching."""
     # Determine filename from URL
@@ -426,12 +426,12 @@ def _download_clinvar_vcf(
         return cache_file
 
     except Exception as e:
-        logger.error(f"Error downloading ClinVar VCF: {str(e)}")
+        logger.error(f"Error downloading ClinVar VCF: {e!s}")
         return None
 
 
 def _download_clinvar_index(
-    vcf_url: str, cache_dir: Path, cache_expiry_days: int
+    vcf_url: str, cache_dir: Path, cache_expiry_days: int,
 ) -> Path | None:
     """Download ClinVar tabix index file with caching."""
     # Construct index URL
@@ -462,12 +462,12 @@ def _download_clinvar_index(
         return cache_file
 
     except Exception as e:
-        logger.error(f"Error downloading ClinVar index: {str(e)}")
+        logger.error(f"Error downloading ClinVar index: {e!s}")
         return None
 
 
 def _stream_clinvar_variants_by_genes(
-    vcf_file: Path, panel_genes: pd.DataFrame, config: dict[str, Any]
+    vcf_file: Path, panel_genes: pd.DataFrame, config: dict[str, Any],
 ) -> Iterator[dict[str, Any]]:
     """
     Stream ClinVar variants for gene panel regions using tabix.
@@ -507,7 +507,7 @@ def _stream_clinvar_variants_by_genes(
                             continue
                     except UnicodeDecodeError as e:
                         logger.debug(
-                            f"Skipping record with encoding issue: {str(e)[:100]}"
+                            f"Skipping record with encoding issue: {str(e)[:100]}",
                         )
                         continue
 
@@ -524,7 +524,7 @@ def _stream_clinvar_variants_by_genes(
 
             except UnicodeDecodeError as e:
                 logger.warning(
-                    f"Encoding error in region {chromosome}:{start}-{end}: {str(e)[:100]}..."
+                    f"Encoding error in region {chromosome}:{start}-{end}: {str(e)[:100]}...",
                 )
                 continue
             except Exception as e:
@@ -532,7 +532,7 @@ def _stream_clinvar_variants_by_genes(
                 continue
 
         logger.info(
-            f"Processed {variants_processed} variants, yielded {variants_yielded} pathogenic variants"
+            f"Processed {variants_processed} variants, yielded {variants_yielded} pathogenic variants",
         )
 
     except Exception as e:
@@ -581,7 +581,7 @@ def _parse_vcf_record(record: str) -> dict[str, Any] | None:
         }
 
     except (ValueError, IndexError, UnicodeDecodeError) as e:
-        logger.warning(f"Error parsing VCF record: {str(e)}")
+        logger.warning(f"Error parsing VCF record: {e!s}")
         return None
 
 
@@ -637,7 +637,7 @@ def _is_small_variant(variant: dict[str, Any], max_indel_size: int) -> bool:
 
 
 def _filter_deep_intronic_streaming(
-    variants: list[dict[str, Any]], exon_intervals: IntervalTree
+    variants: list[dict[str, Any]], exon_intervals: IntervalTree,
 ) -> list[dict[str, Any]]:
     """
     Filter variants to only deep intronic ones using interval tree.
@@ -664,7 +664,7 @@ def _filter_deep_intronic_streaming(
 
 
 def _convert_to_snp_format(
-    variants: list[dict[str, Any]], harmonizer: Any | None = None
+    variants: list[dict[str, Any]], harmonizer: Any | None = None,
 ) -> pd.DataFrame:
     """Convert ClinVar variants to standardized SNP format."""
     if not variants:
@@ -689,7 +689,6 @@ def _convert_to_snp_format(
             "snp": variants_df["rsid"],
             "source": "ClinVar",
             "category": "deep_intronic_clinvar",
-            "snp_type": "deep_intronic_clinvar",
             "hg38_chromosome": variants_df["chromosome"].apply(_standardize_chromosome),
             "hg38_start": variants_df["position"],
             "hg38_end": variants_df["position"],
@@ -707,7 +706,7 @@ def _convert_to_snp_format(
             "variant_id": variants_df["clnvi"],
             "processing_date": datetime.now().strftime("%Y-%m-%d"),
             "source_file": "ClinVar VCF",
-        }
+        },
     )
 
     # Apply harmonization if available
@@ -734,7 +733,7 @@ def _convert_to_snp_format(
 
             if not harmonized_snp_data.empty:
                 logger.info(
-                    f"Successfully harmonized {len(harmonized_snp_data)} ClinVar SNPs"
+                    f"Successfully harmonized {len(harmonized_snp_data)} ClinVar SNPs",
                 )
                 return harmonized_snp_data
 

@@ -35,8 +35,8 @@ class BaseSNPScraper(ABC):
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            },
         )
 
     @abstractmethod
@@ -54,7 +54,6 @@ class BaseSNPScraper(ABC):
         Raises:
             Exception: If parsing fails
         """
-        pass
 
     def fetch_content(self, url: str = None, use_selenium: bool = False) -> str:
         """
@@ -151,7 +150,7 @@ class BaseSNPScraper(ABC):
         return rsids
 
     def parse_table_for_rsids(
-        self, soup: BeautifulSoup, table_selector: str = None, rsid_column: str = None
+        self, soup: BeautifulSoup, table_selector: str = None, rsid_column: str = None,
     ) -> list[str]:
         """
         Extract rsIDs from HTML tables.

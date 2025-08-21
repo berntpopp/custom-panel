@@ -54,7 +54,7 @@ def fetch_manual_snps(config: dict[str, Any]) -> pd.DataFrame | None:
             if list_df is not None and not list_df.empty:
                 all_snps.append(list_df)
                 logger.info(
-                    f"✓ {list_config.get('name', 'Unknown')}: {len(list_df)} SNPs"
+                    f"✓ {list_config.get('name', 'Unknown')}: {len(list_df)} SNPs",
                 )
             else:
                 logger.warning(f"⚠ {list_config.get('name', 'Unknown')}: No SNPs found")
@@ -75,7 +75,7 @@ def fetch_manual_snps(config: dict[str, Any]) -> pd.DataFrame | None:
 
     if initial_count != final_count:
         logger.info(
-            f"Removed {initial_count - final_count} duplicate rsIDs from manual lists"
+            f"Removed {initial_count - final_count} duplicate rsIDs from manual lists",
         )
 
     logger.info(f"Successfully fetched {final_count} unique manual SNPs")
@@ -118,7 +118,7 @@ def _fetch_single_manual_list(list_config: dict[str, Any]) -> pd.DataFrame | Non
         elif parser_type == "manual_excel":
             sheet_name = list_config.get("sheet_name", 0)
             df = _parse_manual_excel(
-                file_path, rsid_column, details_column, name, sheet_name
+                file_path, rsid_column, details_column, name, sheet_name,
             )
         else:
             raise ValueError(f"Unsupported manual parser type: {parser_type}")
@@ -134,7 +134,7 @@ def _fetch_single_manual_list(list_config: dict[str, Any]) -> pd.DataFrame | Non
 
 
 def _parse_manual_csv(
-    file_path: Path, rsid_column: str, details_column: str | None, name: str
+    file_path: Path, rsid_column: str, details_column: str | None, name: str,
 ) -> pd.DataFrame:
     """Parse manual CSV file."""
     df = pd.read_csv(file_path)
@@ -142,7 +142,7 @@ def _parse_manual_csv(
 
 
 def _parse_manual_tsv(
-    file_path: Path, rsid_column: str, details_column: str | None, name: str
+    file_path: Path, rsid_column: str, details_column: str | None, name: str,
 ) -> pd.DataFrame:
     """Parse manual TSV file."""
     df = pd.read_csv(file_path, sep="\t")
@@ -162,7 +162,7 @@ def _parse_manual_excel(
 
 
 def _process_manual_dataframe(
-    df: pd.DataFrame, rsid_column: str, details_column: str | None, name: str
+    df: pd.DataFrame, rsid_column: str, details_column: str | None, name: str,
 ) -> pd.DataFrame:
     """
     Process a manual DataFrame to extract SNPs.
@@ -180,7 +180,7 @@ def _process_manual_dataframe(
     if rsid_column not in df.columns:
         raise ValueError(
             f"Required rsID column '{rsid_column}' not found. "
-            f"Available columns: {list(df.columns)}"
+            f"Available columns: {list(df.columns)}",
         )
 
     # Extract rsIDs
@@ -196,8 +196,7 @@ def _process_manual_dataframe(
             "rsid": rsids,
             "source": name,
             "category": "manual",
-            "snp_type": "manual",
-        }
+        },
     )
 
     # Add details column if specified and available
@@ -207,7 +206,7 @@ def _process_manual_dataframe(
             result_df["details"] = details
         else:
             logger.warning(
-                f"Details column '{details_column}' length doesn't match rsID column"
+                f"Details column '{details_column}' length doesn't match rsID column",
             )
 
     # Standardize rsID format for both columns

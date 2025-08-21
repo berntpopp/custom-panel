@@ -60,7 +60,7 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
         # Step 1: Get all descendants of neoplasm term
         logger.info(f"Fetching descendants of {NEOPLASM_ROOT_TERM}")
         neoplasm_terms = client.get_descendant_terms(
-            NEOPLASM_ROOT_TERM, max_depth=20, include_self=True
+            NEOPLASM_ROOT_TERM, max_depth=20, include_self=True,
         )
         logger.info(f"Found {len(neoplasm_terms)} neoplasm-related HPO terms")
 
@@ -119,7 +119,7 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
                 try:
                     client.download_file(omim_genemap2_url, genemap2_cache_path)
                     logger.info(
-                        f"DEBUG: Successfully downloaded to cache: {genemap2_cache_path}"
+                        f"DEBUG: Successfully downloaded to cache: {genemap2_cache_path}",
                     )
                 except Exception as e:
                     logger.error(f"Failed to download OMIM genemap2: {e}")
@@ -130,12 +130,12 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
                         return pd.DataFrame()
             else:
                 logger.info(
-                    f"DEBUG: Using cached OMIM genemap2 file: {genemap2_cache_path}"
+                    f"DEBUG: Using cached OMIM genemap2 file: {genemap2_cache_path}",
                 )
 
             omim_df = client.parse_omim_genemap2(genemap2_cache_path)
             logger.info(
-                f"DEBUG: Parsed {len(omim_df)} entries from cached file: {genemap2_cache_path}"
+                f"DEBUG: Parsed {len(omim_df)} entries from cached file: {genemap2_cache_path}",
             )
 
         else:
@@ -145,19 +145,19 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
             cache_expiry_days = hpo_config.get("cache_expiry_days", 30)
 
             if cached_genemap2_path.exists() and client.is_cache_valid(
-                cached_genemap2_path, cache_expiry_days
+                cached_genemap2_path, cache_expiry_days,
             ):
                 logger.info(
-                    f"DEBUG: Using cached OMIM genemap2 file: {cached_genemap2_path}"
+                    f"DEBUG: Using cached OMIM genemap2 file: {cached_genemap2_path}",
                 )
                 omim_df = client.parse_omim_genemap2(cached_genemap2_path)
                 logger.info(
-                    f"DEBUG: Parsed {len(omim_df)} entries from cache: {cached_genemap2_path}"
+                    f"DEBUG: Parsed {len(omim_df)} entries from cache: {cached_genemap2_path}",
                 )
             elif omim_genemap2_path:
                 # Use configured local file as fallback
                 logger.info(
-                    f"DEBUG: Using OMIM genemap2 local path: {omim_genemap2_path}"
+                    f"DEBUG: Using OMIM genemap2 local path: {omim_genemap2_path}",
                 )
                 omim_path = Path(omim_genemap2_path)
                 if not omim_path.exists():
@@ -165,21 +165,21 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
                     return pd.DataFrame()
                 omim_df = client.parse_omim_genemap2(omim_path)
                 logger.info(
-                    f"DEBUG: Parsed {len(omim_df)} entries from local file: {omim_path}"
+                    f"DEBUG: Parsed {len(omim_df)} entries from local file: {omim_path}",
                 )
             else:
                 logger.error(
-                    "DEBUG: No OMIM genemap2 URL, cache, or file path available"
+                    "DEBUG: No OMIM genemap2 URL, cache, or file path available",
                 )
                 logger.error(
-                    "Please put genemap2.txt in .cache/omim/ or set 'omim_genemap2_url' in your config.local.yml"
+                    "Please put genemap2.txt in .cache/omim/ or set 'omim_genemap2_url' in your config.local.yml",
                 )
                 logger.error("Get your access token from: https://omim.org/downloads")
                 return pd.DataFrame()
 
         # Step 5: Extract genes associated with neoplasm OMIM IDs
         all_genes = _extract_genes_from_omim(
-            omim_df, unique_omim_ids.tolist(), neoplasm_phenotypes, hpo_config
+            omim_df, unique_omim_ids.tolist(), neoplasm_phenotypes, hpo_config,
         )
 
         if not all_genes:
@@ -211,7 +211,7 @@ def fetch_hpo_neoplasm_data(config: dict[str, Any]) -> pd.DataFrame:
         )
 
         logger.info(
-            f"Successfully processed {len(standardized_df)} HPO/OMIM neoplasm genes"
+            f"Successfully processed {len(standardized_df)} HPO/OMIM neoplasm genes",
         )
         return standardized_df
 
@@ -311,7 +311,7 @@ def _extract_genes_from_omim(
                                 "disease_name": pheno_row["disease_name"],
                                 "evidence": pheno_row.get("evidence", ""),
                                 "frequency": pheno_row.get("frequency", ""),
-                            }
+                            },
                         )
 
     logger.info(f"Found {len(all_genes)} genes associated with neoplasm phenotypes")
@@ -319,7 +319,7 @@ def _extract_genes_from_omim(
 
 
 def _calculate_evidence_score(
-    gene_data: dict[str, Any], config: dict[str, Any]
+    gene_data: dict[str, Any], config: dict[str, Any],
 ) -> float:
     """
     Calculate evidence score for a gene based on available data.
@@ -463,7 +463,7 @@ def get_hpo_neoplasm_summary(config: dict[str, Any]) -> dict[str, Any]:
     if phenotype_hpoa_path.exists():
         summary["phenotype_hpoa_cached"] = True
         summary["phenotype_hpoa_cache_valid"] = HPOClient.is_cache_valid(
-            phenotype_hpoa_path, summary["cache_expiry_days"]
+            phenotype_hpoa_path, summary["cache_expiry_days"],
         )
     else:
         summary["phenotype_hpoa_cached"] = False

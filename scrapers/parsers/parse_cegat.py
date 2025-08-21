@@ -44,7 +44,7 @@ class CegatParser(BaseParser):
 
             # Find h2 with "Gene Directory" text and look for following em tags
             gene_directory_headers = soup.find_all(
-                "h2", string=lambda text: text and "gene directory" in text.lower()
+                "h2", string=lambda text: text and "gene directory" in text.lower(),
             )
 
             for header in gene_directory_headers:
@@ -65,14 +65,14 @@ class CegatParser(BaseParser):
                                     for gene in potential_genes:
                                         cleaned_gene = self.clean_gene_symbol(gene)
                                         if cleaned_gene and self.validate_gene_symbol(
-                                            cleaned_gene
+                                            cleaned_gene,
                                         ):
                                             genes.append(cleaned_gene)
                                 else:
                                     # Single gene
                                     cleaned_gene = self.clean_gene_symbol(text)
                                     if cleaned_gene and self.validate_gene_symbol(
-                                        cleaned_gene
+                                        cleaned_gene,
                                     ):
                                         genes.append(cleaned_gene)
 
@@ -98,7 +98,7 @@ class CegatParser(BaseParser):
                             for gene in potential_genes:
                                 cleaned_gene = self.clean_gene_symbol(gene)
                                 if cleaned_gene and self.validate_gene_symbol(
-                                    cleaned_gene
+                                    cleaned_gene,
                                 ):
                                     valid_genes.append(cleaned_gene)
                             # If we found multiple valid genes, add them all
