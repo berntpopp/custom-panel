@@ -108,7 +108,7 @@ class SNPHarmonizer:
                             break
 
             for rsid in unique_rsids:
-                canonical_rsid: str | None = rsid_mapping.get(rsid)
+                canonical_rsid = rsid_mapping.get(rsid)
                 if canonical_rsid and canonical_rsid in variations:
                     variation_data = variations[canonical_rsid]
                     coordinates = (
