@@ -1282,8 +1282,9 @@ class TestNewBEDFileGeneration:
 
             # Test snps_all_bed with empty data
             bed_path = Path(tmpdir) / "empty_snps_all.bed"
-            create_snps_all_bed({}, bed_path)
-            # Should handle gracefully
+            # Should raise ValueError when no SNP data provided
+            with pytest.raises(ValueError, match="No SNP data provided for combined BED file"):
+                create_snps_all_bed({}, bed_path)
 
             # Test regions_all_bed with empty data
             bed_path = Path(tmpdir) / "empty_regions_all.bed"
@@ -1292,8 +1293,10 @@ class TestNewBEDFileGeneration:
 
             # Test complete_panel_bed with empty data
             bed_path = Path(tmpdir) / "empty_complete_panel.bed"
-            create_complete_panel_bed(empty_df, None, None, bed_path, padding=0)
-            # Should handle gracefully
+            # Should handle gracefully with empty data (logs warning and returns)
+            create_complete_panel_bed(empty_df, {}, {}, bed_path, padding=0)
+            # Should not create a file when no valid data is found
+            assert not bed_path.exists()
 
     def test_bed_file_sorting(self):
         """Test that BED files are properly sorted by chromosome and position."""
