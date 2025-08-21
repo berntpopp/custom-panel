@@ -91,7 +91,7 @@ class SNPHarmonizer:
             )
 
             # Build mapping from original rsIDs to canonical rsIDs (handles merged rsIDs)
-            rsid_mapping = {}
+            rsid_mapping: dict[str, str] = {}
             for original_rsid in unique_rsids:
                 # First check if original rsID is directly in response (not merged)
                 if original_rsid in variations:
@@ -108,9 +108,9 @@ class SNPHarmonizer:
                             break
 
             for rsid in unique_rsids:
-                canonical_rsid = rsid_mapping.get(rsid)
-                if canonical_rsid and canonical_rsid in variations:
-                    variation_data = variations[canonical_rsid]
+                mapped_rsid: str | None = rsid_mapping.get(rsid)
+                if mapped_rsid is not None and mapped_rsid in variations:
+                    variation_data = variations[mapped_rsid]
                     coordinates = (
                         self.ensembl_client.extract_coordinates_from_variation(
                             variation_data,
