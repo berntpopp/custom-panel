@@ -35,7 +35,7 @@ class _WarningFilter:
 
 # Temporarily replace stderr during package initialization
 _temp_stderr = _WarningFilter()
-sys.stderr = _temp_stderr  # type: ignore[assignment]
+sys.stderr = _temp_stderr
 
 # Import everything else now
 try:
