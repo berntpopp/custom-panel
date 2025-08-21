@@ -108,7 +108,7 @@ class SNPHarmonizer:
                             break
 
             for rsid in unique_rsids:
-                canonical_rsid = rsid_mapping.get(rsid)
+                canonical_rsid: str | None = rsid_mapping.get(rsid)
                 if canonical_rsid and canonical_rsid in variations:
                     variation_data = variations[canonical_rsid]
                     coordinates = (
@@ -206,7 +206,7 @@ class SNPHarmonizer:
         Returns:
             Dictionary mapping rsID to coordinate information
         """
-        coordinate_cache = {}
+        coordinate_cache: dict[str, dict[str, Any] | None] = {}
 
         for rsid in rsids:
             # Find matching row(s) in source data

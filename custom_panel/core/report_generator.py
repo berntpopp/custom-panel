@@ -595,7 +595,7 @@ class ReportGenerator:
         total_snps = len(deduplicated_snp_data)
 
         # Count SNPs by category (parse from merged categories)
-        category_type_counts = {}
+        category_type_counts: dict[str, int] = {}
         if "category" in deduplicated_snp_data.columns:
             for _, row in deduplicated_snp_data.iterrows():
                 categories = str(row["category"]).split("; ")
@@ -635,7 +635,7 @@ class ReportGenerator:
 
         # Group by individual categories for separate tabs
         if "category" in deduplicated_snp_data.columns:
-            category_groups = {}
+            category_groups: dict[str, list[dict[str, Any]]] = {}
             for _, row in deduplicated_snp_data.iterrows():
                 categories = str(row["category"]).split("; ")
                 for cat in categories:
