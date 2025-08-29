@@ -36,6 +36,7 @@ def generate_outputs(
     snp_data: dict[str, pd.DataFrame] | None = None,
     deduplicated_snp_data: pd.DataFrame | None = None,
     regions_data: dict[str, pd.DataFrame] | None = None,
+    generate_twist_form: bool = False,
 ) -> None:
     """
     Generate all output files including Excel, CSV, BED files, and HTML report.
@@ -48,6 +49,7 @@ def generate_outputs(
         snp_data: Optional SNP data dictionary by type (for individual files)
         deduplicated_snp_data: Optional deduplicated SNP data (for reports)
         regions_data: Optional regions data dictionary by type
+        generate_twist_form: Optional flag to generate Twist submission form
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     config_manager = ConfigManager(config)
@@ -73,6 +75,15 @@ def generate_outputs(
         deduplicated_snp_data,
         regions_data,
     )
+
+    # Generate Twist submission form if requested
+    if generate_twist_form:
+        _generate_twist_submission_form(
+            df,
+            deduplicated_snp_data,
+            regions_data,
+            output_dir,
+        )
 
 
 def _generate_data_files(
@@ -889,3 +900,295 @@ def _process_transcript_exons(
         exons.append(exon_info)
 
     return exons
+
+
+def _generate_twist_submission_form(
+    df: pd.DataFrame,
+    snp_data: pd.DataFrame | None,
+    regions_data: dict[str, pd.DataFrame] | None,
+    output_dir: Path,
+) -> None:
+    """
+    Generate Twist DNA submission form by populating the template with panel data.
+
+    Args:
+        df: Final annotated DataFrame with gene panel
+        snp_data: Deduplicated SNP DataFrame
+        regions_data: Dictionary of region DataFrames by type
+        output_dir: Output directory path
+    """
+    import shutil
+    import warnings
+
+    # Path to the template file
+    template_path = Path(__file__).parent.parent.parent / "data" / "submission_form" / "DNA_Twist_Input_Custom_Panel_v2.4.2.xlsx"
+
+    if not template_path.exists():
+        logger.error(f"Twist template file not found: {template_path}")
+        console.print(f"[red]Twist template file not found: {template_path}[/red]")
+        return
+
+    # Create output file path
+    output_path = output_dir / "twist_submission_form.xlsx"
+
+    try:
+        console.print("[blue]Generating Twist DNA submission form...[/blue]")
+
+        # Copy template to output directory
+        shutil.copy2(template_path, output_path)
+
+        # Suppress openpyxl warnings about unknown Excel extensions
+        warnings.filterwarnings("ignore", "Unknown extension is not supported and will be removed")
+
+        # Prepare data for each sheet
+        gene_data = _prepare_twist_gene_data(df)
+        snp_data_combined = _prepare_twist_snp_data(snp_data)
+        regions_data_combined = _prepare_twist_regions_data(regions_data)
+
+        # Write data to each sheet while preserving template structure
+        with pd.ExcelWriter(output_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+            # Populate Gene sheet (data starts after row 6, which is startrow=6 in pandas 0-based)
+            if not gene_data.empty:
+                gene_data.to_excel(writer, sheet_name='Gene', startrow=6, index=False, header=False)
+                console.print(f"[green]✓ Added {len(gene_data)} genes to Gene sheet[/green]")
+
+            # Populate SNPs sheet (data starts after row 4, which is startrow=4 in pandas 0-based)
+            if not snp_data_combined.empty:
+                snp_data_combined.to_excel(writer, sheet_name='SNPs', startrow=4, index=False, header=False)
+                console.print(f"[green]✓ Added {len(snp_data_combined)} SNPs to SNPs sheet[/green]")
+
+            # Populate Genomic Coordinates sheet (data starts after row 2, which is startrow=2 in pandas 0-based)
+            if not regions_data_combined.empty:
+                regions_data_combined.to_excel(writer, sheet_name='Genomic Coordinates', startrow=2, index=False, header=False)
+                console.print(f"[green]✓ Added {len(regions_data_combined)} regions to Genomic Coordinates sheet[/green]")
+
+        console.print(f"[bold green]Twist submission form generated: {output_path}[/bold green]")
+        logger.info(f"Successfully generated Twist submission form: {output_path}")
+
+    except Exception as e:
+        logger.error(f"Failed to generate Twist submission form: {e}")
+        console.print(f"[red]Failed to generate Twist submission form: {e}[/red]")
+
+
+def _prepare_twist_gene_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepare gene data for Twist Gene sheet.
+
+    Expected columns:
+    - Gene Symbol (approved symbols only)
+    - Accession ID* (optional)
+    - Exons* (optional)
+    - Extras* (UTR, Introns, variants etc.)
+    - Tiling* (optional)
+
+    Args:
+        df: Final annotated DataFrame
+
+    Returns:
+        DataFrame formatted for Twist Gene sheet
+    """
+    if df.empty:
+        return pd.DataFrame()
+
+    # Get only included genes with approved symbols
+    included_genes = df[df['include']].copy()
+
+    if included_genes.empty:
+        logger.warning("No included genes found for Twist submission form")
+        return pd.DataFrame()
+
+    # Filter for only approved symbols (non-null)
+    included_genes = included_genes[included_genes['approved_symbol'].notna()].copy()
+
+    # Prepare data according to Twist format
+    twist_gene_data = pd.DataFrame({
+        'Gene Symbol (approved symbols only)': included_genes['approved_symbol'],
+        'Accession ID* (if provided, only these transcripts will be used)': '',  # Empty for now
+        'Exons* (if no Accession ID is provided, all RefSeq transcripts will be used)': '',  # Empty for now
+        'Extras* (UTR, Introns, variants etc.)': included_genes['genomic_targeting'].fillna(False).apply(
+            lambda x: 'Whole Gene' if x else 'UTR'
+        ),
+        'Tiling*  (default = 1X for short reads)': '',  # Empty - use default
+    })
+
+    # Remove duplicates and sort
+    twist_gene_data = twist_gene_data.drop_duplicates().sort_values('Gene Symbol (approved symbols only)')
+
+    logger.info(f"Prepared {len(twist_gene_data)} genes for Twist submission form")
+
+    return twist_gene_data
+
+
+def _prepare_twist_snp_data(snp_data: pd.DataFrame | None) -> pd.DataFrame:
+    """
+    Prepare SNP data for Twist SNPs sheet.
+
+    Expected columns:
+    - chr
+    - start (0-based)
+    - stop
+    - rsID/Annotation*
+    - Tiling* (optional)
+
+    Args:
+        snp_data: Deduplicated SNP DataFrame
+
+    Returns:
+        DataFrame formatted for Twist SNPs sheet
+    """
+    if snp_data is None or snp_data.empty:
+        return pd.DataFrame()
+
+    combined_snps = snp_data.copy()
+
+    # Filter for SNPs with coordinate data - handle both column name variants
+    chr_col = 'hg38_chr' if 'hg38_chr' in combined_snps.columns else 'hg38_chromosome'
+    required_cols = [chr_col, 'hg38_start', 'hg38_end']
+    valid_snps = combined_snps.dropna(subset=required_cols)
+
+    if valid_snps.empty:
+        logger.warning("No SNPs with valid coordinates found for Twist submission form")
+        return pd.DataFrame()
+
+    # Prepare data according to Twist format
+    twist_snp_data = pd.DataFrame({
+        'chr': valid_snps[chr_col].astype(str),
+        'start ': (valid_snps['hg38_start'] - 1).astype(int),  # Convert to 0-based
+        'stop': valid_snps['hg38_start'].astype(int),  # For SNPs, stop = start + 1 (use original 1-based start)
+        'rsID/Annotation*': valid_snps.apply(_get_snp_annotation, axis=1),
+        'Tiling*  (default = 1X for short reads)': '',  # Empty - use default
+    })
+
+    # Remove duplicates and sort by chromosome and position
+    twist_snp_data = twist_snp_data.drop_duplicates()
+
+    # Sort chromosomes numerically/logically
+    def sort_chromosome(chr_val):
+        if str(chr_val).isdigit():
+            return (0, int(chr_val))
+        elif str(chr_val) in ['X', 'Y']:
+            return (1, ord(str(chr_val)))
+        else:
+            return (2, str(chr_val))
+
+    twist_snp_data = twist_snp_data.sort_values(['chr', 'start '], key=lambda col: col.map(sort_chromosome) if col.name == 'chr' else col)
+
+    logger.info(f"Prepared {len(twist_snp_data)} SNPs for Twist submission form")
+
+    return twist_snp_data
+
+
+def _get_snp_annotation(row: pd.Series) -> str:
+    """Get the best annotation for a SNP row."""
+    category = row.get('category', '')
+
+    # Prefer rsID if available, followed by category
+    if pd.notna(row.get('rsid')) and str(row['rsid']) != '':
+        rsid = str(row['rsid'])
+        return f"{rsid} {category}" if category else rsid
+
+    # Fallback to VCF ID or other identifier, followed by category
+    if pd.notna(row.get('snp')) and str(row['snp']) != '':
+        snp_id = str(row['snp'])
+        return f"{snp_id} {category}" if category else snp_id
+
+    # Fallback to category/type information only
+    snp_type = row.get('snp_type', '')
+    if category:
+        return f"{category} variant"
+    elif snp_type:
+        return f"{snp_type} variant"
+
+    return "variant"
+
+
+def _prepare_twist_regions_data(regions_data: dict[str, pd.DataFrame] | None) -> pd.DataFrame:
+    """
+    Prepare regions data for Twist Genomic Coordinates sheet.
+
+    Expected columns:
+    - chr
+    - start (0-based)
+    - stop
+    - Annotation*
+    - Tiling* (optional)
+
+    Args:
+        regions_data: Dictionary of region DataFrames by type
+
+    Returns:
+        DataFrame formatted for Twist Genomic Coordinates sheet
+    """
+    if not regions_data:
+        return pd.DataFrame()
+
+    # Combine all regions data
+    all_regions = []
+    for region_type, region_df in regions_data.items():
+        if not region_df.empty:
+            region_df_copy = region_df.copy()
+            region_df_copy['region_type'] = region_type
+            all_regions.append(region_df_copy)
+
+    if not all_regions:
+        return pd.DataFrame()
+
+    combined_regions = pd.concat(all_regions, ignore_index=True)
+
+    # Filter for regions with coordinate data
+    required_cols = ['chromosome', 'start', 'end']
+    valid_regions = combined_regions.dropna(subset=required_cols)
+
+    if valid_regions.empty:
+        logger.warning("No regions with valid coordinates found for Twist submission form")
+        return pd.DataFrame()
+
+    # Prepare data according to Twist format
+    twist_regions_data = pd.DataFrame({
+        'chr': valid_regions['chromosome'].astype(str),
+        'start ': valid_regions['start'].astype(int),  # Already 0-based from BED format
+        'stop': (valid_regions['end'] + 1).astype(int),  # Add 1 to stop position per Twist requirements
+        'Annotation*': valid_regions.apply(_get_region_annotation, axis=1),
+        'Tiling*  (default = 1X for short reads)': '',  # Empty - use default
+    })
+
+    # Remove duplicates and sort by chromosome and position
+    twist_regions_data = twist_regions_data.drop_duplicates()
+
+    # Sort chromosomes numerically/logically
+    def sort_chromosome(chr_val):
+        if str(chr_val).isdigit():
+            return (0, int(chr_val))
+        elif str(chr_val) in ['X', 'Y']:
+            return (1, ord(str(chr_val)))
+        else:
+            return (2, str(chr_val))
+
+    twist_regions_data = twist_regions_data.sort_values(['chr', 'start '], key=lambda col: col.map(sort_chromosome) if col.name == 'chr' else col)
+
+    logger.info(f"Prepared {len(twist_regions_data)} regions for Twist submission form")
+
+    return twist_regions_data
+
+
+def _get_region_annotation(row: pd.Series) -> str:
+    """Get the best annotation for a region row."""
+    # Use comment if available
+    if pd.notna(row.get('comment')) and str(row['comment']) != '':
+        return str(row['comment'])
+
+    # Use region_name if available
+    if pd.notna(row.get('region_name')) and str(row['region_name']) != '':
+        return str(row['region_name'])
+
+    # Fallback to region type
+    region_type = row.get('region_type', '')
+    source_type = row.get('source_type', '')
+    if region_type and source_type:
+        return f"{region_type} from {source_type}"
+    elif region_type:
+        return f"{region_type} region"
+    elif source_type:
+        return f"{source_type} region"
+
+    return "genomic region"

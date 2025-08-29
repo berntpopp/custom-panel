@@ -147,6 +147,11 @@ def run(
         "--structured-output/--flat-output",
         help="Use structured output directories",
     ),
+    generate_twist_form: bool = typer.Option(
+        False,
+        "--generate-twist-form",
+        help="Generate Twist DNA submission form with panel data",
+    ),
 ) -> None:
     """
     Run the complete gene panel curation pipeline.
@@ -188,6 +193,7 @@ def run(
                 annotated_df,
                 transcript_data,
                 config_manager,
+                generate_twist_form,
             )
 
         # Display summary
@@ -210,6 +216,7 @@ def _generate_pipeline_outputs(
     annotated_df: pd.DataFrame,
     transcript_data: dict[str, Any],
     config_manager: ConfigManager,
+    generate_twist_form: bool = False,
 ) -> None:
     """Generate all pipeline outputs."""
     final_output_dir = pipeline.output_manager.get_final_output_dir()
@@ -221,6 +228,7 @@ def _generate_pipeline_outputs(
         snp_data=pipeline.snp_data,  # Pass SNP data from pipeline (for individual files)
         deduplicated_snp_data=pipeline.deduplicated_snp_data,  # Pass deduplicated SNPs for reports
         regions_data=pipeline.regions_data,  # Pass regions data from pipeline
+        generate_twist_form=generate_twist_form,  # Pass Twist form flag
     )
 
     # Save run summary

@@ -20,6 +20,12 @@ from custom_panel.core.io import (
     save_panel_data,
     validate_panel_dataframe,
 )
+from custom_panel.core.output_generator import (
+    _generate_twist_submission_form,
+    _prepare_twist_gene_data,
+    _prepare_twist_regions_data,
+    _prepare_twist_snp_data,
+)
 
 
 class TestHGNCClient:
@@ -751,7 +757,7 @@ class TestSNPDeduplication:
                 "source": ["PGS_Catalog", "Manual_SNPs", "Identity_SNPs"],
                 "category": ["prs", "manual", "identity"],
                 "snp_type": ["prs", "manual_snps", "identity"],
-                "hg38_chromosome": ["19", "19", "1"],
+                "hg38_chr": ["19", "19", "1"],
                 "hg38_start": [11091630, 11091630, 1000000],
                 "hg38_end": [11091630, 11091630, 1000000],
             }
@@ -860,7 +866,7 @@ class TestSNPDeduplication:
                 "trait": ["breast_cancer", "pharmacogenomics", "prostate_cancer"],
                 "effect_weight": [0.5, pd.NA, 0.3],
                 "effect_allele": ["T", "T", "T"],
-                "hg38_chromosome": ["19", "19", "19"],
+                "hg38_chr": ["19", "19", "19"],
                 "hg38_start": [11091630, 11091630, 11091630],
             }
         )
@@ -929,7 +935,7 @@ class TestSNPDeduplication:
                 "source": ["Source1", "Source2"],
                 "category": ["cat1", "cat2"],
                 "snp_type": ["type1", "type2"],
-                "hg38_chromosome": ["19", "19"],
+                "hg38_chr": ["19", "19"],
                 "hg38_start": [11091630, 11091630],
                 "hg38_end": [11091630, 11091630],
                 "hg38_strand": ["+", "+"],
@@ -943,7 +949,7 @@ class TestSNPDeduplication:
         # Should preserve coordinate information
         assert len(result) == 1
         entry = result.iloc[0]
-        assert entry["hg38_chromosome"] == "19"
+        assert entry["hg38_chr"] == "19"
         assert entry["hg38_start"] == 11091630
         assert entry["hg38_end"] == 11091630
         assert entry["hg38_strand"] == "+"
@@ -1027,7 +1033,7 @@ class TestNewBEDFileGeneration:
             "identity": pd.DataFrame(
                 {
                     "snp": ["rs1234", "rs5678"],
-                    "hg38_chromosome": ["1", "2"],
+                    "hg38_chr": ["1", "2"],
                     "hg38_start": [1000, 2000],
                     "hg38_end": [1000, 2000],
                     "category": ["identity", "identity"],
@@ -1036,7 +1042,7 @@ class TestNewBEDFileGeneration:
             "ethnicity": pd.DataFrame(
                 {
                     "snp": ["rs9876", "rs5432"],
-                    "hg38_chromosome": ["3", "4"],
+                    "hg38_chr": ["3", "4"],
                     "hg38_start": [3000, 4000],
                     "hg38_end": [3000, 4000],
                     "category": ["ethnicity", "ethnicity"],
@@ -1070,7 +1076,7 @@ class TestNewBEDFileGeneration:
             "manual": pd.DataFrame(
                 {
                     "snp": ["rs1111", "rs2222"],
-                    "hg38_chromosome": ["1", "2"],
+                    "hg38_chr": ["1", "2"],
                     "hg38_start": [1000, 2000],
                     "hg38_end": [1000, 2000],
                     # Note: no category column - should be added automatically
@@ -1189,7 +1195,7 @@ class TestNewBEDFileGeneration:
             "identity": pd.DataFrame(
                 {
                     "snp": ["rs1234"],
-                    "hg38_chromosome": ["1"],
+                    "hg38_chr": ["1"],
                     "hg38_start": [1000],
                     "hg38_end": [1000],
                 }
@@ -1387,7 +1393,7 @@ class TestNewBEDFileGeneration:
             "identity": pd.DataFrame(
                 {
                     "snp": ["rs1234"],
-                    "hg38_chromosome": ["1"],
+                    "hg38_chr": ["1"],
                     "hg38_start": [1000],
                     "hg38_end": [1000],
                 }
@@ -1446,7 +1452,7 @@ class TestNewBEDFileGeneration:
             "identity": pd.DataFrame(
                 {
                     "snp": ["rs1234"],
-                    "hg38_chromosome": ["1"],
+                    "hg38_chr": ["1"],
                     "hg38_start": [1000],
                     "hg38_end": [1000],
                 }
@@ -1483,3 +1489,248 @@ class TestNewBEDFileGeneration:
             assert "TP53" not in bed_content  # Not included
             assert "rs1234" in bed_content
             assert "region1" in bed_content
+
+
+class TestTwistFormGeneration:
+    """Test Twist submission form generation functionality."""
+
+    def test_prepare_twist_gene_data(self):
+        """Test preparation of gene data for Twist Gene sheet."""
+        # Create test gene data
+        df = pd.DataFrame({
+            'approved_symbol': ['BRCA1', 'TP53', 'EGFR', None],
+            'include': [True, True, False, True],
+            'genomic_targeting': [True, False, True, False],
+        })
+
+        result = _prepare_twist_gene_data(df)
+
+        # Should only include genes that are included and have approved symbols
+        assert len(result) == 2  # BRCA1, TP53 (EGFR not included, None symbol filtered)
+
+        # Check column structure
+        expected_cols = [
+            'Gene Symbol (approved symbols only)',
+            'Accession ID* (if provided, only these transcripts will be used)',
+            'Exons* (if no Accession ID is provided, all RefSeq transcripts will be used)',
+            'Extras* (UTR, Introns, variants etc.)',
+            'Tiling*  (default = 1X for short reads)'
+        ]
+        assert list(result.columns) == expected_cols
+
+        # Check genomic targeting flag conversion
+        brca1_row = result[result['Gene Symbol (approved symbols only)'] == 'BRCA1'].iloc[0]
+        tp53_row = result[result['Gene Symbol (approved symbols only)'] == 'TP53'].iloc[0]
+
+        assert brca1_row['Extras* (UTR, Introns, variants etc.)'] == 'Whole Gene'
+        assert tp53_row['Extras* (UTR, Introns, variants etc.)'] == 'UTR'
+
+    def test_prepare_twist_snp_data(self):
+        """Test preparation of SNP data for Twist SNPs sheet."""
+        # Create test SNP data (deduplicated format)
+        snp_data = pd.DataFrame({
+            'snp': ['1:1000:A:G', '2:2000:C:T', 'X:5000:G:A'],
+            'rsid': ['rs123', None, 'rs456'],
+            'hg38_chr': ['1', '2', 'X'],
+            'hg38_start': [1000, 2000, 5000],
+            'hg38_end': [1000, 2000, 5000],
+            'category': ['identity', 'identity', 'prs'],
+        })
+
+        result = _prepare_twist_snp_data(snp_data)
+
+        # Should combine all SNPs
+        assert len(result) == 3
+
+        # Check column structure
+        expected_cols = ['chr', 'start ', 'stop', 'rsID/Annotation*', 'Tiling*  (default = 1X for short reads)']
+        assert list(result.columns) == expected_cols
+
+        # Check coordinate conversion to 0-based and stop position
+        first_snp = result.iloc[0]
+        assert first_snp['start '] == 999  # 1000 - 1 (0-based)
+        assert first_snp['stop'] == 1000  # For SNPs: stop = original start (1-based)
+
+        # Check annotation preference (rsID > VCF ID) with category
+        rs123_row = result[result['rsID/Annotation*'] == 'rs123 identity'].iloc[0]
+        vcf_row = result[result['rsID/Annotation*'] == '2:2000:C:T identity'].iloc[0]  # No rsID
+
+        assert rs123_row['chr'] == '1'
+        assert vcf_row['chr'] == '2'
+
+    def test_prepare_twist_regions_data(self):
+        """Test preparation of regions data for Twist Genomic Coordinates sheet."""
+        # Create test regions data
+        regions_data = {
+            'manual': pd.DataFrame({
+                'region_name': ['region1', 'region2'],
+                'chromosome': ['1', '2'],
+                'start': [1000, 2000],
+                'end': [2000, 3000],
+                'comment': ['Manual region 1', None],
+            }),
+            'stripy': pd.DataFrame({
+                'region_name': ['stripy1'],
+                'chromosome': ['3'],
+                'start': [3000],
+                'end': [4000],
+                'comment': ['Stripy repeat'],
+            })
+        }
+
+        result = _prepare_twist_regions_data(regions_data)
+
+        # Should combine all regions
+        assert len(result) == 3
+
+        # Check column structure
+        expected_cols = ['chr', 'start ', 'stop', 'Annotation*', 'Tiling*  (default = 1X for short reads)']
+        assert list(result.columns) == expected_cols
+
+        # Check that start coordinates are preserved and stop position +1
+        first_region = result.iloc[0]
+        assert first_region['start '] == 1000
+        assert first_region['stop'] == 2001  # 2000 + 1 (Twist requirement)
+
+        # Check annotation logic (comment > region_name)
+        manual_region1 = result[result['Annotation*'] == 'Manual region 1'].iloc[0]
+        manual_region2 = result[result['Annotation*'] == 'region2'].iloc[0]  # No comment, uses name
+        stripy_region = result[result['Annotation*'] == 'Stripy repeat'].iloc[0]
+
+        assert manual_region1['chr'] == '1'
+        assert manual_region2['chr'] == '2'
+        assert stripy_region['chr'] == '3'
+
+    def test_generate_twist_submission_form_integration(self):
+        """Test complete Twist submission form generation integration."""
+        import tempfile
+
+        # Create test data
+        df = pd.DataFrame({
+            'approved_symbol': ['BRCA1', 'TP53'],
+            'include': [True, True],
+            'genomic_targeting': [True, False],
+        })
+
+        snp_data = pd.DataFrame({
+            'snp': ['1:1000:A:G'],
+            'rsid': ['rs123'],
+            'hg38_chr': ['1'],
+            'hg38_start': [1000],
+            'hg38_end': [1000],
+            'category': ['identity'],
+        })
+
+        regions_data = {
+            'manual': pd.DataFrame({
+                'region_name': ['test_region'],
+                'chromosome': ['2'],
+                'start': [2000],
+                'end': [3000],
+                'comment': ['Test region'],
+            })
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+
+            # Copy template to test directory for testing
+            template_path = Path(__file__).parent.parent / "data" / "submission_form" / "DNA_Twist_Input_Custom_Panel_v2.4.2.xlsx"
+            if template_path.exists():
+                # Test the function with real template
+                _generate_twist_submission_form(df, snp_data, regions_data, output_dir)
+
+                # Check output file was created
+                output_file = output_dir / "twist_submission_form.xlsx"
+                assert output_file.exists()
+
+                # Verify data was written to sheets
+                gene_sheet = pd.read_excel(output_file, sheet_name='Gene', skiprows=5, nrows=10)
+                snp_sheet = pd.read_excel(output_file, sheet_name='SNPs', skiprows=3, nrows=10)
+                coords_sheet = pd.read_excel(output_file, sheet_name='Genomic Coordinates', skiprows=1, nrows=10)
+
+                # Check that data was populated (look for non-empty cells)
+                assert not gene_sheet.dropna(how='all').empty
+                assert not snp_sheet.dropna(how='all').empty
+                assert not coords_sheet.dropna(how='all').empty
+
+    def test_prepare_twist_data_empty_cases(self):
+        """Test edge cases with empty data."""
+        # Test empty gene DataFrame
+        empty_df = pd.DataFrame()
+        assert _prepare_twist_gene_data(empty_df).empty
+
+        # Test no included genes
+        df_no_included = pd.DataFrame({
+            'approved_symbol': ['BRCA1'],
+            'include': [False],
+        })
+        assert _prepare_twist_gene_data(df_no_included).empty
+
+        # Test empty SNP data
+        assert _prepare_twist_snp_data(None).empty
+        assert _prepare_twist_snp_data({}).empty
+
+        # Test empty regions data
+        assert _prepare_twist_regions_data(None).empty
+        assert _prepare_twist_regions_data({}).empty
+
+    def test_snp_annotation_edge_cases(self):
+        """Test SNP annotation edge cases."""
+        from custom_panel.core.output_generator import _get_snp_annotation
+
+        # Test rsID with category
+        rsid_row = pd.Series({
+            'rsid': 'rs123',
+            'snp': '1:1000:A:G',
+            'category': 'identity'
+        })
+        assert _get_snp_annotation(rsid_row) == 'rs123 identity'
+
+        # Test VCF ID with category
+        vcf_row = pd.Series({
+            'rsid': None,
+            'snp': '1:1000:A:G',
+            'category': 'prs'
+        })
+        assert _get_snp_annotation(vcf_row) == '1:1000:A:G prs'
+
+        # Test with all fields empty
+        empty_row = pd.Series({
+            'rsid': None,
+            'snp': None,
+            'category': '',
+            'snp_type': ''
+        })
+        assert _get_snp_annotation(empty_row) == 'variant'
+
+        # Test with only category
+        category_row = pd.Series({
+            'rsid': '',
+            'snp': '',
+            'category': 'pharmacogenomics',
+            'snp_type': ''
+        })
+        assert _get_snp_annotation(category_row) == 'pharmacogenomics variant'
+
+    def test_region_annotation_edge_cases(self):
+        """Test region annotation edge cases."""
+        from custom_panel.core.output_generator import _get_region_annotation
+
+        # Test with all fields empty
+        empty_row = pd.Series({
+            'comment': None,
+            'region_name': None,
+            'region_type': '',
+            'source_type': ''
+        })
+        assert _get_region_annotation(empty_row) == 'genomic region'
+
+        # Test with only type info
+        type_row = pd.Series({
+            'comment': '',
+            'region_name': '',
+            'region_type': 'repeat',
+            'source_type': 'stripy'
+        })
+        assert _get_region_annotation(type_row) == 'repeat from stripy'
