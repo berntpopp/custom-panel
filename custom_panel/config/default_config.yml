@@ -708,6 +708,7 @@ snp_processing:
           - "PGS000006"  # ER-negative Breast Cancer - 313 variants for estrogen receptor negative
           - "PGS003394"  # Ovarian cancer
           - "PGS000030"  # Prostate Cancer - 147 variants for prostate cancer risk assessment
+          - "PGS000662"  # Prostate Cancer (multi-ancestry) - 269 variants, diverse populations
         # Preferred genome build (GRCh38 for efficiency - only fetches single build)
         genome_build: "GRCh38"
         # Cache settings
